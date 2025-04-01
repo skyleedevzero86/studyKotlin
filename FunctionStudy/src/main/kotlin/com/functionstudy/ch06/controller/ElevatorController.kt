@@ -20,7 +20,7 @@ class ElevatorController {
         println("시나리오 3: 이미 있는 층(10층) 버튼 누름")
         events = ElevatorStateMachine.processCommand(events, ElevatorCommand.GoToFloor(10))
 
-        println("시나리오 4: 엘리베이터 고장")
+        println("시나리오 4: 엘리베이터 고장.")
         events = events + ElevatorEvent.ElevatorBroken
         println("이벤트 추가: ElevatorBroken")
         println("현재 상태: ${ElevatorStateMachine.foldEvents(events)}")
