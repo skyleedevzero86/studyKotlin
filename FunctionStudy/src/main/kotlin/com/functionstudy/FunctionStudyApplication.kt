@@ -8,4 +8,5 @@ class FunctionStudyApplication
 
 fun main(args: Array<String>) {
     runApplication<FunctionStudyApplication>(*args)
+    print("s")
 }
