@@ -1,7 +1,7 @@
 package com.functionstudy.ch07.domain
 
-import com.functionstudy.ch07.failure.OutcomeError
 import com.functionstudy.ch07.failure.ThrowableError
+import com.functionstudy.ch07.inter.OutcomeError
 
 sealed class Outcome<out E : OutcomeError, out T> {
 
@@ -14,7 +14,7 @@ sealed class Outcome<out E : OutcomeError, out T> {
     fun <F : OutcomeError> transformFailure(f: (E) -> F): Outcome<F, T> =
         when (this) {
             is Success -> this
-            is Failure -> f(error).asFailure()
+            is Failure -> Failure(f(error))
         }
 }
 

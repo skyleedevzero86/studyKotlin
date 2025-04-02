@@ -2,7 +2,7 @@ package com.functionstudy.ch07.controller
 
 import com.functionstudy.ch07.domain.Outcome
 import com.functionstudy.ch07.domain.Success
-import com.functionstudy.ch07.failure.OutcomeError
+import com.functionstudy.ch07.inter.OutcomeError
 import java.time.Instant
 import java.util.*
 
