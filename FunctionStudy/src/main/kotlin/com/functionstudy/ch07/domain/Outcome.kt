@@ -35,3 +35,9 @@ fun <T> tryAndCatch(block: () -> T): Outcome<ThrowableError, T> {
         Failure(ThrowableError.Generic(t))
     }
 }
+
+fun <T, E : OutcomeError> Outcome<E, T>.recover(f: (E) -> T): T =
+    when (this) {
+        is Success -> value
+        is Failure -> f(error)
+    }
