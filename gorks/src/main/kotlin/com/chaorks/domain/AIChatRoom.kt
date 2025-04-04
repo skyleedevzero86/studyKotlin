@@ -20,7 +20,7 @@ class AIChatRoom(
     @LastModifiedDate
     var modifyDate: LocalDateTime? = null,
 
-    @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
+    @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var messages: MutableList<AIChatRoomMessage> = mutableListOf()
 
 ) {

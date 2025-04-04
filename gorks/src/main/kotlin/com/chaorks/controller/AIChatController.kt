@@ -1,5 +1,6 @@
 package com.chaorks.controller
 
+import com.chaorks.dto.AIChatRoomMessageDto
 import com.chaorks.service.AiChatRoomService
 import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.prompt.Prompt
@@ -13,7 +14,10 @@ import reactor.core.publisher.Flux
 
 @Controller
 @RequestMapping("/ai/chat")
-class AIChatController(private val chatClient: OpenAiChatModel, private val aiChatRoomService: AiChatRoomService) {
+class AIChatController(
+    private val chatClient: OpenAiChatModel,
+    private val aiChatRoomService: AiChatRoomService
+) {
 
     @GetMapping("/generate")
     @ResponseBody
@@ -28,7 +32,6 @@ class AIChatController(private val chatClient: OpenAiChatModel, private val aiCh
         @RequestParam(value = "message", defaultValue = "Tell me a joke") message: String
     ): Flux<ServerSentEvent<String>> {
 
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow { IllegalArgumentException("Chat room not found") }
         val prompt = Prompt(listOf(UserMessage(message)))
         val fullResponse = StringBuilder()
 
@@ -41,9 +44,7 @@ class AIChatController(private val chatClient: OpenAiChatModel, private val aiCh
                     .build()
             }
             .doOnComplete {
-                // 스트리밍 다 끝나면 저장
-                aiChatRoom.addMessage(message, fullResponse.toString())
-                aiChatRoomService.save(aiChatRoom)
+                aiChatRoomService.addMessageToRoom(chatRoomId, message, fullResponse.toString())
             }
     }
 
@@ -52,11 +53,25 @@ class AIChatController(private val chatClient: OpenAiChatModel, private val aiCh
         val aiChatRoom = aiChatRoomService.makeNewRoom()
         return "redirect:/ai/chat/${aiChatRoom.id}"
     }
-    
+
     @GetMapping("/{chatRoomId}")
     fun room(@PathVariable chatRoomId: Long, model: org.springframework.ui.Model): String {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow { IllegalArgumentException("Chat room not found") }
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
+            IllegalArgumentException("채팅방이 존재하지않습니다.")
+        }
         model.addAttribute("aiChatRoom", aiChatRoom)
         return "ai/chat/index"
+    }
+
+    @GetMapping("/{chatRoomId}/messages")
+    @ResponseBody
+    fun getMessages(
+        @PathVariable chatRoomId: Long
+    ): List<AIChatRoomMessageDto> {
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId).get()
+        return aiChatRoom.messages
+            .stream()
+            .map<Any> { AIChatRoomMessageDto() }
+            .toList()
     }
 }
