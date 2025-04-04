@@ -58,6 +58,15 @@ class AIChatController(
         // AI 프롬프트 수정 (한글 강제)
         val messages: MutableList<Message> = ArrayList<Message>()
         messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다. 반드시 한글로만 답변하세요. 영어를 사용하지 마세요."))
+
+        if (aiChatRoom.summaryMessages.isNotEmpty()) {
+            messages.add(
+                SystemMessage(
+                    "지난 대화 요약\n\n${aiChatRoom.summaryMessages.last().message}"
+                )
+            )
+        }
+
         messages.addAll(previousMessages)
         messages.add(UserMessage(message))
 
