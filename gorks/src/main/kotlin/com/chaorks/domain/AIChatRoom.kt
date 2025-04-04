@@ -8,27 +8,27 @@ import java.time.LocalDateTime
 
 @Entity
 @EntityListeners(AuditingEntityListener::class)
-class AIChatRoom {
-
-    companion object {
-        const val PREVIEWS_MESSAGES_COUNT = 3
-    }
+class AIChatRoom(
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long? = null
+    var id: Long? = null,
 
     @CreatedDate
-    var createDate: LocalDateTime? = null
+    var createDate: LocalDateTime? = null,
 
     @LastModifiedDate
-    var modifyDate: LocalDateTime? = null
+    var modifyDate: LocalDateTime? = null,
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var summaryMessages: MutableList<AIChatRoomSummaryMessage> = mutableListOf()
+    var summaryMessages: MutableList<AIChatRoomSummaryMessage> = mutableListOf(),
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
     var messages: MutableList<AIChatRoomMessage> = mutableListOf()
+) {
+    companion object {
+        const val PREVIEWS_MESSAGES_COUNT = 3
+    }
 
     fun addMessage(userMessage: String, botMessage: String): AIChatRoomMessage {
         val message = AIChatRoomMessage(
@@ -37,7 +37,9 @@ class AIChatRoom {
             botMessage = botMessage
         )
         messages.add(message)
+
         addSummaryMessageIfNeeded()
+
         return message
     }
 
@@ -47,7 +49,9 @@ class AIChatRoom {
         val lastSummaryMessageIndex = summaryMessages.lastOrNull()?.endMessageIndex ?: -1
         val lastSummaryMessageNo = lastSummaryMessageIndex + 1
 
-        if (messages.size - PREVIEWS_MESSAGES_COUNT <= lastSummaryMessageNo) return
+        if (messages.size - PREVIEWS_MESSAGES_COUNT <= lastSummaryMessageNo) {
+            return
+        }
 
         val startMessageIndex = lastSummaryMessageIndex + 1
         val endMessageIndex = startMessageIndex + PREVIEWS_MESSAGES_COUNT

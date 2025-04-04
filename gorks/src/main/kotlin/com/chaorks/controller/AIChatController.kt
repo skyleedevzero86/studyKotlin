@@ -57,7 +57,11 @@ class AIChatController(
 
         // AI 프롬프트 수정 (한글 강제)
         val messages: MutableList<Message> = ArrayList<Message>()
-        messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다. 반드시 한글로만 답변하세요. 영어를 사용하지 마세요."))
+        messages.add(SystemMessage("        당신은 한국인과 대화하고 있습니다.\n" +
+                "                한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
+                "                최대한 한국어/영어만 사용해줘요.\n" +
+                "                한자사용 자제해줘.\n" +
+                "                영어보다 한국어를 우선적으로 사용해줘요."))
 
         if (aiChatRoom.summaryMessages.isNotEmpty()) {
             messages.add(
@@ -109,7 +113,7 @@ class AIChatController(
         @PathVariable chatRoomId: Long
     ): List<AIChatRoomMessageDto> {
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방이 존재하지않습니다.")
+            IllegalArgumentException("채팅방의 메세지가 존재하지않습니다.")
         }
         return aiChatRoom.messages.map { AIChatRoomMessageDto(it) }
     }
