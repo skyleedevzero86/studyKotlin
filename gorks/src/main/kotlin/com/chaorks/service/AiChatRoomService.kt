@@ -32,4 +32,6 @@ class AiChatRoomService(private val aiChatRoomRepository: AiChatRoomRepository) 
         aiChatRoomRepository.save(chatRoom)
     }
 
+
+
 }

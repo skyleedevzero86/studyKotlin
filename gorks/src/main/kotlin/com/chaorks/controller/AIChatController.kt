@@ -1,5 +1,6 @@
 package com.chaorks.controller
 
+import com.chaorks.domain.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
 import com.chaorks.dto.AIChatRoomMessageDto
 import com.chaorks.service.AiChatRoomService
 import org.springframework.ai.chat.messages.AssistantMessage
@@ -42,7 +43,7 @@ class AIChatController(
 
         // 이전 대화에서 영어 제거
         val previousMessages: List<Message> = aiChatRoom.messages.stream()
-            .limit(10)
+            .limit( PREVIEWS_MESSAGES_COUNT.toLong())
             .flatMap { msg ->
                 val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "")
                 val botMsg = (msg.botMessage ?: "").replace(Regex("[a-zA-Z]"), "")

@@ -157,7 +157,9 @@
         eventSource.onerror = function (err) {
             eventSource.close();
             chatBox.removeChild(loadingEl);
-            appendMessage("⚠️", "에러가 발생했습니다.", "bot");
+            if (!botResponse) {
+                appendMessage("⚠️", "응답이 지연되거나 문제가 발생했습니다.", "bot");
+            }
         };
 
         input.value = "";
