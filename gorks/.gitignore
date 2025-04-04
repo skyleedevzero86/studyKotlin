@@ -1,3 +1,5 @@
+db.mv.db
+db.trace.db
 application.yml
 application-*.yml
 .idea/

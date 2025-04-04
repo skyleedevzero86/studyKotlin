@@ -6,7 +6,6 @@ import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.LocalDateTime
 
-
 @Entity
 @EntityListeners(AuditingEntityListener::class)
 class AIChatRoom(
@@ -23,4 +22,15 @@ class AIChatRoom(
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
     var messages: MutableList<AIChatRoomMessage> = mutableListOf()
-)
+
+) {
+    fun addMessage(userMessage: String, botMessage: String): AIChatRoomMessage {
+        val message = AIChatRoomMessage(
+            chatRoom = this,
+            userMessage = userMessage,
+            botMessage = botMessage
+        )
+        messages.add(message)
+        return message
+    }
+}

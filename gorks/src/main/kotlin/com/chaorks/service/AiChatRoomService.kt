@@ -5,6 +5,7 @@ import com.chaorks.repository.AiChatRoomRepository
 import org.springframework.stereotype.Service
 import java.util.*
 
+
 @Service
 class AiChatRoomService(private val aiChatRoomRepository: AiChatRoomRepository) {
 
@@ -15,5 +16,9 @@ class AiChatRoomService(private val aiChatRoomRepository: AiChatRoomRepository) 
     fun makeNewRoom(): AIChatRoom {
         val aiChatRoom = AIChatRoom()
         return aiChatRoomRepository.save(aiChatRoom)
+    }
+
+    fun save(aiChatRoom: AIChatRoom) {
+        aiChatRoomRepository.save(aiChatRoom)
     }
 }

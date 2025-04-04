@@ -9,27 +9,24 @@ import java.time.LocalDateTime
 
 
 @Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@EntityListeners(
-    AuditingEntityListener::class
-)
-class AIChatRoomMessage {
+@EntityListeners(AuditingEntityListener::class)
+class AIChatRoomMessage(
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private var id: Long? = null
+    var id: Long? = null,
 
     @CreatedDate
-    private var createDate: LocalDateTime? = null
+    var createDate: LocalDateTime? = null,
 
     @LastModifiedDate
-    private var modifyDate: LocalDateTime? = null
+    var modifyDate: LocalDateTime? = null,
 
     @ManyToOne
-    private var chatRoom: AIChatRoom? = null
-    private var userMessage: String? = null
-    private var botMessage: String? = null
-}
+    var chatRoom: AIChatRoom? = null,
+
+    var userMessage: String? = null,
+
+    var botMessage: String? = null
+
+)
