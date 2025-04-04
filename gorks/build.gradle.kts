@@ -20,6 +20,8 @@ repositories {
     mavenCentral()
 }
 
+extra["springAiVersion"] = "1.0.0-M6"
+
 dependencies {
     dependencies {
         implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -27,6 +29,7 @@ dependencies {
         implementation("org.springframework.boot:spring-boot-starter-webflux")
         implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
         implementation("org.springframework.boot:spring-boot-starter-json")
+        implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter")
 
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
         implementation("com.fasterxml:classmate:1.5.1")
@@ -57,6 +60,12 @@ dependencies {
     }
 
 
+}
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
+    }
 }
 
 kotlin {
