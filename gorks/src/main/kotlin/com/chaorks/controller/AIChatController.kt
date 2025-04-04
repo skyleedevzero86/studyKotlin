@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
 import java.util.stream.Collectors
 import org.springframework.ai.chat.messages.Message
+import org.springframework.transaction.annotation.Transactional
 
 
 @Controller
@@ -31,6 +32,7 @@ class AIChatController(
 
     @GetMapping(value = ["/generateStream/{chatRoomId}"], produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     @ResponseBody
+    @Transactional
     fun generateStream(
         @PathVariable chatRoomId: Long,
         @RequestParam(value = "message", defaultValue = "Tell me a joke") message: String
@@ -42,7 +44,7 @@ class AIChatController(
         val previousMessages: List<Message> = aiChatRoom.messages.stream()
             .limit(10)
             .flatMap { msg ->
-                val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "") 
+                val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "")
                 val botMsg = (msg.botMessage ?: "").replace(Regex("[a-zA-Z]"), "")
 
                 listOf(
@@ -75,6 +77,7 @@ class AIChatController(
     }
 
     @GetMapping
+    @Transactional
     fun index(): String {
         val aiChatRoom = aiChatRoomService.makeNewRoom()
         return "redirect:/ai/chat/${aiChatRoom.id}"
@@ -91,6 +94,7 @@ class AIChatController(
 
     @GetMapping("/{chatRoomId}/messages")
     @ResponseBody
+    @Transactional(readOnly = true)
     fun getMessages(
         @PathVariable chatRoomId: Long
     ): List<AIChatRoomMessageDto> {
