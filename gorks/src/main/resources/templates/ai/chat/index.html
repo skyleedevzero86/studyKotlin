@@ -63,7 +63,7 @@
     </style>
 </head>
 <body>
-<h2>AI Chat (SSE)</h2>
+<h2><span th:text="${aiChatRoom.id}"></span>번 채팅방</h2>
 <div class="chat-box" id="chatBox"></div>
 
 <form id="chatForm">
@@ -116,7 +116,8 @@
                 botResponse += event.data.substring(1, event.data.length - 1);
                 botMessageEl.textContent = `🤖: ${botResponse}`;
                 chatBox.scrollTop = chatBox.scrollHeight;
-            }
+                }
+
         };
 
         eventSource.onerror = function (err) {
