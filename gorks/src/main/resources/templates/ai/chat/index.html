@@ -84,6 +84,32 @@
     const form = document.getElementById("chatForm");
     const input = document.getElementById("messageInput");
 
+    // 페이지 로드 시 기존 메시지 로딩
+    async function loadExistingMessages() {
+        try {
+            const response = await fetch(`/ai/chat/${chatRoomId}/messages`);
+            const messages = await response.json();
+
+            messages.forEach((message) => {
+                appendMessage(
+                    "🧑", message.userMessage, "user"
+                );
+
+                appendMessage(
+                    "🤖", message.botMessage, "bot"
+                );
+            });
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (error) {
+            console.error("메시지 로딩 중 오류 발생:", error);
+            appendMessage("⚠️", "기존 메시지를 불러오는데 실패했습니다.", "bot");
+        }
+    }
+
+    // 페이지 로드 시 실행
+    loadExistingMessages();
+
     form.addEventListener("submit", function (e) {
         e.preventDefault();
         const message = input.value.trim();
@@ -94,7 +120,8 @@
 
         // SSE 연결
         const url =
-            `/ai/chat/generateStream/${chatRoomId}?message=` + encodeURIComponent(message);
+            `/ai/chat/generateStream/${chatRoomId}?message=` +
+            encodeURIComponent(message);
         const eventSource = new EventSource(url);
 
         let botResponse = "";
@@ -119,7 +146,7 @@
                 botResponse += event.data.substring(1, event.data.length - 1);
                 botMessageEl.textContent = `🤖: ${botResponse}`;
                 chatBox.scrollTop = chatBox.scrollHeight;
-                }
+            }
 
         };
 

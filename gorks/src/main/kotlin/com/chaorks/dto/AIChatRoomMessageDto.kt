@@ -11,11 +11,12 @@ data class AIChatRoomMessageDto(
     val botMessage: String
 ) {
     constructor(message: AIChatRoomMessage) : this(
-        id = message.id,
-        chatRoomId = message.chatRoom.id,
-        createDate = message.createDate.toString(),
-        modifyDate = message.modifyDate.toString(),
-        userMessage = message.userMessage,
-        botMessage = message.botMessage
+        id = requireNotNull(message.id) { "id is null" },
+        chatRoomId = requireNotNull(message.chatRoom?.id) { "chatRoom id is null" },
+        createDate = message.createDate?.toString() ?: "",
+        modifyDate = message.modifyDate?.toString() ?: "",
+        userMessage = message.userMessage ?: "",
+        botMessage = message.botMessage ?: ""
     )
+
 }

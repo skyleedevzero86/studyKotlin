@@ -11,7 +11,6 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
 
-
 @Controller
 @RequestMapping("/ai/chat")
 class AIChatController(
@@ -68,10 +67,9 @@ class AIChatController(
     fun getMessages(
         @PathVariable chatRoomId: Long
     ): List<AIChatRoomMessageDto> {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).get()
-        return aiChatRoom.messages
-            .stream()
-            .map<Any> { AIChatRoomMessageDto() }
-            .toList()
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
+            IllegalArgumentException("채팅방이 존재하지않습니다.")
+        }
+        return aiChatRoom.messages.map { AIChatRoomMessageDto(it) }
     }
 }
