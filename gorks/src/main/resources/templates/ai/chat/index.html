@@ -143,12 +143,13 @@
                 if (!botMessageEl.parentNode) {
                     chatBox.appendChild(botMessageEl);
                 }
-                botResponse += event.data.substring(1, event.data.length - 1);
+
+                botResponse += event.data;
                 botMessageEl.textContent = `🤖: ${botResponse}`;
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
-
         };
+
 
         eventSource.onerror = function (err) {
             eventSource.close();

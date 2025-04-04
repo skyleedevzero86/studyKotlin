@@ -25,8 +25,10 @@ class AIChatRoomMessage(
     @ManyToOne
     var chatRoom: AIChatRoom? = null,
 
+    @Column(columnDefinition = "LONGTEXT")
     var userMessage: String? = null,
 
+    @Column(columnDefinition = "LONGTEXT")
     var botMessage: String? = null
 
 )
