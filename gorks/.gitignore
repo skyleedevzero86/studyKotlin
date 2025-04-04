@@ -1,3 +1,6 @@
+application.yml
+application-*.yml
+.idea/
 HELP.md
 .gradle
 build/
