@@ -41,6 +41,46 @@ class AIChatController(
 
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).get()
 
+        // 특수 명령어 처리
+        if (message == "지난 대화 요약") {
+            val summaryResponse = if (aiChatRoom.summaryMessages.isNotEmpty()) {
+                aiChatRoom.summaryMessages.last().message
+            } else {
+                "아직 요약된 대화가 없습니다."
+            }
+
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, summaryResponse)
+
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(summaryResponse)
+                    .build()
+            )
+        } else if (message == "나가기" || message == "EXIT") {
+            val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
+
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, exitResponse)
+
+            // 자바스크립트 비활성화 코드 추가
+            val disableScript = "<script>document.getElementById('messageInput').disabled = true; document.querySelector('button[type=\"submit\"]').disabled = true;</script>"
+
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(exitResponse + disableScript)
+                    .build()
+            )
+        } else if (message == "가위바위보") {
+            val gameResponse = "묵찌빠를 실행하겠습니다."
+
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, gameResponse)
+
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(gameResponse)
+                    .build()
+            )
+        }
+
         // 이전 대화에서 영어 제거
         val previousMessages: List<Message> = aiChatRoom.messages.stream()
             .limit( PREVIEWS_MESSAGES_COUNT.toLong())
@@ -57,11 +97,11 @@ class AIChatController(
 
         // AI 프롬프트 수정 (한글 강제)
         val messages: MutableList<Message> = ArrayList<Message>()
-        messages.add(SystemMessage("        당신은 한국인과 대화하고 있습니다.\n" +
-                "                한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
-                "                최대한 한국어/영어만 사용해줘요.\n" +
-                "                한자사용 자제해줘.\n" +
-                "                영어보다 한국어를 우선적으로 사용해줘요."))
+        messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다.\n" +
+                "한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
+                "최대한 한국어/영어만 사용해줘요.\n" +
+                "한자사용 자제해줘.\n" +
+                "영어보다 한국어를 우선적으로 사용해줘요."))
 
         if (aiChatRoom.summaryMessages.isNotEmpty()) {
             messages.add(

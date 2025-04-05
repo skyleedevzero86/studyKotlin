@@ -87,20 +87,14 @@
     const form = document.getElementById("chatForm");
     const input = document.getElementById("messageInput");
 
-    // 페이지 로드 시 기존 메시지 로딩
     async function loadExistingMessages() {
         try {
             const response = await fetch(`/ai/chat/${chatRoomId}/messages`);
             const messages = await response.json();
 
             messages.forEach((message) => {
-                appendMessage(
-                    "🧑", message.userMessage, "user"
-                );
-
-                appendMessage(
-                    "🤖", message.botMessage, "bot"
-                );
+                appendMessage("🧑", message.userMessage, "user");
+                appendMessage("🤖", message.botMessage, "bot");
             });
 
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -110,7 +104,6 @@
         }
     }
 
-    // 페이지 로드 시 실행
     loadExistingMessages();
 
     form.addEventListener("submit", function (e) {
@@ -118,13 +111,9 @@
         const message = input.value.trim();
         if (!message) return;
 
-        // 사용자 메시지 출력
         appendMessage("🧑", message, "user");
 
-        // SSE 연결
-        const url =
-            `/ai/chat/generateStream/${chatRoomId}?message=` +
-            encodeURIComponent(message);
+        const url = `/ai/chat/generateStream/${chatRoomId}?message=` + encodeURIComponent(message);
         const eventSource = new EventSource(url);
 
         let botResponse = "";
@@ -133,7 +122,6 @@
         loadingEl.textContent = "🤖 응답 중...";
         chatBox.appendChild(loadingEl);
 
-        // 봇 응답을 위한 메시지 요소 미리 생성
         const botMessageEl = document.createElement("div");
         botMessageEl.className = "message bot";
         botMessageEl.textContent = "🤖: ";
@@ -148,11 +136,25 @@
                 }
 
                 botResponse += event.data;
-                botMessageEl.textContent = `🤖: ${botResponse}`;
+
+                // 스크립트 추출 및 실행
+                const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+                let scriptMatch;
+                let cleanResponse = botResponse;
+
+                while ((scriptMatch = scriptRegex.exec(botResponse)) !== null) {
+                    try {
+                        new Function(scriptMatch[1])();
+                    } catch (error) {
+                        console.error("스크립트 실행 중 오류:", error);
+                    }
+                }
+
+                cleanResponse = botResponse.replace(scriptRegex, "");
+                botMessageEl.textContent = `🤖: ${cleanResponse}`;
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
         };
-
 
         eventSource.onerror = function (err) {
             eventSource.close();
