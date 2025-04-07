@@ -86,7 +86,7 @@ class ApiV1ChatMessageController(
         val writerName: String,
         val content: String
     )
-    
+
     @MessageMapping("/chat/rooms/{chatRoomId}/messages/create")
     fun createMessage(
         createMessageReqBody: CreateMessageReqBody,

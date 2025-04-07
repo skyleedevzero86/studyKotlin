@@ -106,61 +106,38 @@
 
     loadExistingMessages();
 
-    form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const message = input.value.trim();
-        if (!message) return;
+        const userMessage = input.value.trim();
+        if (!userMessage) return;
 
-        appendMessage("🧑", message, "user");
+        appendMessage("🧑", userMessage, "user");
 
-        const url = `/ai/chat/generateStream/${chatRoomId}?message=` + encodeURIComponent(message);
-        const eventSource = new EventSource(url);
-
-        let botResponse = "";
-        const loadingEl = document.createElement("div");
-        loadingEl.className = "loading";
-        loadingEl.textContent = "🤖 응답 중...";
-        chatBox.appendChild(loadingEl);
-
-        const botMessageEl = document.createElement("div");
-        botMessageEl.className = "message bot";
-        botMessageEl.textContent = "🤖: ";
+        const eventSource = new EventSource(`/ai/chat/generateStream/${chatRoomId}?userMessage=${encodeURIComponent(userMessage)}`);
+        let botMsg = "";
 
         eventSource.onmessage = function (event) {
-            if (event.data === "[DONE]") {
+            const data = event.data;
+
+            // 종료 명령 감지
+            if (data.startsWith('"__EXIT__:')) {
+                const cleanText = data.replace('"__EXIT__:', '').replace(/"$/, '');
+                appendMessage("🤖", cleanText, "bot");
+
+                // 입력창과 버튼 비활성화
+                input.disabled = true;
+                form.querySelector("button[type='submit']").disabled = true;
+
                 eventSource.close();
-                chatBox.removeChild(loadingEl);
-            } else {
-                if (!botMessageEl.parentNode) {
-                    chatBox.appendChild(botMessageEl);
-                }
-
-                botResponse += event.data;
-
-                // 스크립트 추출 및 실행
-                const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
-                let scriptMatch;
-                let cleanResponse = botResponse;
-
-                while ((scriptMatch = scriptRegex.exec(botResponse)) !== null) {
-                    try {
-                        new Function(scriptMatch[1])();
-                    } catch (error) {
-                        console.error("스크립트 실행 중 오류:", error);
-                    }
-                }
-
-                cleanResponse = botResponse.replace(scriptRegex, "");
-                botMessageEl.textContent = `🤖: ${cleanResponse}`;
-                chatBox.scrollTop = chatBox.scrollHeight;
+                return;
             }
-        };
 
-        eventSource.onerror = function (err) {
-            eventSource.close();
-            chatBox.removeChild(loadingEl);
-            if (!botResponse) {
-                appendMessage("⚠️", "응답이 지연되거나 문제가 발생했습니다.", "bot");
+            if (data === "[DONE]") {
+                appendMessage("🤖", botMsg, "bot");
+                eventSource.close();
+            } else {
+                const cleanData = data.replace(/^"|"$/g, "");
+                botMsg += cleanData;
             }
         };
 

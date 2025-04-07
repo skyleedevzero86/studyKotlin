@@ -9,7 +9,6 @@ import java.time.LocalDateTime
 @Entity
 @EntityListeners(AuditingEntityListener::class)
 class AIChatRoomSummaryMessage(
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
@@ -25,9 +24,23 @@ class AIChatRoomSummaryMessage(
     var chatRoom: AIChatRoom,
 
     @Column(columnDefinition = "LONGTEXT")
+    var userMessage: String,
+
+    @Column(columnDefinition = "LONGTEXT")
+    var botMessage: String,
+
+    @Column(columnDefinition = "LONGTEXT")
     var message: String,
 
     var startMessageIndex: Int,
 
     var endMessageIndex: Int
-)
+) {
+    fun getMessageNo(): Int {
+        return startMessageIndex + 1
+    }
+
+    fun getEndMessageNo(): Int {
+        return endMessageIndex + 1
+    }
+}
