@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>채팅방</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/javascript" th:inline="javascript">
+    const chatRoomId = /*[[${chatRoomId}]]*/ 0;
+</script>
+
+<script type="text/babel">
+    const {useEffect, useRef, useState} = React;
+
+    const socket = new SockJS("/ws");
+    const stompClient = Stomp.over(socket);
+
+
+    function App() {
+        const lastChatMessageId = useRef(0);
+        const [chatRoom, setChatRoom] = useState();
+        const [chatMessages, setChatMessages] = useState([]);
+
+        const loadMoreChatMessages = () => {
+            fetch(`/api/v1/chat/rooms/${chatRoomId}/messages?afterChatMessageId=${lastChatMessageId.current}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        data.reverse();
+                        lastChatMessageId.current = data[0].id;
+                        setChatMessages(prev => [...data, ...prev]);
+                    }
+                });
+        };
+
+        useEffect(() => {
+            fetch(`/api/v1/chat/rooms/${chatRoomId}`)
+                .then(res => res.json())
+                .then(setChatRoom);
+
+            loadMoreChatMessages();
+
+            stompClient.connect({}, function (frame) {
+                console.log("Connected: " + frame);
+
+                stompClient.subscribe(
+                    `/topic/chat/rooms/${chatRoomId}/messages/created`,
+                    function (data) {
+                        setChatMessages(prev => {
+                            return [JSON.parse(data.body), ...prev];
+                        });
+                    }
+                );
+            });
+        }, []);
+
+        const onChatMessageFormSubmit = (e) => {
+            e.preventDefault();
+            const form = e.target;
+
+            const writerName = form.writerName.value.trim();
+            const content = form.content.value.trim();
+
+            if (!writerName) {
+                alert("작성자를 입력해주세요.");
+                form.writerName.focus();
+                return;
+            }
+
+            if (!content) {
+                alert("메세지를 입력해주세요.");
+                form.content.focus();
+                return;
+            }
+
+            form.content.value = "";
+            form.content.focus();
+
+            stompClient.send(
+                `/app/chat/rooms/${chatRoomId}/messages/create`,
+                {},
+                JSON.stringify({writerName, content})
+            );
+        };
+
+        if (!chatRoom) return <div>로딩중...</div>;
+
+        return (
+            <div>
+                <h1>채팅방(No {chatRoom.id} : {chatRoom.name})</h1>
+                <div>개설날짜 : {dateForPrint(chatRoom.createDate)}</div>
+                <hr/>
+                <h2>채팅 메세지 작성</h2>
+                <form onSubmit={onChatMessageFormSubmit}>
+                    <input name="writerName" placeholder="작성자" autoComplete="off"/>
+                    <input name="content" placeholder="메세지" autoComplete="off"/>
+                    <input type="submit" value="작성"/>
+                </form>
+                <hr/>
+                <h2>채팅 메세지</h2>
+                <ul>
+                    {chatMessages.map(msg => (
+                        <li key={msg.id}>
+                            {msg.id}({dateForPrint(msg.createDate)}) : {msg.writerName} : {msg.content}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        );
+    }
+
+    function dateForPrint(date) {
+        if (!date) return ""; // 또는 "날짜 없음"
+        return date.substring(2, 16).replaceAll("-", ".").replace("T", " ");
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

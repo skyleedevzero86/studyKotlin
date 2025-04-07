@@ -1,4 +1,5 @@
 package com.kstomp.global
 
-class StompMessageTemplate {
+interface StompMessageTemplate {
+    fun convertAndSend(type: String, destination: String, payload: Any)
 }
