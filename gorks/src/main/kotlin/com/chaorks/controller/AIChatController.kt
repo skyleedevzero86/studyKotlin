@@ -3,10 +3,14 @@ package com.chaorks.controller
 import com.chaorks.domain.AIChatRoom
 import com.chaorks.dto.AIChatRoomMessageDto
 import com.chaorks.service.AiChatRoomService
+<<<<<<< Updated upstream
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
+=======
+import org.springframework.ai.chat.messages.*
+>>>>>>> Stashed changes
 import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.beans.factory.annotation.Autowired
@@ -19,9 +23,15 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
+<<<<<<< Updated upstream
 import java.util.ArrayList
 import java.util.stream.Collectors
 import java.util.stream.Stream
+=======
+import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
+import java.util.*
+>>>>>>> Stashed changes
 
 @Controller
 @RequestMapping("/ai/chat")
@@ -33,8 +43,9 @@ class AIChatController(
     @Lazy
     private lateinit var self: AIChatController
 
-    @GetMapping("/generate")
+    @GetMapping("/generateStream/{chatRoomId}", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     @ResponseBody
+<<<<<<< Updated upstream
     fun generate(
         @RequestParam(defaultValue = "Tell me a joke") userMessage: String
     ): String {
@@ -168,6 +179,57 @@ class AIChatController(
                     .data("\"$text\"")
                     .build()
             }
+=======
+    @Transactional(readOnly = true)
+    fun generateStream(
+        @PathVariable chatRoomId: Long,
+        @RequestParam userMessage: String
+    ): Flux<ServerSentEvent<String>> {
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
+            IllegalArgumentException("채팅방이 존재하지 않습니다.")
+        }
+
+        // 특수 명령어
+        when (userMessage.uppercase()) {
+            "EXIT", "나가기" -> {
+                val exitResponse = "대화를 종료합니다. 감사합니다!"
+                self.addMessage(aiChatRoom, userMessage, exitResponse)
+                return Flux.just(ServerSentEvent.builder<String>().data("__EXIT__:$exitResponse").build())
+            }
+        }
+
+        val previousMessages = aiChatRoom.messages.flatMap {
+            listOfNotNull(
+                it.userMessage?.let(::UserMessage),
+                it.botMessage?.let(::AssistantMessage)
+            )
+        }
+
+        val prompt = Prompt(
+            listOf(SystemMessage("당신은 한국인과 대화하고 있습니다.")) +
+                    previousMessages +
+                    UserMessage(userMessage)
+        )
+
+        val fullResponse = StringBuilder()
+
+        return Mono.fromCallable {
+            chatClient.stream(prompt)
+        }
+            .subscribeOn(Schedulers.boundedElastic())
+            .flatMapMany { Flux.from(it) }
+            .map { chunk ->
+                val text = chunk.result?.output?.text ?: ""
+                fullResponse.append(text)
+                ServerSentEvent.builder<String>().data("\"$text\"").build()
+            }
+            .concatWith(
+                Mono.fromRunnable {
+                    self.addMessage(aiChatRoom, userMessage, fullResponse.toString())
+                }.then(Mono.just(ServerSentEvent.builder<String>().data("[DONE]").build()))
+            )
+
+>>>>>>> Stashed changes
     }
 
     @Async
@@ -183,10 +245,14 @@ class AIChatController(
     }
 
     @GetMapping("/{chatRoomId}")
+<<<<<<< Updated upstream
     fun room(
         @PathVariable chatRoomId: Long,
         model: Model
     ): String {
+=======
+    fun room(@PathVariable chatRoomId: Long, model: Model): String {
+>>>>>>> Stashed changes
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
             IllegalArgumentException("채팅방이 존재하지 않습니다.")
         }
@@ -197,9 +263,7 @@ class AIChatController(
     @GetMapping("/{chatRoomId}/messages")
     @ResponseBody
     @Transactional(readOnly = true)
-    fun getMessages(
-        @PathVariable chatRoomId: Long
-    ): List<AIChatRoomMessageDto> {
+    fun getMessages(@PathVariable chatRoomId: Long): List<AIChatRoomMessageDto> {
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
             IllegalArgumentException("채팅방의 메시지가 존재하지 않습니다.")
         }
