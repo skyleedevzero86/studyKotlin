@@ -13,10 +13,10 @@ import org.springframework.http.codec.ServerSentEvent
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
+import java.util.*
 import java.util.stream.Collectors
 import org.springframework.ai.chat.messages.Message
 import org.springframework.transaction.annotation.Transactional
-
 
 @Controller
 @RequestMapping("/ai/chat")
@@ -39,9 +39,9 @@ class AIChatController(
         @RequestParam(value = "message", defaultValue = "Tell me a joke") message: String
     ): Flux<ServerSentEvent<String>> {
 
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).get()
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId)
+            ?: throw IllegalArgumentException("채팅방이 존재하지 않습니다.")
 
-        // 특수 명령어 처리
         if (message == "지난 대화 요약") {
             val summaryResponse = if (aiChatRoom.summaryMessages.isNotEmpty()) {
                 aiChatRoom.summaryMessages.last().message
@@ -49,7 +49,7 @@ class AIChatController(
                 "아직 요약된 대화가 없습니다."
             }
 
-            aiChatRoomService.addMessageToRoom(chatRoomId, message, summaryResponse)
+            aiChatRoomService.addMessage(chatRoomId, message, summaryResponse)
 
             return Flux.just(
                 ServerSentEvent.builder<String>()
@@ -59,9 +59,8 @@ class AIChatController(
         } else if (message == "나가기" || message == "EXIT") {
             val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
 
-            aiChatRoomService.addMessageToRoom(chatRoomId, message, exitResponse)
+            aiChatRoomService.addMessage(chatRoomId, message, exitResponse)
 
-            // 자바스크립트 비활성화 코드 추가
             val disableScript = "<script>document.getElementById('messageInput').disabled = true; document.querySelector('button[type=\"submit\"]').disabled = true;</script>"
 
             return Flux.just(
@@ -72,7 +71,7 @@ class AIChatController(
         } else if (message == "가위바위보") {
             val gameResponse = "묵찌빠를 실행하겠습니다."
 
-            aiChatRoomService.addMessageToRoom(chatRoomId, message, gameResponse)
+            aiChatRoomService.addMessage(chatRoomId, message, gameResponse)
 
             return Flux.just(
                 ServerSentEvent.builder<String>()
@@ -83,7 +82,7 @@ class AIChatController(
 
         // 이전 대화에서 영어 제거
         val previousMessages: List<Message> = aiChatRoom.messages.stream()
-            .limit( PREVIEWS_MESSAGES_COUNT.toLong())
+            .limit(PREVIEWS_MESSAGES_COUNT.toLong())
             .flatMap { msg ->
                 val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "")
                 val botMsg = (msg.botMessage ?: "").replace(Regex("[a-zA-Z]"), "")
@@ -95,7 +94,6 @@ class AIChatController(
             }
             .collect(Collectors.toList())
 
-        // AI 프롬프트 수정 (한글 강제)
         val messages: MutableList<Message> = ArrayList<Message>()
         messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다.\n" +
                 "한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
@@ -126,7 +124,7 @@ class AIChatController(
                     .build()
             }
             .doOnComplete {
-                aiChatRoomService.addMessageToRoom(chatRoomId, message, fullResponse.toString())
+                aiChatRoomService.addMessage(chatRoomId, message, fullResponse.toString())
             }
     }
 
@@ -139,9 +137,8 @@ class AIChatController(
 
     @GetMapping("/{chatRoomId}")
     fun room(@PathVariable chatRoomId: Long, model: org.springframework.ui.Model): String {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방이 존재하지않습니다.")
-        }
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId)
+            ?: throw IllegalArgumentException("채팅방이 존재하지않습니다.")
         model.addAttribute("aiChatRoom", aiChatRoom)
         return "ai/chat/index"
     }
@@ -152,9 +149,8 @@ class AIChatController(
     fun getMessages(
         @PathVariable chatRoomId: Long
     ): List<AIChatRoomMessageDto> {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방의 메세지가 존재하지않습니다.")
-        }
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId)
+            ?: throw IllegalArgumentException("채팅방의 메세지가 존재하지않습니다.")
         return aiChatRoom.messages.map { AIChatRoomMessageDto(it) }
     }
 }

@@ -30,4 +30,9 @@ class AIChatRoomSummaryMessage(
     var startMessageIndex: Int,
 
     var endMessageIndex: Int
-)
+) {
+
+    fun getMessageNo() = startMessageIndex + 1
+
+    fun getEndMessageNo() = endMessageIndex + 1
+}

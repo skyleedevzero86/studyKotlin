@@ -24,7 +24,10 @@ class AIChatRoom(
     var summaryMessages: MutableList<AIChatRoomSummaryMessage> = mutableListOf(),
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var messages: MutableList<AIChatRoomMessage> = mutableListOf()
+    var messages: MutableList<AIChatRoomMessage> = mutableListOf(),
+
+    var systemMessage: String? = null,
+    var systemStrategyMessage: String? = null
 ) {
     companion object {
         const val PREVIEWS_MESSAGES_COUNT = 3
@@ -44,18 +47,21 @@ class AIChatRoom(
     }
 
     private fun addSummaryMessageIfNeeded() {
-        if (messages.size <= PREVIEWS_MESSAGES_COUNT && summaryMessages.isEmpty()) return
+        if (messages.size <= PREVIEWS_MESSAGES_COUNT) return
 
         val lastSummaryMessageIndex = summaryMessages.lastOrNull()?.endMessageIndex ?: -1
         val lastSummaryMessageNo = lastSummaryMessageIndex + 1
 
-        if (messages.size - PREVIEWS_MESSAGES_COUNT <= lastSummaryMessageNo) {
-            return
+        if (messages.size - PREVIEWS_MESSAGES_COUNT > lastSummaryMessageNo) {
+            val startMessageIndex = lastSummaryMessageIndex + 1
+            val endMessageIndex = minOf(startMessageIndex + PREVIEWS_MESSAGES_COUNT, messages.size)
+
+            val summaryMessage = generateSummaryMessage(startMessageIndex, endMessageIndex)
+            summaryMessages.add(summaryMessage)
         }
+    }
 
-        val startMessageIndex = lastSummaryMessageIndex + 1
-        val endMessageIndex = startMessageIndex + PREVIEWS_MESSAGES_COUNT
-
+    private fun generateSummaryMessage(startMessageIndex: Int, endMessageIndex: Int): AIChatRoomSummaryMessage {
         val messageBuilder = StringBuilder()
 
         if (summaryMessages.isNotEmpty()) {
@@ -71,13 +77,37 @@ class AIChatRoom(
             messageBuilder.append("A: ${message.botMessage}\n\n")
         }
 
-        val summaryMessage = AIChatRoomSummaryMessage(
+        return AIChatRoomSummaryMessage(
             chatRoom = this,
             message = messageBuilder.toString(),
             startMessageIndex = startMessageIndex,
             endMessageIndex = endMessageIndex
         )
+    }
 
+    fun needToMakeSummaryMessageOnNextMessageAdded(): Boolean {
+        return messages.size > PREVIEWS_MESSAGES_COUNT
+    }
+
+    fun genNewSummarySourceMessage(userMessage: String, botMessage: String): String {
+        return "Q: $userMessage\nA: $botMessage"
+    }
+
+    fun addSummaryMessage(userMessage: String, botMessage: String) {
+        val summaryMessage = AIChatRoomSummaryMessage(
+            chatRoom = this,
+            message = botMessage,
+            startMessageIndex = messages.size - PREVIEWS_MESSAGES_COUNT,
+            endMessageIndex = messages.size - 1
+        )
         summaryMessages.add(summaryMessage)
+    }
+
+    fun getStartMessageIndex(): Int {
+        return summaryMessages.firstOrNull()?.startMessageIndex ?: 0
+    }
+
+    fun getEndMessageIndex(): Int {
+        return summaryMessages.firstOrNull()?.endMessageIndex ?: 0
     }
 }
