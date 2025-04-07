@@ -4,24 +4,68 @@
     <meta charset="UTF-8" />
     <title>AI Chat</title>
     <style>
-        body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
-        .chat-box {
-            max-width: 600px; margin: 0 auto; background: white;
-            border: 1px solid #ccc; border-radius: 8px; padding: 16px;
-            height: 400px; overflow-y: auto;
+        body {
+            font-family: sans-serif;
+            background: #f9f9f9;
+            padding: 20px;
         }
-        .message { margin-bottom: 10px; white-space: pre-wrap; }
-        .user { color: #1f78d1; }
-        .bot { color: #2b9348; }
-        form { max-width: 600px; margin: 10px auto 0; display: flex; gap: 8px; }
-        input[type="text"] { flex: 1; padding: 8px; font-size: 16px; }
-        button { padding: 8px 16px; font-size: 16px; background: #1f78d1; color: white; border: none; border-radius: 4px; }
+
+        .chat-box {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 16px;
+            height: 400px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+
+        .user {
+            color: #1f78d1;
+        }
+
+        .bot {
+            color: #2b9348;
+        }
+
+        form {
+            max-width: 600px;
+            margin: 10px auto 0;
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            background: #1f78d1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .loading {
+            font-size: 14px;
+            color: #888;
+        }
     </style>
 </head>
 <body>
 <h2>
-    <span th:text="${aiChatRoom.id}"></span>번 채팅방
-    (<span th:text="${aiChatRoom.createDate}"></span>)
+    <span th:text="${aiChatRoom.id}"></span>번
+    채팅방(<span th:text="${aiChatRoom.createDate}"></span>)
 </h2>
 <script th:inline="javascript">
     var chatRoomId = /*[[${aiChatRoom.id}]]*/ 0;
@@ -29,7 +73,12 @@
 <div class="chat-box" id="chatBox"></div>
 
 <form id="chatForm">
-    <input type="text" id="messageInput" placeholder="메시지를 입력하세요" required />
+    <input
+            type="text"
+            id="messageInput"
+            placeholder="메시지를 입력하세요"
+            required
+    />
     <button type="submit">전송</button>
 </form>
 
@@ -38,7 +87,6 @@
     const form = document.getElementById("chatForm");
     const input = document.getElementById("messageInput");
 
-<<<<<<< Updated upstream
     async function loadExistingMessages() {
         try {
             const response = await fetch(`/ai/chat/${chatRoomId}/messages`);
@@ -58,78 +106,72 @@
 
     loadExistingMessages();
 
-=======
->>>>>>> Stashed changes
-    form.addEventListener("submit", async (e) => {
+    form.addEventListener("submit", function (e) {
         e.preventDefault();
-        const userMessage = input.value.trim();
-        if (!userMessage) return;
-<<<<<<< Updated upstream
+        const message = input.value.trim();
+        if (!message) return;
 
-        appendMessage("🧑", userMessage, "user");
+        appendMessage("🧑", message, "user");
 
-        const eventSource = new EventSource(`/ai/chat/generateStream/${chatRoomId}?userMessage=${encodeURIComponent(userMessage)}`);
-        let botMsg = "";
+        const url = `/ai/chat/generateStream/${chatRoomId}?message=` + encodeURIComponent(message);
+        const eventSource = new EventSource(url);
 
-        eventSource.onmessage = function (event) {
-            const data = event.data;
+        let botResponse = "";
+        const loadingEl = document.createElement("div");
+        loadingEl.className = "loading";
+        loadingEl.textContent = "🤖 응답 중...";
+        chatBox.appendChild(loadingEl);
 
-            // 종료 명령 감지
-            if (data.startsWith('"__EXIT__:')) {
-                const cleanText = data.replace('"__EXIT__:', '').replace(/"$/, '');
-                appendMessage("🤖", cleanText, "bot");
-
-                // 입력창과 버튼 비활성화
-                input.disabled = true;
-                form.querySelector("button[type='submit']").disabled = true;
-
-                eventSource.close();
-                return;
-=======
-        appendMessage("user", userMessage);
-        input.value = "";
-
-        const eventSource = new EventSource(`/ai/chat/generateStream/${chatRoomId}?userMessage=${encodeURIComponent(userMessage)}`);
-        let botMessage = "";
+        const botMessageEl = document.createElement("div");
+        botMessageEl.className = "message bot";
+        botMessageEl.textContent = "🤖: ";
 
         eventSource.onmessage = function (event) {
             if (event.data === "[DONE]") {
-                appendMessage("bot", botMessage);
                 eventSource.close();
-            } else if (event.data.startsWith("__EXIT__:")) {
-                appendMessage("bot", event.data.replace("__EXIT__:", ""));
-                eventSource.close();
+                chatBox.removeChild(loadingEl);
             } else {
-                try {
-                    const parsed = JSON.parse(event.data);
-                    botMessage += parsed;
-                } catch (e) {
-                    botMessage += event.data.replace(/^"|"$/g, ''); // JSON 없이 오는 일반 텍스트 처리
+                if (!botMessageEl.parentNode) {
+                    chatBox.appendChild(botMessageEl);
                 }
->>>>>>> Stashed changes
-            }
 
-<<<<<<< Updated upstream
-            if (data === "[DONE]") {
-                appendMessage("🤖", botMsg, "bot");
-                eventSource.close();
-            } else {
-                const cleanData = data.replace(/^"|"$/g, "");
-                botMsg += cleanData;
+                botResponse += event.data;
+
+                // 스크립트 추출 및 실행
+                const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+                let scriptMatch;
+                let cleanResponse = botResponse;
+
+                while ((scriptMatch = scriptRegex.exec(botResponse)) !== null) {
+                    try {
+                        new Function(scriptMatch[1])();
+                    } catch (error) {
+                        console.error("스크립트 실행 중 오류:", error);
+                    }
+                }
+
+                cleanResponse = botResponse.replace(scriptRegex, "");
+                botMessageEl.textContent = `🤖: ${cleanResponse}`;
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
-=======
-        eventSource.onerror = function () {
-            appendMessage("bot", "🤖 오류가 발생했습니다. 다시 시도해주세요.");
-            eventSource.close();
->>>>>>> Stashed changes
         };
+
+        eventSource.onerror = function (err) {
+            eventSource.close();
+            chatBox.removeChild(loadingEl);
+            if (!botResponse) {
+                appendMessage("⚠️", "응답이 지연되거나 문제가 발생했습니다.", "bot");
+            }
+        };
+
+        input.value = "";
     });
 
-    function appendMessage(role, text) {
-        const div = document.createElement("div");
-        div.className = "message " + role;
-        div.textContent = `${role === "user" ? "👤" : "🤖"} ${text}`;
-        chatBox.appendChild(div);
+    function appendMessage(sender, text, className) {
+        const msgEl = document.createElement("div");
+        msgEl.className = "message " + className;
+        msgEl.textContent = `${sender}: ${text}`;
+        chatBox.appendChild(msgEl);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 </script>

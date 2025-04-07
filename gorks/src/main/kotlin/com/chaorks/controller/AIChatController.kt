@@ -1,37 +1,22 @@
 package com.chaorks.controller
 
-import com.chaorks.domain.AIChatRoom
+import com.chaorks.domain.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
 import com.chaorks.dto.AIChatRoomMessageDto
 import com.chaorks.service.AiChatRoomService
-<<<<<<< Updated upstream
 import org.springframework.ai.chat.messages.AssistantMessage
-import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
-=======
-import org.springframework.ai.chat.messages.*
->>>>>>> Stashed changes
 import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.ai.openai.OpenAiChatModel
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Lazy
 import org.springframework.http.MediaType
 import org.springframework.http.codec.ServerSentEvent
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Controller
-import org.springframework.transaction.annotation.Transactional
-import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
-<<<<<<< Updated upstream
-import java.util.ArrayList
 import java.util.stream.Collectors
-import java.util.stream.Stream
-=======
-import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
-import java.util.*
->>>>>>> Stashed changes
+import org.springframework.ai.chat.messages.Message
+import org.springframework.transaction.annotation.Transactional
+
 
 @Controller
 @RequestMapping("/ai/chat")
@@ -39,202 +24,110 @@ class AIChatController(
     private val chatClient: OpenAiChatModel,
     private val aiChatRoomService: AiChatRoomService
 ) {
-    @Autowired
-    @Lazy
-    private lateinit var self: AIChatController
 
-    @GetMapping("/generateStream/{chatRoomId}", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
+    @GetMapping("/generate")
     @ResponseBody
-<<<<<<< Updated upstream
-    fun generate(
-        @RequestParam(defaultValue = "Tell me a joke") userMessage: String
-    ): String {
-        return chatClient.call(userMessage)
+    fun generate(@RequestParam(value = "message", defaultValue = "Tell me a joke") message: String): String {
+        return chatClient.call(message)
     }
 
     @GetMapping(value = ["/generateStream/{chatRoomId}"], produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     @ResponseBody
-    @Transactional(readOnly = true)
+    @Transactional
     fun generateStream(
         @PathVariable chatRoomId: Long,
-        @RequestParam(defaultValue = "Tell me a joke") userMessage: String
+        @RequestParam(value = "message", defaultValue = "Tell me a joke") message: String
     ): Flux<ServerSentEvent<String>> {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방이 존재하지 않습니다.")
-        }
+
+        val aiChatRoom = aiChatRoomService.findById(chatRoomId).get()
 
         // 특수 명령어 처리
-        when (userMessage) {
-            "지난 대화 요약" -> {
-                val summaryResponse = if (aiChatRoom.summaryMessages.isNotEmpty()) {
-                    aiChatRoom.summaryMessages.last().message
-                } else {
-                    "아직 요약된 대화가 없습니다."
-                }
-
-                self.addMessage(aiChatRoom, userMessage, summaryResponse)
-
-                return Flux.just(
-                    ServerSentEvent.builder<String>()
-                        .data("\"$summaryResponse\"")
-                        .build()
-                )
+        if (message == "지난 대화 요약") {
+            val summaryResponse = if (aiChatRoom.summaryMessages.isNotEmpty()) {
+                aiChatRoom.summaryMessages.last().message
+            } else {
+                "아직 요약된 대화가 없습니다."
             }
-            "나가기", "EXIT" -> {
-                val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
-                self.addMessage(aiChatRoom, userMessage, exitResponse)
 
-                return Flux.just(
-                    ServerSentEvent.builder<String>()
-                        .data("__EXIT__:$exitResponse")
-                        .build()
-                )
-            }
-            "가위바위보" -> {
-                val gameResponse = "묵찌빠를 실행하겠습니다."
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, summaryResponse)
 
-                self.addMessage(aiChatRoom, userMessage, gameResponse)
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(summaryResponse)
+                    .build()
+            )
+        } else if (message == "나가기" || message == "EXIT") {
+            val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
 
-                return Flux.just(
-                    ServerSentEvent.builder<String>()
-                        .data("\"$gameResponse\"")
-                        .build()
-                )
-            }
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, exitResponse)
+
+            // 자바스크립트 비활성화 코드 추가
+            val disableScript = "<script>document.getElementById('messageInput').disabled = true; document.querySelector('button[type=\"submit\"]').disabled = true;</script>"
+
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(exitResponse + disableScript)
+                    .build()
+            )
+        } else if (message == "가위바위보") {
+            val gameResponse = "묵찌빠를 실행하겠습니다."
+
+            aiChatRoomService.addMessageToRoom(chatRoomId, message, gameResponse)
+
+            return Flux.just(
+                ServerSentEvent.builder<String>()
+                    .data(gameResponse)
+                    .build()
+            )
         }
 
-        val lastSummaryMessageEndMessageIndex = if (aiChatRoom.summaryMessages.isEmpty()) -1
-        else aiChatRoom.summaryMessages.last().endMessageIndex
-        val oldMessages = aiChatRoom.messages
-        val oldMessagesSize = oldMessages.size
-
-        // 이전 대화 내용 가져오기
-        val previousMessages = oldMessages
-            // 가장 마지막 요약 메시지 이후의 메시지들 (코드 1번 방식 적용)
-            .subList(
-                Math.max(0, lastSummaryMessageEndMessageIndex + 1),
-                oldMessagesSize
-            )
-            .stream()
+        // 이전 대화에서 영어 제거
+        val previousMessages: List<Message> = aiChatRoom.messages.stream()
+            .limit( PREVIEWS_MESSAGES_COUNT.toLong())
             .flatMap { msg ->
-                Stream.of(
-                    UserMessage(msg.userMessage ?: ""),
-                    AssistantMessage(msg.botMessage ?: "")
-                )
+                val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "")
+                val botMsg = (msg.botMessage ?: "").replace(Regex("[a-zA-Z]"), "")
+
+                listOf(
+                    UserMessage(userMsg),
+                    AssistantMessage(botMsg)
+                ).stream()
             }
             .collect(Collectors.toList())
 
-        // 시스템 메시지 추가 (한국인 컨텍스트)
-        val messages = ArrayList<Message>()
-        messages.add(
-            SystemMessage(
-                """
-                당신은 한국인과 대화하고 있습니다.
-                한국의 문화와 정서를 이해하고 있어야 합니다.
-                최대한 한국어만 사용해야합니다.
-                한자사용 자제해주세요.
-                영어보다 한국어를 우선적으로 사용해주세요.
-                """.trimIndent()
-            )
-        )
+        // AI 프롬프트 수정 (한글 강제)
+        val messages: MutableList<Message> = ArrayList<Message>()
+        messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다.\n" +
+                "한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
+                "최대한 한국어/영어만 사용해줘요.\n" +
+                "한자사용 자제해줘.\n" +
+                "영어보다 한국어를 우선적으로 사용해줘요."))
 
         if (aiChatRoom.summaryMessages.isNotEmpty()) {
             messages.add(
                 SystemMessage(
-                    aiChatRoom.summaryMessages.last().message
+                    "지난 대화 요약\n\n${aiChatRoom.summaryMessages.last().message}"
                 )
             )
         }
 
         messages.addAll(previousMessages)
-        messages.add(UserMessage(userMessage))
+        messages.add(UserMessage(message))
 
-        // 프롬프트 생성
         val prompt = Prompt(messages)
         val fullResponse = StringBuilder()
 
-        // 스트리밍 처리
         return chatClient.stream(prompt)
             .map { chunk ->
-                if (chunk.result == null ||
-                    chunk.result?.output == null ||
-                    chunk.result?.output?.text == null) {
-
-                    val botMessage = fullResponse.toString()
-
-                    self.addMessage(
-                        aiChatRoom,
-                        userMessage,
-                        botMessage
-                    )
-
-                    return@map ServerSentEvent.builder<String>()
-                        .data("[DONE]")
-                        .build()
-                }
-
-                val text = chunk.result?.output?.text ?: ""
+                val text = chunk.result?.output?.text.orEmpty()
                 fullResponse.append(text)
-                return@map ServerSentEvent.builder<String>()
-                    .data("\"$text\"")
+                ServerSentEvent.builder<String>()
+                    .data(text)
                     .build()
             }
-=======
-    @Transactional(readOnly = true)
-    fun generateStream(
-        @PathVariable chatRoomId: Long,
-        @RequestParam userMessage: String
-    ): Flux<ServerSentEvent<String>> {
-        val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방이 존재하지 않습니다.")
-        }
-
-        // 특수 명령어
-        when (userMessage.uppercase()) {
-            "EXIT", "나가기" -> {
-                val exitResponse = "대화를 종료합니다. 감사합니다!"
-                self.addMessage(aiChatRoom, userMessage, exitResponse)
-                return Flux.just(ServerSentEvent.builder<String>().data("__EXIT__:$exitResponse").build())
+            .doOnComplete {
+                aiChatRoomService.addMessageToRoom(chatRoomId, message, fullResponse.toString())
             }
-        }
-
-        val previousMessages = aiChatRoom.messages.flatMap {
-            listOfNotNull(
-                it.userMessage?.let(::UserMessage),
-                it.botMessage?.let(::AssistantMessage)
-            )
-        }
-
-        val prompt = Prompt(
-            listOf(SystemMessage("당신은 한국인과 대화하고 있습니다.")) +
-                    previousMessages +
-                    UserMessage(userMessage)
-        )
-
-        val fullResponse = StringBuilder()
-
-        return Mono.fromCallable {
-            chatClient.stream(prompt)
-        }
-            .subscribeOn(Schedulers.boundedElastic())
-            .flatMapMany { Flux.from(it) }
-            .map { chunk ->
-                val text = chunk.result?.output?.text ?: ""
-                fullResponse.append(text)
-                ServerSentEvent.builder<String>().data("\"$text\"").build()
-            }
-            .concatWith(
-                Mono.fromRunnable {
-                    self.addMessage(aiChatRoom, userMessage, fullResponse.toString())
-                }.then(Mono.just(ServerSentEvent.builder<String>().data("[DONE]").build()))
-            )
-
->>>>>>> Stashed changes
-    }
-
-    @Async
-    fun addMessage(aiChatRoom: AIChatRoom, userMessage: String, botMessage: String) {
-        aiChatRoomService.addMessage(chatClient, aiChatRoom, userMessage, botMessage)
     }
 
     @GetMapping
@@ -245,16 +138,9 @@ class AIChatController(
     }
 
     @GetMapping("/{chatRoomId}")
-<<<<<<< Updated upstream
-    fun room(
-        @PathVariable chatRoomId: Long,
-        model: Model
-    ): String {
-=======
-    fun room(@PathVariable chatRoomId: Long, model: Model): String {
->>>>>>> Stashed changes
+    fun room(@PathVariable chatRoomId: Long, model: org.springframework.ui.Model): String {
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방이 존재하지 않습니다.")
+            IllegalArgumentException("채팅방이 존재하지않습니다.")
         }
         model.addAttribute("aiChatRoom", aiChatRoom)
         return "ai/chat/index"
@@ -263,9 +149,11 @@ class AIChatController(
     @GetMapping("/{chatRoomId}/messages")
     @ResponseBody
     @Transactional(readOnly = true)
-    fun getMessages(@PathVariable chatRoomId: Long): List<AIChatRoomMessageDto> {
+    fun getMessages(
+        @PathVariable chatRoomId: Long
+    ): List<AIChatRoomMessageDto> {
         val aiChatRoom = aiChatRoomService.findById(chatRoomId).orElseThrow {
-            IllegalArgumentException("채팅방의 메시지가 존재하지 않습니다.")
+            IllegalArgumentException("채팅방의 메세지가 존재하지않습니다.")
         }
         return aiChatRoom.messages.map { AIChatRoomMessageDto(it) }
     }
