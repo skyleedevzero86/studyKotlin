@@ -1,4 +1,4 @@
-package com.functionstudy.ch06
+package com.functionstudy.onestest.ch06
 
 import com.functionstudy.ch06.command.ElevatorCommand
 import com.functionstudy.ch06.event.ElevatorEvent

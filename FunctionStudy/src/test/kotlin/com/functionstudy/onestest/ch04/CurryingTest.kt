@@ -1,4 +1,4 @@
-package com.functionstudy.ch04
+package com.functionstudy.onestest.ch04
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

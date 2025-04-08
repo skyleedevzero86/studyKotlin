@@ -1,4 +1,4 @@
-package com.functionstudy.ch08
+package com.functionstudy.onestest.ch08
 
 import com.functionstudy.ch08.controller.sumOfOddSquaresWithSequence
 import org.junit.jupiter.api.Test

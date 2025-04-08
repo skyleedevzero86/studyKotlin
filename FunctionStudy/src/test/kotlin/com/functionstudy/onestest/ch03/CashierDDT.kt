@@ -1,4 +1,4 @@
-package com.functionstudy.ch03
+package com.functionstudy.onestest.ch03
 
 import com.functionstudy.ch03.cashier.Cashier
 import com.functionstudy.ch03.items.Item

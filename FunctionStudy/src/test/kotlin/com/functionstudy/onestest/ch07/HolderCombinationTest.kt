@@ -1,4 +1,4 @@
-package com.functionstudy.ch07
+package com.functionstudy.onestest.ch07
 
 import com.functionstudy.ch07.domain.Holder
 import org.junit.jupiter.api.DisplayName

@@ -1,4 +1,4 @@
-package com.functionstudy.ch05
+package com.functionstudy.onestest.ch05
 
 import com.functionstudy.ch05.domain.collatz
 import org.junit.jupiter.api.DisplayName

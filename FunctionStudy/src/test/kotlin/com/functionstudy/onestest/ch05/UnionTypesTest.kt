@@ -1,4 +1,4 @@
-package com.functionstudy.ch05
+package com.functionstudy.onestest.ch05
 
 import com.functionstudy.ch03.utils.expectThat
 import com.functionstudy.ch05.service.compactJson

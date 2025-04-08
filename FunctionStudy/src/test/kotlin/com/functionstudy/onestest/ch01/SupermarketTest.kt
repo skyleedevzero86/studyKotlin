@@ -1,4 +1,4 @@
-package com.functionstudy.ch01
+package com.functionstudy.onestest.ch01
 
 import com.functionstudy.ch01.checkout.CashRegister
 import com.functionstudy.ch01.discount.MilkDiscountStrategy

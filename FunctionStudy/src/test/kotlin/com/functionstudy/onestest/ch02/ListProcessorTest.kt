@@ -1,4 +1,4 @@
-package com.functionstudy.ch02
+package com.functionstudy.onestest.ch02
 
 import com.functionstudy.ch02.processor.ListProcessor
 import com.functionstudy.ch02.processor.andThen

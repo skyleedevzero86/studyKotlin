@@ -1,4 +1,4 @@
-package com.functionstudy.ch04
+package com.functionstudy.onestest.ch04
 
 import com.functionstudy.ch04.template.EmailTemplate
 import com.functionstudy.ch04.template.Person
