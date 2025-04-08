@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch07.failure
 
-import com.functionstudy.ch07.domain.*
-import com.functionstudy.ch07.inter.OutcomeError
+import com.functionstudy.ones.ch07.domain.*
+import com.functionstudy.ones.ch07.inter.OutcomeError
 
 class EmailError(val msg: String) : OutcomeError
 

@@ -1,12 +1,12 @@
 package com.functionstudy.onestest.ch04
 
-import com.functionstudy.ch04.template.EmailTemplate
-import com.functionstudy.ch04.template.Person
+import com.functionstudy.ones.ch04.template.EmailTemplate
+import com.functionstudy.ones.ch04.template.Person
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import com.functionstudy.ch03.utils.StringTag
-import com.functionstudy.ch03.utils.renderTemplate
-import com.functionstudy.ch03.utils.expectThat
+import com.functionstudy.ones.ch03.utils.StringTag
+import com.functionstudy.ones.ch03.utils.renderTemplate
+import com.functionstudy.ones.ch03.utils.expectThat
 
 class EmailTemplateTest {
     @Test

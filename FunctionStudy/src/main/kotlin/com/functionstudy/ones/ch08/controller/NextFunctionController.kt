@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch08.controller
 
-import com.functionstudy.ch08.domain.NextFunction
+import com.functionstudy.ones.ch08.domain.NextFunction
 
 class NextFunctionController {
     fun execute() {

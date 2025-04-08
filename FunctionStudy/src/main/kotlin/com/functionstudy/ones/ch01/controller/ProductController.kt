@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch01.controller
 
-import com.functionstudy.ch01.checkout.CashRegister
-import com.functionstudy.ch01.discount.MilkDiscountStrategy
-import com.functionstudy.ch01.domain.Product
+import com.functionstudy.ones.ch01.checkout.CashRegister
+import com.functionstudy.ones.ch01.discount.MilkDiscountStrategy
+import com.functionstudy.ones.ch01.domain.Product
 
 class ProductController {
     fun execute() {

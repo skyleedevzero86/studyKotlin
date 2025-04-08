@@ -1,9 +1,9 @@
 package com.functionstudy.onestest.ch07
 
-import com.functionstudy.ch07.domain.asFailure
-import com.functionstudy.ch07.domain.asSuccess
-import com.functionstudy.ch07.domain.sendEmail
-import com.functionstudy.ch07.failure.EmailError
+import com.functionstudy.ones.ch07.domain.asFailure
+import com.functionstudy.ones.ch07.domain.asSuccess
+import com.functionstudy.ones.ch07.domain.sendEmail
+import com.functionstudy.ones.ch07.failure.EmailError
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat

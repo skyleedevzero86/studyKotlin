@@ -1,10 +1,10 @@
 package com.functionstudy.ones.ch03.cashier
 
-import com.functionstudy.ch03.items.Item
-import com.functionstudy.ch03.items.actions.DdtActions
-import com.functionstudy.ch03.pricing.Pricing
-import com.functionstudy.ch03.utils.StringTag
-import com.functionstudy.ch03.utils.renderTemplate
+import com.functionstudy.ones.ch03.items.Item
+import com.functionstudy.ones.ch03.items.actions.DdtActions
+import com.functionstudy.ones.ch03.pricing.Pricing
+import com.functionstudy.ones.ch03.utils.StringTag
+import com.functionstudy.ones.ch03.utils.renderTemplate
 
 class Cashier {
     private val cart = mutableMapOf<String, MutableList<Pair<Item, Int>>>()

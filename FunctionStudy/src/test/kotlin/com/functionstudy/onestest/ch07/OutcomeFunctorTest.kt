@@ -1,9 +1,9 @@
 package com.functionstudy.onestest.ch07
 
-import com.functionstudy.ch07.controller.identity
-import com.functionstudy.ch07.controller.randomOutcome
-import com.functionstudy.ch07.controller.randomString
-import com.functionstudy.ch07.domain.Success
+import com.functionstudy.ones.ch07.controller.identity
+import com.functionstudy.ones.ch07.controller.randomOutcome
+import com.functionstudy.ones.ch07.controller.randomString
+import com.functionstudy.ones.ch07.domain.Success
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat

@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch03.controller
 
-import com.functionstudy.ch03.cashier.Cashier
-import com.functionstudy.ch03.items.Item
-import com.functionstudy.ch03.items.actions.DdtActions
+import com.functionstudy.ones.ch03.cashier.Cashier
+import com.functionstudy.ones.ch03.items.Item
+import com.functionstudy.ones.ch03.items.actions.DdtActions
 
 
 class CashierItemController {

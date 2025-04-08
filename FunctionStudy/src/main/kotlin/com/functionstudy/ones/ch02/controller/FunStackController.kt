@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch02.controller
 
 
-import com.functionstudy.ch02.stack.FunStack
+import com.functionstudy.ones.ch02.stack.FunStack
 
 class FunStackController {
 

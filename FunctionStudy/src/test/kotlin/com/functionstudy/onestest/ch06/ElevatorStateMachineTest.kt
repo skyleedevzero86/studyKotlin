@@ -1,9 +1,9 @@
 package com.functionstudy.onestest.ch06
 
-import com.functionstudy.ch06.command.ElevatorCommand
-import com.functionstudy.ch06.event.ElevatorEvent
-import com.functionstudy.ch06.state.ElevatorState
-import com.functionstudy.ch06.statemachine.ElevatorStateMachine
+import com.functionstudy.ones.ch06.command.ElevatorCommand
+import com.functionstudy.ones.ch06.event.ElevatorEvent
+import com.functionstudy.ones.ch06.state.ElevatorState
+import com.functionstudy.ones.ch06.statemachine.ElevatorStateMachine
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Nested

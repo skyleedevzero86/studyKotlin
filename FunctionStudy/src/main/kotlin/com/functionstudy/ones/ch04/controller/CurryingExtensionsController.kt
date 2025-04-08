@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch04.controller
 
-import com.functionstudy.ch04.curry.curry
-import com.functionstudy.ch04.curry.plusPlus
+import com.functionstudy.ones.ch04.curry.curry
+import com.functionstudy.ones.ch04.curry.plusPlus
 class CurryingExtensionsController {
     fun execute() {
 

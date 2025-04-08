@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch05.controller
 
-import com.functionstudy.ch05.service.compactJson
+import com.functionstudy.ones.ch05.service.compactJson
 
 class JsonCompactorController {
     fun execute() {

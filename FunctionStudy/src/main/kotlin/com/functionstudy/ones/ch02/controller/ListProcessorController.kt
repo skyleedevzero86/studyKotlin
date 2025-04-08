@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch02.controller
 
-import com.functionstudy.ch02.processor.ListProcessor
+import com.functionstudy.ones.ch02.processor.ListProcessor
 
 class ListProcessorController {
     fun execute() {

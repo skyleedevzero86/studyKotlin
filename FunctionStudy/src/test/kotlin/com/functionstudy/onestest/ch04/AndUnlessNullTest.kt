@@ -1,6 +1,6 @@
 package com.functionstudy.ch04.test
 
-import com.functionstudy.ch04.service.andUnlessNull  // 확장 함수 import
+import com.functionstudy.ones.ch04.service.andUnlessNull  // 확장 함수 import
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull

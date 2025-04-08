@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch05.controller
 
-import com.functionstudy.ch05.domain.collatz
+import com.functionstudy.ones.ch05.domain.collatz
 
 class CollatzCalculatorController {
     fun execute() {

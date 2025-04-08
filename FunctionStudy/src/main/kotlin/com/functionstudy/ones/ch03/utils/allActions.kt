@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch03.utils
 
-import com.functionstudy.ch03.items.actions.DdtActions
+import com.functionstudy.ones.ch03.items.actions.DdtActions
 
 
 val allActions = listOf(

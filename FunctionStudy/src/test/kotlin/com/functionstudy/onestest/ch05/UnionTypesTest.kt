@@ -1,7 +1,7 @@
 package com.functionstudy.onestest.ch05
 
-import com.functionstudy.ch03.utils.expectThat
-import com.functionstudy.ch05.service.compactJson
+import com.functionstudy.ones.ch03.utils.expectThat
+import com.functionstudy.ones.ch05.service.compactJson
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 

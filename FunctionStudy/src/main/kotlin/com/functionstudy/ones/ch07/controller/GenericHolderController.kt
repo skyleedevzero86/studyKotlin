@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch07.controller
 
-import com.functionstudy.ch07.domain.Holder
+import com.functionstudy.ones.ch07.domain.Holder
 
 class GenericHolderController {
     fun execute() {

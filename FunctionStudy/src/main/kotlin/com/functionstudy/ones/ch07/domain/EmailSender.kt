@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch07.domain
 
-import com.functionstudy.ch07.failure.EmailError
-import com.functionstudy.ch07.failure.FileReader
+import com.functionstudy.ones.ch07.failure.EmailError
+import com.functionstudy.ones.ch07.failure.FileReader
 
 
 object EmailSender {

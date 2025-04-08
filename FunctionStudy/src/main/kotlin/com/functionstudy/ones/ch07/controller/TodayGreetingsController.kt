@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch07.controller
 
-import com.functionstudy.ch07.domain.recover
-import com.functionstudy.ch07.domain.tryAndCatch
+import com.functionstudy.ones.ch07.domain.recover
+import com.functionstudy.ones.ch07.domain.tryAndCatch
 import java.time.LocalDate
 
 class TodayGreetingsController {

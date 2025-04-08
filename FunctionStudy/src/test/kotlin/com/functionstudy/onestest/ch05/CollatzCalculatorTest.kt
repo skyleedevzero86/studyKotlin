@@ -1,6 +1,6 @@
 package com.functionstudy.onestest.ch05
 
-import com.functionstudy.ch05.domain.collatz
+import com.functionstudy.ones.ch05.domain.collatz
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat

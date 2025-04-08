@@ -1,11 +1,11 @@
 package com.functionstudy.onestest.ch04
 
-import com.functionstudy.ch04.item.TodoItem
-import com.functionstudy.ch04.item.TodoStatus
+import com.functionstudy.ones.ch04.item.TodoItem
+import com.functionstudy.ones.ch04.item.TodoStatus
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import com.functionstudy.ch04.extensions.discardUnless
+import com.functionstudy.ones.ch04.extensions.discardUnless
 
 class DiscardUnlessTest {
 

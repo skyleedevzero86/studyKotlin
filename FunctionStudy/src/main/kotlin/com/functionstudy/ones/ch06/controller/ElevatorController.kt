@@ -1,9 +1,9 @@
 package com.functionstudy.ones.ch06.controller
 
-import com.functionstudy.ch05.controller.MonoidController
-import com.functionstudy.ch06.command.ElevatorCommand
-import com.functionstudy.ch06.event.ElevatorEvent
-import com.functionstudy.ch06.statemachine.ElevatorStateMachine
+import com.functionstudy.ones.ch05.controller.MonoidController
+import com.functionstudy.ones.ch06.command.ElevatorCommand
+import com.functionstudy.ones.ch06.event.ElevatorEvent
+import com.functionstudy.ones.ch06.statemachine.ElevatorStateMachine
 
 class ElevatorController {
     fun execute() {

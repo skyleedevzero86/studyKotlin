@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch01.discount
 
-import com.functionstudy.ch01.domain.Product
+import com.functionstudy.ones.ch01.domain.Product
 
 class MilkDiscountStrategy : DiscountStrategy {
     override fun calculateDiscountedPrice(product: Product, quantity: Int): Double {

@@ -1,10 +1,10 @@
 package com.functionstudy.onestest.ch05
 
-import com.functionstudy.ch03.utils.expectThat
-import com.functionstudy.ch05.domain.Down
-import com.functionstudy.ch05.domain.Elevator
-import com.functionstudy.ch05.domain.Up
-import com.functionstudy.ch05.service.ElevatorService
+import com.functionstudy.ones.ch03.utils.expectThat
+import com.functionstudy.ones.ch05.domain.Down
+import com.functionstudy.ones.ch05.domain.Elevator
+import com.functionstudy.ones.ch05.domain.Up
+import com.functionstudy.ones.ch05.service.ElevatorService
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 

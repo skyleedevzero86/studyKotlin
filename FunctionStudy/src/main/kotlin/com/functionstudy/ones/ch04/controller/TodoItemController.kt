@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch04.controller
 
-import com.functionstudy.ch04.extensions.discardUnless  // 확장 함수 import 추가
-import com.functionstudy.ch04.item.TodoItem
-import com.functionstudy.ch04.item.TodoStatus
+import com.functionstudy.ones.ch04.extensions.discardUnless  // 확장 함수 import 추가
+import com.functionstudy.ones.ch04.item.TodoItem
+import com.functionstudy.ones.ch04.item.TodoStatus
 
 class TodoItemController {
     fun execute() {

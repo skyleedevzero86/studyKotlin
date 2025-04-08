@@ -1,7 +1,7 @@
 package com.functionstudy.onestest.ch02
 
-import com.functionstudy.ch02.processor.ListProcessor
-import com.functionstudy.ch02.processor.andThen
+import com.functionstudy.ones.ch02.processor.ListProcessor
+import com.functionstudy.ones.ch02.processor.andThen
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 

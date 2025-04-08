@@ -1,6 +1,6 @@
 package com.functionstudy.onestest.ch02
 
-import com.functionstudy.ch02.stack.FunStack
+import com.functionstudy.ones.ch02.stack.FunStack
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 

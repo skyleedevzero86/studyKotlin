@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch03.utils
 
-import com.functionstudy.ch03.cashier.Cashier
-import com.functionstudy.ch03.items.Item
+import com.functionstudy.ones.ch03.cashier.Cashier
+import com.functionstudy.ones.ch03.items.Item
 
 class NamedActor(val name: String) {
 

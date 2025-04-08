@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch02.controller
 
-import com.functionstudy.ch02.calculator.RPNCalculator
+import com.functionstudy.ones.ch02.calculator.RPNCalculator
 
 class RPNCalculatorController {
     fun execute() {

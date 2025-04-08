@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch04.service
 
-import com.functionstudy.ch04.dto.Request
-import com.functionstudy.ch04.dto.Response
+import com.functionstudy.ones.ch04.dto.Request
+import com.functionstudy.ones.ch04.dto.Response
 
 fun fetchListContent(request: Request): List<String> {
     println("Fetching list content for request: ${request.content}")

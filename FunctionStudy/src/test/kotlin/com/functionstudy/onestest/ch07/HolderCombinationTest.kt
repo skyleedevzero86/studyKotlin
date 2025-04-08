@@ -1,6 +1,6 @@
 package com.functionstudy.onestest.ch07
 
-import com.functionstudy.ch07.domain.Holder
+import com.functionstudy.ones.ch07.domain.Holder
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat

@@ -1,6 +1,6 @@
 package com.functionstudy.onestest.ch08
 
-import com.functionstudy.ch08.controller.sumOfOddSquaresWithSequence
+import com.functionstudy.ones.ch08.controller.sumOfOddSquaresWithSequence
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.assertEquals

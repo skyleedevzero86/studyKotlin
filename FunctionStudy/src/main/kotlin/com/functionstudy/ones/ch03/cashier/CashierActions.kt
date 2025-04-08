@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch03.cashier
 
-import com.functionstudy.ch03.items.Item
-import com.functionstudy.ch03.items.actions.DdtActions
-import com.functionstudy.ch03.protocol.DdtProtocol
+import com.functionstudy.ones.ch03.items.Item
+import com.functionstudy.ones.ch03.items.actions.DdtActions
+import com.functionstudy.ones.ch03.protocol.DdtProtocol
 
 interface CashierActions : DdtProtocol<DdtActions> {
     fun setupPrices(prices: Map<String, Double>)

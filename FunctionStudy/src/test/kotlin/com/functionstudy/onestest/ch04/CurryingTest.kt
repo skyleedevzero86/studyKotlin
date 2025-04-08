@@ -2,8 +2,8 @@ package com.functionstudy.onestest.ch04
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import com.functionstudy.ch04.curry.curry
-import com.functionstudy.ch04.curry.plusPlus
+import com.functionstudy.ones.ch04.curry.curry
+import com.functionstudy.ones.ch04.curry.plusPlus
 
 class CurryingTest {
 

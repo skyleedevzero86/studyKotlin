@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch07.domain
 
-import com.functionstudy.ch07.failure.ThrowableError
-import com.functionstudy.ch07.inter.OutcomeError
+import com.functionstudy.ones.ch07.failure.ThrowableError
+import com.functionstudy.ones.ch07.inter.OutcomeError
 
 sealed class Outcome<out E : OutcomeError, out T> {
 

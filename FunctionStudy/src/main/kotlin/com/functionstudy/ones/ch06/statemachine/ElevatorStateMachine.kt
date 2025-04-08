@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch06.statemachine
 
-import com.functionstudy.ch06.command.ElevatorCommand
-import com.functionstudy.ch06.event.ElevatorEvent
-import com.functionstudy.ch06.state.ElevatorState
+import com.functionstudy.ones.ch06.command.ElevatorCommand
+import com.functionstudy.ones.ch06.event.ElevatorEvent
+import com.functionstudy.ones.ch06.state.ElevatorState
 
 class ElevatorStateMachine {
     companion object {

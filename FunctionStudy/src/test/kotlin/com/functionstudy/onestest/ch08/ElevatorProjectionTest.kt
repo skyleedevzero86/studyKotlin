@@ -1,7 +1,7 @@
 package com.functionstudy.onestest.ch08
 
-import com.functionstudy.ch08.core.ElevatorEvent
-import com.functionstudy.ch08.core.ElevatorProjectionInMemory
+import com.functionstudy.ones.ch08.core.ElevatorEvent
+import com.functionstudy.ones.ch08.core.ElevatorProjectionInMemory
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.assertEquals

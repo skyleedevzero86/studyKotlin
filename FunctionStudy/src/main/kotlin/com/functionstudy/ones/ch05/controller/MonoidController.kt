@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch05.controller
 
-import com.functionstudy.ch05.domain.Money
-import com.functionstudy.ch05.domain.Monoid
-import com.functionstudy.ch05.domain.zeroMoney
+import com.functionstudy.ones.ch05.domain.Money
+import com.functionstudy.ones.ch05.domain.Monoid
+import com.functionstudy.ones.ch05.domain.zeroMoney
 
 class MonoidController {
     fun execute() {

@@ -1,9 +1,9 @@
 package com.functionstudy.ones.ch05.service
 
-import com.functionstudy.ch05.domain.Direction
-import com.functionstudy.ch05.domain.Down
-import com.functionstudy.ch05.domain.Elevator
-import com.functionstudy.ch05.domain.Up
+import com.functionstudy.ones.ch05.domain.Direction
+import com.functionstudy.ones.ch05.domain.Down
+import com.functionstudy.ones.ch05.domain.Elevator
+import com.functionstudy.ones.ch05.domain.Up
 
 class ElevatorService {
     fun calculateFinalFloor(directions: List<Direction>): Elevator {

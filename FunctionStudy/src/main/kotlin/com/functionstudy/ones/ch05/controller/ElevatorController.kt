@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch05.controller
 
-import com.functionstudy.ch05.domain.Down
-import com.functionstudy.ch05.domain.Up
-import com.functionstudy.ch05.service.ElevatorService
+import com.functionstudy.ones.ch05.domain.Down
+import com.functionstudy.ones.ch05.domain.Up
+import com.functionstudy.ones.ch05.service.ElevatorService
 
 class  ElevatorController{
     fun execute() {

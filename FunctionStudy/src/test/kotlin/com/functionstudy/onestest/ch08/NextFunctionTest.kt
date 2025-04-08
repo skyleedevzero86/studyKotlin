@@ -1,6 +1,6 @@
 package com.functionstudy.onestest.ch08
 
-import com.functionstudy.ch08.domain.NextFunction
+import com.functionstudy.ones.ch08.domain.NextFunction
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.assertEquals

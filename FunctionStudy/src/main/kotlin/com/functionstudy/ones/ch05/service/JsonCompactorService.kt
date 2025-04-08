@@ -1,7 +1,7 @@
 package com.functionstudy.ones.ch05.service
 
-import com.functionstudy.ch05.domain.JsonCompactor
-import com.functionstudy.ch05.domain.OutQuotes
+import com.functionstudy.ones.ch05.domain.JsonCompactor
+import com.functionstudy.ones.ch05.domain.OutQuotes
 
 
 fun compactJson(json: String): String =

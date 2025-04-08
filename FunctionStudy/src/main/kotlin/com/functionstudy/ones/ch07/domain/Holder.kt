@@ -1,6 +1,6 @@
 package com.functionstudy.ones.ch07.domain
 
-import com.functionstudy.ch07.inter.OutcomeError
+import com.functionstudy.ones.ch07.inter.OutcomeError
 
 data class Holder<T>(val value: T) {
     fun <U> transform(f: (T) -> U): Holder<U> = Holder(f(value))

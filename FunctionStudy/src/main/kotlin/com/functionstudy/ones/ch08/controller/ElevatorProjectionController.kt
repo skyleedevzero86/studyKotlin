@@ -1,7 +1,7 @@
 package com.functionstudy.ch08
 
-import com.functionstudy.ch08.core.ElevatorEvent
-import com.functionstudy.ch08.core.ElevatorProjectionInMemory
+import com.functionstudy.ones.ch08.core.ElevatorEvent
+import com.functionstudy.ones.ch08.core.ElevatorProjectionInMemory
 
 class ElevatorProjectionController {
     fun execute() {
