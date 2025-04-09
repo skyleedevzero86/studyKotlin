@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  rabbit-mq:
+    image: rabbitmq:management
+    container_name: rabbitmq-1
+    volumes:
+      - ./dockerProjects/rabbitmq-1/volumes/etc/rabbitmq:/etc/rabbitmq
+      - ./dockerProjects/rabbitmq-1/volumes/var/lib/rabbitmq:/var/lib/rabbitmq
+      - ./dockerProjects/rabbitmq-1/volumes/var/log/rabbitmq:/var/log/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "61613:61613"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    command: >
+      sh -c "echo 'loopback_users = none' >> /etc/rabbitmq/rabbitmq.conf && rabbitmq-plugins enable rabbitmq_management && rabbitmq-plugins enable rabbitmq_stomp && rabbitmq-plugins enable rabbitmq_mqtt && rabbitmq-server"

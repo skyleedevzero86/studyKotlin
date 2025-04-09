@@ -3,6 +3,7 @@ package com.kstomp.domain.chatMessage.controller
 import com.kstomp.domain.chatMessage.dto.ChatMessageDto
 import com.kstomp.domain.chatMessage.entity.ChatMessage
 import com.kstomp.global.StompMessageTemplate
+import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.web.bind.annotation.*
@@ -13,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 @RestController
 @RequestMapping("/api/v1/chat/rooms/{chatRoomId}/messages")
 class ApiV1ChatMessageController(
-    private val template: StompMessageTemplate
+    private val template: RabbitTemplate
 ) {
     private var lastChatMessageId = 0
     private val chatMessagesByRoomId: MutableMap<Int, MutableList<ChatMessage>> = ConcurrentHashMap()
@@ -103,6 +104,6 @@ class ApiV1ChatMessageController(
         )
         chatMessages.add(chatMessage)
         val chatMessageDto = ChatMessageDto(chatMessage)
-        template.convertAndSend("topic", "chat/rooms/$chatRoomId/messages/created", chatMessageDto)
+        template.convertAndSend("amq.topic", "chatRooms" + chatRoomId + "MessagesCreated", chatMessageDto);
     }
 }
