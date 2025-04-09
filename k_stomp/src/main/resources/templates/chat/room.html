@@ -20,8 +20,12 @@
 <script type="text/babel">
     const {useEffect, useRef, useState} = React;
 
-    const socket = new SockJS("/ws");
+    const socket = new SockJS('http://localhost:8081/ws');
     const stompClient = Stomp.over(socket);
+
+    stompClient.debug = function(str) {
+        console.log("test: ", str);
+    };
 
 
     function App() {
@@ -52,8 +56,9 @@
                 console.log("Connected: " + frame);
 
                 stompClient.subscribe(
-                    `/topic/chat/rooms/${chatRoomId}/messages/created`,
+                    `/topic/chat.rooms.${chatRoomId}.messages.created`,
                     function (data) {
+                        console.log("Received message: ", data.body);
                         setChatMessages(prev => {
                             return [JSON.parse(data.body), ...prev];
                         });
@@ -85,7 +90,7 @@
             form.content.focus();
 
             stompClient.send(
-                `/app/chat/rooms/${chatRoomId}/messages/create`,
+                `/chat/rooms/${chatRoomId}/messages/create`,
                 {},
                 JSON.stringify({writerName, content})
             );
@@ -118,8 +123,16 @@
     }
 
     function dateForPrint(date) {
-        if (!date) return ""; // 또는 "날짜 없음"
-        return date.substring(2, 16).replaceAll("-", ".").replace("T", " ");
+        if (Array.isArray(date)) {
+            const d = new Date(...date);
+            return d.toISOString().substring(2, 16).replaceAll("-", ".").replace("T", " ");
+        }
+
+        if (typeof date === 'string') {
+            return date.substring(2, 16).replaceAll("-", ".").replace("T", " ");
+        }
+
+        return "";
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App/>);

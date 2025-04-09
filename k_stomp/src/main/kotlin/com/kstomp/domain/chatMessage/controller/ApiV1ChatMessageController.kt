@@ -104,6 +104,6 @@ class ApiV1ChatMessageController(
         )
         chatMessages.add(chatMessage)
         val chatMessageDto = ChatMessageDto(chatMessage)
-        template.convertAndSend("amq.topic", "chatRooms" + chatRoomId + "MessagesCreated", chatMessageDto);
+        template.convertAndSend("topic", "chat.rooms." + chatRoomId + ".messages.created", chatMessageDto);
     }
 }

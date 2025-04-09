@@ -17,7 +17,7 @@ class StompSimpleBrokerConfig : WebSocketMessageBrokerConfigurer {
     }
 
     override fun configureMessageBroker(registry: MessageBrokerRegistry) {
-        registry.enableSimpleBroker("/topic")
+        registry.enableSimpleBroker("/topic", "/chat")
         registry.setApplicationDestinationPrefixes("/app")
     }
 }
