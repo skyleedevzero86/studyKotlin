@@ -8,106 +8,70 @@ import java.time.LocalDateTime
 
 @Entity
 @EntityListeners(AuditingEntityListener::class)
-class AIChatRoom(
-
+data class AIChatRoom(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long? = null,
+    val id: Long? = null,
 
     @CreatedDate
+    @Column(updatable = false)
     var createDate: LocalDateTime? = null,
 
     @LastModifiedDate
     var modifyDate: LocalDateTime? = null,
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var summaryMessages: MutableList<AIChatRoomSummaryMessage> = mutableListOf(),
+    val summaryMessages: List<AIChatRoomSummaryMessage> = emptyList(),
 
     @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var messages: MutableList<AIChatRoomMessage> = mutableListOf(),
+    val messages: List<AIChatRoomMessage> = emptyList(),
 
-    var systemMessage: String? = null,
-    var systemStrategyMessage: String? = null
+    val systemMessage: String? = null,
+
+    val systemStrategyMessage: String? = null
 ) {
     companion object {
         const val PREVIEWS_MESSAGES_COUNT = 3
     }
 
-    fun addMessage(userMessage: String, botMessage: String): AIChatRoomMessage {
-        val message = AIChatRoomMessage(
-            chatRoom = this,
-            userMessage = userMessage,
-            botMessage = botMessage
-        )
-        messages.add(message)
-
-        addSummaryMessageIfNeeded()
-
-        return message
+    fun addMessage(userMessage: String, botMessage: String): AIChatRoom {
+        val newMessage = AIChatRoomMessage(chatRoom = this, userMessage = userMessage, botMessage = botMessage)
+        val updatedMessages = messages + newMessage
+        val updatedSummaryMessages = generateSummaryMessagesIfNeeded(updatedMessages)
+        return copy(messages = updatedMessages, summaryMessages = updatedSummaryMessages)
     }
 
-    private fun addSummaryMessageIfNeeded() {
-        if (messages.size <= PREVIEWS_MESSAGES_COUNT) return
-
+    private fun generateSummaryMessagesIfNeeded(updatedMessages: List<AIChatRoomMessage>): List<AIChatRoomSummaryMessage> {
+        if (updatedMessages.size <= PREVIEWS_MESSAGES_COUNT) return summaryMessages
         val lastSummaryMessageIndex = summaryMessages.lastOrNull()?.endMessageIndex ?: -1
         val lastSummaryMessageNo = lastSummaryMessageIndex + 1
-
-        if (messages.size - PREVIEWS_MESSAGES_COUNT > lastSummaryMessageNo) {
+        return if (updatedMessages.size - PREVIEWS_MESSAGES_COUNT > lastSummaryMessageNo) {
             val startMessageIndex = lastSummaryMessageIndex + 1
-            val endMessageIndex = minOf(startMessageIndex + PREVIEWS_MESSAGES_COUNT, messages.size)
-
-            val summaryMessage = generateSummaryMessage(startMessageIndex, endMessageIndex)
-            summaryMessages.add(summaryMessage)
-        }
+            val endMessageIndex = minOf(startMessageIndex + PREVIEWS_MESSAGES_COUNT, updatedMessages.size)
+            summaryMessages + generateSummaryMessage(startMessageIndex, endMessageIndex, updatedMessages)
+        } else summaryMessages
     }
 
-    private fun generateSummaryMessage(startMessageIndex: Int, endMessageIndex: Int): AIChatRoomSummaryMessage {
-        val messageBuilder = StringBuilder()
-
-        if (summaryMessages.isNotEmpty()) {
-            messageBuilder.append(summaryMessages.last().message)
-            messageBuilder.append("\n\n")
+    private fun generateSummaryMessage(startMessageIndex: Int, endMessageIndex: Int, messages: List<AIChatRoomMessage>): AIChatRoomSummaryMessage {
+        val messageBuilder = buildString {
+            if (summaryMessages.isNotEmpty()) {
+                append(summaryMessages.last().message)
+                append("\n\n")
+            }
+            append("== ${startMessageIndex}번 ~ ${endMessageIndex}번 내용 요약 ==\n")
+            for (i in startMessageIndex until endMessageIndex) {
+                val message = messages.getOrNull(i)
+                if (message != null) {
+                    append("Q: \${message.userMessage.orEmpty()}\n")
+                    append("A: \${message.botMessage.orEmpty()}\n\n")
+                }
+            }
         }
-
-        messageBuilder.append("== ${startMessageIndex}번 ~ ${endMessageIndex}번 내용 요약 ==\n")
-
-        for (i in startMessageIndex until endMessageIndex) {
-            val message = messages[i]
-            messageBuilder.append("Q: ${message.userMessage}\n")
-            messageBuilder.append("A: ${message.botMessage}\n\n")
-        }
-
         return AIChatRoomSummaryMessage(
             chatRoom = this,
-            message = messageBuilder.toString(),
+            message = messageBuilder,
             startMessageIndex = startMessageIndex,
             endMessageIndex = endMessageIndex
         )
-    }
-
-    fun needToMakeSummaryMessageOnNextMessageAdded(): Boolean {
-        return messages.size > PREVIEWS_MESSAGES_COUNT
-    }
-
-    fun genNewSummarySourceMessage(userMessage: String, botMessage: String): String {
-        return "Q: $userMessage\nA: $botMessage"
-    }
-
-    fun addSummaryMessage(userMessage: String, botMessage: String) {
-        val summaryMessage = AIChatRoomSummaryMessage(
-            chatRoom = this,
-            message = botMessage,
-            startMessageIndex = messages.size - PREVIEWS_MESSAGES_COUNT,
-            endMessageIndex = messages.size - 1
-        )
-        summaryMessages.add(summaryMessage)
-    }
-
-    fun getStartMessageIndex(): Int {
-        return summaryMessages.firstOrNull()?.startMessageIndex ?: 0
-    }
-
-    fun getEndMessageIndex(): Int {
-        return summaryMessages.firstOrNull()?.endMessageIndex ?: 0
     }
 }

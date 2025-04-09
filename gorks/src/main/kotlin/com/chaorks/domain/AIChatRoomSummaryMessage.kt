@@ -9,12 +9,12 @@ import java.time.LocalDateTime
 @Entity
 @EntityListeners(AuditingEntityListener::class)
 class AIChatRoomSummaryMessage(
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
     @CreatedDate
+    @Column(updatable = false)
     var createDate: LocalDateTime? = null,
 
     @LastModifiedDate
@@ -31,8 +31,6 @@ class AIChatRoomSummaryMessage(
 
     var endMessageIndex: Int
 ) {
-
     fun getMessageNo() = startMessageIndex + 1
-
     fun getEndMessageNo() = endMessageIndex + 1
 }

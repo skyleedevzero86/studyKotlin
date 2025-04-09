@@ -30,7 +30,7 @@ class AiChatRoomService(
                 당신은 한국인과 대화하고 있습니다.
                 한국의 문화와 정서를 이해하고 있어야 합니다.
                 최대한 한국어만 사용해야합니다.
-                
+
                 아래 내용의 핵심을 요약해줘
             """.trimIndent()
         )
@@ -38,31 +38,31 @@ class AiChatRoomService(
     }
 
     @Transactional
-    fun addMessage(chatRoomId: Long, userMessage: String, botMessage: String) {
+    fun addMessage(chatRoomId: Long, userMessage: String, botMessage: String): AIChatRoom {
         val chatRoom = aiChatRoomRepository.findById(chatRoomId).orElseThrow {
             IllegalArgumentException("채팅방을 찾을 수 없습니다.")
         }
+        val updatedChatRoom = chatRoom.addMessage(userMessage, botMessage)
+        return saveWithSummary(updatedChatRoom, userMessage, botMessage)
+    }
 
-        val message = chatRoom.addMessage(userMessage, botMessage)
-
-        if (chatRoom.needToMakeSummaryMessageOnNextMessageAdded()) {
-            val newSummarySourceMessage = chatRoom.genNewSummarySourceMessage(userMessage, botMessage)
-            val forSummaryUserMessage = """
-                ${chatRoom.systemStrategyMessage}
-                
-                $newSummarySourceMessage
-            """.trimIndent()
-
+    private fun saveWithSummary(chatRoom: AIChatRoom, userMessage: String, botMessage: String): AIChatRoom {
+        val needsSummary = chatRoom.messages.size > AIChatRoom.PREVIEWS_MESSAGES_COUNT
+        val savedChatRoom = aiChatRoomRepository.save(chatRoom)
+        return if (needsSummary) {
             val summaryMessage = AIChatRoomSummaryMessage(
-                chatRoom = chatRoom,
-                message = forSummaryUserMessage,
-                startMessageIndex = chatRoom.getStartMessageIndex(),
-                endMessageIndex = chatRoom.getEndMessageIndex()
+                chatRoom = savedChatRoom,
+                message = """
+                    ${savedChatRoom.systemStrategyMessage}
+
+                    Q: $userMessage
+                    A: $botMessage
+                """.trimIndent(),
+                startMessageIndex = savedChatRoom.messages.size - AIChatRoom.PREVIEWS_MESSAGES_COUNT,
+                endMessageIndex = savedChatRoom.messages.size - 1
             )
-
             aiChatRoomSummaryMessageRepository.save(summaryMessage)
-        }
-
-        aiChatRoomRepository.save(chatRoom)
+            savedChatRoom.copy(summaryMessages = savedChatRoom.summaryMessages + summaryMessage)
+        } else savedChatRoom
     }
 }

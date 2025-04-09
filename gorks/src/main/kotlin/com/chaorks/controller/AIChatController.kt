@@ -1,5 +1,6 @@
 package com.chaorks.controller
 
+import com.chaorks.domain.AIChatRoom
 import com.chaorks.domain.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
 import com.chaorks.dto.AIChatRoomMessageDto
 import com.chaorks.service.AiChatRoomService
@@ -13,9 +14,6 @@ import org.springframework.http.codec.ServerSentEvent
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
-import java.util.*
-import java.util.stream.Collectors
-import org.springframework.ai.chat.messages.Message
 import org.springframework.transaction.annotation.Transactional
 
 @Controller
@@ -38,94 +36,66 @@ class AIChatController(
         @PathVariable chatRoomId: Long,
         @RequestParam(value = "message", defaultValue = "Tell me a joke") message: String
     ): Flux<ServerSentEvent<String>> {
-
         val aiChatRoom = aiChatRoomService.findById(chatRoomId)
             ?: throw IllegalArgumentException("채팅방이 존재하지 않습니다.")
 
-        if (message == "지난 대화 요약") {
-            val summaryResponse = if (aiChatRoom.summaryMessages.isNotEmpty()) {
-                aiChatRoom.summaryMessages.last().message
-            } else {
-                "아직 요약된 대화가 없습니다."
-            }
-
-            aiChatRoomService.addMessage(chatRoomId, message, summaryResponse)
-
-            return Flux.just(
-                ServerSentEvent.builder<String>()
-                    .data(summaryResponse)
-                    .build()
-            )
-        } else if (message == "나가기" || message == "EXIT") {
-            val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
-
-            aiChatRoomService.addMessage(chatRoomId, message, exitResponse)
-
-            val disableScript = "<script>document.getElementById('messageInput').disabled = true; document.querySelector('button[type=\"submit\"]').disabled = true;</script>"
-
-            return Flux.just(
-                ServerSentEvent.builder<String>()
-                    .data(exitResponse + disableScript)
-                    .build()
-            )
-        } else if (message == "가위바위보") {
-            val gameResponse = "묵찌빠를 실행하겠습니다."
-
-            aiChatRoomService.addMessage(chatRoomId, message, gameResponse)
-
-            return Flux.just(
-                ServerSentEvent.builder<String>()
-                    .data(gameResponse)
-                    .build()
-            )
+        return when (message) {
+            "지난 대화 요약" -> handleSummary(aiChatRoom, chatRoomId)
+            "나가기", "EXIT" -> handleExit(aiChatRoom, chatRoomId)
+            "가위바위보" -> handleRockPaperScissors(aiChatRoom, chatRoomId)
+            else -> handleRegularMessage(aiChatRoom, chatRoomId, message)
         }
+    }
 
-        // 이전 대화에서 영어 제거
-        val previousMessages: List<Message> = aiChatRoom.messages.stream()
-            .limit(PREVIEWS_MESSAGES_COUNT.toLong())
+    private fun handleSummary(aiChatRoom: AIChatRoom, chatRoomId: Long): Flux<ServerSentEvent<String>> {
+        val summaryResponse = aiChatRoom.summaryMessages.lastOrNull()?.message ?: "아직 요약된 대화가 없습니다."
+        aiChatRoomService.addMessage(chatRoomId, "지난 대화 요약", summaryResponse)
+        return Flux.just(ServerSentEvent.builder<String>().data(summaryResponse).build())
+    }
+
+    private fun handleExit(aiChatRoom: AIChatRoom, chatRoomId: Long): Flux<ServerSentEvent<String>> {
+        val exitResponse = "대화를 종료합니다. 감사합니다. 즐거운 하루되세요!"
+        val disableScript = "<script>document.getElementById('messageInput').disabled = true; document.querySelector('button[type=\"submit\"]').disabled = true;</script>"
+        aiChatRoomService.addMessage(chatRoomId, "나가기", exitResponse)
+        return Flux.just(ServerSentEvent.builder<String>().data(exitResponse + disableScript).build())
+    }
+
+    private fun handleRockPaperScissors(aiChatRoom: AIChatRoom, chatRoomId: Long): Flux<ServerSentEvent<String>> {
+        val gameResponse = "묵찌빠를 실행하겠습니다."
+        aiChatRoomService.addMessage(chatRoomId, "가위바위보", gameResponse)
+        return Flux.just(ServerSentEvent.builder<String>().data(gameResponse).build())
+    }
+
+    private fun handleRegularMessage(aiChatRoom: AIChatRoom, chatRoomId: Long, message: String): Flux<ServerSentEvent<String>> {
+        val previousMessages = aiChatRoom.messages.takeLast(PREVIEWS_MESSAGES_COUNT)
             .flatMap { msg ->
-                val userMsg = (msg.userMessage ?: "").replace(Regex("[a-zA-Z]"), "")
-                val botMsg = (msg.botMessage ?: "").replace(Regex("[a-zA-Z]"), "")
-
                 listOf(
-                    UserMessage(userMsg),
-                    AssistantMessage(botMsg)
-                ).stream()
-            }
-            .collect(Collectors.toList())
-
-        val messages: MutableList<Message> = ArrayList<Message>()
-        messages.add(SystemMessage("당신은 한국인과 대화하고 있습니다.\n" +
-                "한국의 문화와 정서를 이해하고 있어야 합니다.\n" +
-                "최대한 한국어/영어만 사용해줘요.\n" +
-                "한자사용 자제해줘.\n" +
-                "영어보다 한국어를 우선적으로 사용해줘요."))
-
-        if (aiChatRoom.summaryMessages.isNotEmpty()) {
-            messages.add(
-                SystemMessage(
-                    "지난 대화 요약\n\n${aiChatRoom.summaryMessages.last().message}"
+                    UserMessage(msg.userMessage?.replace(Regex("[a-zA-Z]"), "") ?: ""),
+                    AssistantMessage(msg.botMessage?.replace(Regex("[a-zA-Z]"), "") ?: "")
                 )
-            )
-        }
+            }
 
-        messages.addAll(previousMessages)
-        messages.add(UserMessage(message))
+        val messages = listOf(
+            SystemMessage("""
+            당신은 한국인과 대화하고 있습니다.
+            한국의 문화와 정서를 이해하고 있어야 합니다.
+            최대한 한국어/영어만 사용해줘요.
+            한자사용 자제해줘.
+            영어보다 한국어를 우선적으로 사용해줘요.
+        """.trimIndent())
+        ) + aiChatRoom.summaryMessages.lastOrNull()?.let { SystemMessage("지난 대화 요약\n\n${it.message}") }.let { listOfNotNull(it) } +
+                previousMessages + UserMessage(message)
 
         val prompt = Prompt(messages)
-        val fullResponse = StringBuilder()
-
         return chatClient.stream(prompt)
-            .map { chunk ->
-                val text = chunk.result?.output?.text.orEmpty()
-                fullResponse.append(text)
-                ServerSentEvent.builder<String>()
-                    .data(text)
-                    .build()
-            }
+            .mapNotNull { it.result?.output?.text }
+            .map { chunk -> ServerSentEvent.builder<String>().data(chunk).build() }
             .doOnComplete {
-                aiChatRoomService.addMessage(chatRoomId, message, fullResponse.toString())
+                val fullMessage = aiChatRoom.messages.takeLast(PREVIEWS_MESSAGES_COUNT)
+                    .joinToString("") { it.userMessage.orEmpty() + it.botMessage.orEmpty() } + message
+                aiChatRoomService.addMessage(chatRoomId, message, fullMessage)
             }
+
     }
 
     @GetMapping

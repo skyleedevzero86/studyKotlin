@@ -51,6 +51,17 @@ dependencies {
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+    testImplementation("io.mockk:mockk:1.13.5")
+    // Kotest Assertions (shouldBe와 같은 매처 사용)
+    testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+    // JUnit 5와 함께 사용하기 위한 Kotest Runner (선택 사항)
+    testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
+
+
 }
 
 dependencyManagement {
