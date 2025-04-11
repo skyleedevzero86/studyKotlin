@@ -9,6 +9,7 @@ import java.time.LocalDateTime
 
 @MappedSuperclass
 abstract class GenFile : BaseTime() {
+
     open var fileNo: Int = 0
     open var originalFileName: String? = null
     open var metadata: String? = null
@@ -20,7 +21,7 @@ abstract class GenFile : BaseTime() {
     open var fileSize: Int = 0
 
     fun getFilePath(): String =
-        "${AppConfig.getGenFileDirPath()}/${getModelName()}/${getTypeCodeAsStr()}/$fileDateDir/$fileName"
+        "${AppConfig.genFileDirPath}/${getModelName()}/${getTypeCodeAsStr()}/$fileDateDir/$fileName"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -34,19 +35,20 @@ abstract class GenFile : BaseTime() {
     override fun hashCode(): Int =
         Objects.hash(super.hashCode(), getTypeCodeAsStr(), fileNo)
 
-    private fun getOwnerModelName(): String = getModelName().replace("GenFile", "")
+    private fun getOwnerModelName(): String = getGenFileModelName().replace("GenFile", "")
 
     fun getDownloadUrl(): String =
-        "${AppConfig.getSiteBackUrl()}/${getOwnerModelName()}/genFile/download/${getOwnerModelId()}/$fileName"
+        "${AppConfig.siteBackUrl}/${getOwnerModelName()}/genFile/download/${getOwnerModelId()}/$fileName"
 
     fun getPublicUrl(): String =
-        "${AppConfig.getSiteBackUrl()}/gen/${getModelName()}/${getTypeCodeAsStr()}/$fileDateDir/$fileName?modifyDate=" +
-                "${UtClass.date.patternOf(getModifyDate() ?: LocalDateTime.now(), "yyyy-MM-dd--HH-mm-ss")}&$metadata"
+        "${AppConfig.siteBackUrl}/gen/${getGenFileModelName()}/${getTypeCodeAsStr()}/$fileDateDir/$fileName?modifyDate=" +
+                "${UtClass.date.patternOf(modifyDate ?: LocalDateTime.now(), "yyyy-MM-dd--HH-mm-ss")}&$metadata"
 
     protected abstract fun getOwnerModelId(): Long
     protected abstract fun getTypeCodeAsStr(): String
+    protected abstract fun fetchId(): Long?
 
-    override fun getModifyDate(): LocalDateTime? = super.getModifyDate()
+    protected abstract fun getGenFileModelName(): String
 
-    protected abstract fun getId(): Long?
+    override fun getModelName(): String = getGenFileModelName()
 }

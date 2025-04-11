@@ -20,12 +20,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.TimeUnit
-import javax.crypto.SecretKey
 import javax.imageio.ImageIO
-import javax.imageio.stream.ImageInputStream
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
-import kotlin.io.path.getFileName
 
 object UtClass {
     object str {
@@ -37,7 +34,7 @@ object UtClass {
     }
 
     object json {
-        private val om: ObjectMapper = AppConfig.getObjectMapper()
+        private val om: ObjectMapper = AppConfig.objectMapper
 
         fun toString(obj: Any): String = om.writeValueAsString(obj)
     }
@@ -161,7 +158,7 @@ object UtClass {
         }
 
         fun getExtensionByTika(filePath: String): String {
-            val mimeType = AppConfig.getTika().detect(filePath)
+            val mimeType = AppConfig.tika.detect(filePath)
             return MIME_TYPE_MAP.getOrDefault(mimeType, "tmp")
         }
 

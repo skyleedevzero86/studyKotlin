@@ -4,21 +4,21 @@ import com.kposti.domain.post.genfile.entity.PostGenFile
 import java.time.LocalDateTime
 
 data class PostGenFileDto(
-    val id: Long,
-    val createDate: LocalDateTime,
-    val modifyDate: LocalDateTime,
-    val postId: Long,
-    val fileName: String,
+    val id: Long?,
+    val createDate: LocalDateTime?,
+    val modifyDate: LocalDateTime?,
+    val postId: Long?,
+    val fileName: String?,
     val typeCode: PostGenFile.TypeCode,
-    val fileExtTypeCode: String,
-    val fileExtType2Code: String,
+    val fileExtTypeCode: String?,
+    val fileExtType2Code: String?,
     val fileSize: Long,
     val fileNo: Long,
-    val fileExt: String,
-    val fileDateDir: String,
-    val originalFileName: String,
-    val downloadUrl: String,
-    val publicUrl: String
+    val fileExt: String?,
+    val fileDateDir: String?,
+    val originalFileName: String?,
+    val downloadUrl: String?,
+    val publicUrl: String?
 ) {
     constructor(postGenFile: PostGenFile) : this(
         id = postGenFile.id,
@@ -29,12 +29,13 @@ data class PostGenFileDto(
         typeCode = postGenFile.typeCode,
         fileExtTypeCode = postGenFile.fileExtTypeCode,
         fileExtType2Code = postGenFile.fileExtType2Code,
-        fileSize = postGenFile.fileSize,
-        fileNo = postGenFile.fileNo,
+        fileSize = postGenFile.fileSize.toLong(),
+        fileNo = postGenFile.fileNo.toLong(),
         fileExt = postGenFile.fileExt,
         fileDateDir = postGenFile.fileDateDir,
         originalFileName = postGenFile.originalFileName,
-        downloadUrl = postGenFile.downloadUrl,
-        publicUrl = postGenFile.publicUrl
+        downloadUrl = postGenFile.getDownloadUrl(),
+        publicUrl = postGenFile.getPublicUrl()
     )
+
 }

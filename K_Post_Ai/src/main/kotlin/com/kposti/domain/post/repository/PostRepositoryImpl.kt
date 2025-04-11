@@ -1,18 +1,18 @@
+package com.kposti.domain.post.repository
+
+
 import com.querydsl.jpa.impl.JPAQueryFactory
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.core.types.OrderSpecifier
 import com.querydsl.core.types.dsl.PathBuilder
-import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQuery
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.support.PageableExecutionUtils
-
-import com.kposti.domain.post.entity.QPost.post
 import com.kposti.domain.member.entity.Member
-import com.kposti.domain.post.enums.PostSearchKeywordTypeV1
-import com.kposti.domain.post.repository.PostRepositoryCustom
 import com.kposti.standard.search.PostSearchKeywordTypeV1
+import com.kposti.domain.post.entity.Post
+import com.kposti.domain.post.entity.QPost.post
 
 class PostRepositoryImpl(
     private val jpaQueryFactory: JPAQueryFactory
@@ -25,7 +25,7 @@ class PostRepositoryImpl(
         published: Boolean?,
         listed: Boolean?,
         pageable: Pageable
-    ): Page<com.kposti.domain.post.entity.Post> {
+    ): Page<Post> {
         val builder = BooleanBuilder().apply {
             author?.let { and(post.author.eq(it)) }
             published?.let { and(post.published.eq(it)) }
@@ -51,9 +51,9 @@ class PostRepositoryImpl(
         builder: BooleanBuilder
     ) {
         when (kwType) {
-            PostSearchKeywordTypeV1.TITLE -> builder.and(post.title.containsIgnoreCase(kw))
-            PostSearchKeywordTypeV1.CONTENT -> builder.and(post.content.containsIgnoreCase(kw))
-            PostSearchKeywordTypeV1.AUTHOR -> builder.and(post.author.nickname.containsIgnoreCase(kw))
+            PostSearchKeywordTypeV1.all -> builder.and(post.title.containsIgnoreCase(kw))
+            PostSearchKeywordTypeV1.content -> builder.and(post.content.containsIgnoreCase(kw))
+            PostSearchKeywordTypeV1.author -> builder.and(post.author.nickname.containsIgnoreCase(kw))
             else -> builder.and(
                 post.title.containsIgnoreCase(kw)
                     .or(post.content.containsIgnoreCase(kw))
@@ -62,16 +62,16 @@ class PostRepositoryImpl(
         }
     }
 
-    private fun createPostsQuery(builder: BooleanBuilder): JPAQuery<com.kposti.domain.post.entity.Post> =
+    private fun createPostsQuery(builder: BooleanBuilder): JPAQuery<Post> =
         jpaQueryFactory.selectFrom(post).where(builder)
 
-    private fun applySorting(pageable: Pageable, query: JPAQuery<com.kposti.domain.post.entity.Post>) {
+    private fun applySorting(pageable: Pageable, query: JPAQuery<Post>) {
         pageable.sort.forEach { order ->
-            val pathBuilder = PathBuilder(post.type, post.metadata)
+            val pathBuilder = PathBuilder(Post::class.java, "post")
             query.orderBy(
                 OrderSpecifier(
                     if (order.isAscending) com.querydsl.core.types.Order.ASC else com.querydsl.core.types.Order.DESC,
-                    pathBuilder.get(order.property)
+                    pathBuilder.getComparable(order.property, Comparable::class.java)
                 )
             )
         }

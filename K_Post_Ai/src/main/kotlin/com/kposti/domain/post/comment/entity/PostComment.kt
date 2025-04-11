@@ -1,7 +1,7 @@
 package com.kposti.domain.post.comment.entity
 
-import com.back.domain.post.post.entity.Post
 import com.kposti.domain.member.entity.Member
+import com.kposti.domain.post.entity.Post
 import com.kposti.global.exceptions.ServiceException
 import com.kposti.global.jpa.entity.BaseTime
 import jakarta.persistence.Column

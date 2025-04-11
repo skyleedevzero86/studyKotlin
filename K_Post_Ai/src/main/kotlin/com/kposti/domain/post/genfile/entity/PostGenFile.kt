@@ -1,7 +1,7 @@
 package com.kposti.domain.post.genfile.entity
 
-import com.back.domain.post.post.entity.Post
 import com.kposti.domain.base.genFile.entity.GenFile
+import com.kposti.domain.post.entity.Post
 import jakarta.persistence.*
 import lombok.Getter
 import lombok.NoArgsConstructor
@@ -23,7 +23,12 @@ class PostGenFile : GenFile() {
     @Enumerated(EnumType.STRING)
     lateinit var typeCode: TypeCode
 
-    override fun getOwnerModelId(): Long = post.id
+    // GenFile 추상 클래스의 추상 메서드 구현
+    override fun fetchId(): Long? = super.id
+
+    override fun getOwnerModelId(): Long = post.id ?: throw IllegalStateException("Post ID cannot be null")
 
     override fun getTypeCodeAsStr(): String = typeCode.name
+
+    override fun getGenFileModelName(): String = "PostGenFile"
 }

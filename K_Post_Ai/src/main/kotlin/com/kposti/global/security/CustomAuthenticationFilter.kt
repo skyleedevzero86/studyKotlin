@@ -1,5 +1,6 @@
 package com.kposti.global.security
 
+import com.kposti.domain.member.entity.Member
 import com.kposti.domain.member.service.MemberService
 import com.kposti.global.https.ReqData
 import jakarta.servlet.FilterChain
@@ -8,9 +9,8 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
-
 @Component
-class CustomAuthenticationFilter<Member>(
+class CustomAuthenticationFilter(
     private val memberService: MemberService,
     private val rq: ReqData
 ) : OncePerRequestFilter() {
@@ -35,7 +35,7 @@ class CustomAuthenticationFilter<Member>(
 
     private fun refreshAccessTokenByApiKey(apiKey: String): Member? =
         memberService.findByApiKey(apiKey)
-            .orElseGet(null)
+            .orElse(null)
             ?.also { refreshAccessToken(it) }
 
     override fun doFilterInternal(

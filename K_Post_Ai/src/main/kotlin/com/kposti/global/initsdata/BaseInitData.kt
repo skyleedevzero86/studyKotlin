@@ -30,7 +30,7 @@ class BaseInitData(
         if (memberService.count() > 0) return
 
         if (AppConfig.isTest()) {
-            UtClass.file.rm(AppConfig.getGenFileDirPath())
+            UtClass.file.rm(AppConfig.genFileDirPath)
         }
 
         listOf(
@@ -44,18 +44,19 @@ class BaseInitData(
             "user6" to "유저6"
         ).forEach { (username, nickname) ->
             memberService.join(username, "1234", nickname, "").apply {
-                if (AppConfig.isNotProd()) apiKey = username
+                if (AppConfig.isNotProd()) this.apiKey = username
             }
         }
 
+
         customConfigProperties.notProdMembers.forEach { notProdMember ->
             memberService.join(
-                notProdMember.username(),
+                notProdMember.username,
                 "",
-                notProdMember.nickname(),
-                notProdMember.profileImgUrl()
+                notProdMember.nickname,
+                notProdMember.profileImgUrl
             ).apply {
-                if (AppConfig.isNotProd()) apiKey = notProdMember.apiKey()
+                if (AppConfig.isNotProd()) this.apiKey = notProdMember.apiKey()
             }
         }
     }

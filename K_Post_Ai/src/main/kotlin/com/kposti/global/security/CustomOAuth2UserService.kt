@@ -23,16 +23,17 @@ class CustomOAuth2UserService(
         val properties = attributes["properties"] as? Map<*, *> ?: emptyMap<Any, Any>()
         val nickname = properties["nickname"] as? String ?: ""
         val profileImgUrl = properties["profile_image"] as? String ?: ""
-        val username = "$provider__$oauthId"
+        val username = "${provider}__${oauthId}"
 
         val member = memberService.modifyOrJoin(username, nickname, profileImgUrl)
 
         return SecurityUser(
-            member.id,
+            member.id ?: throw IllegalStateException("회원 ID가 null입니다."),
             member.username,
             "",
             member.nickname,
-            member.authorities
+            member.getAuthorities()
         )
     }
+
 }

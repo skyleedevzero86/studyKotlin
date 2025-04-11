@@ -10,6 +10,7 @@ import org.springframework.core.io.ClassPathResource
 
 @Configuration
 class AppConfig {
+
     companion object {
         private lateinit var environment: Environment
 
@@ -52,8 +53,6 @@ class AppConfig {
             }
         }
 
-        fun getGenFileDirPath(): String = genFileDirPath
-        fun getSiteBackUrl(): String = siteBackUrl
     }
 
     @Autowired

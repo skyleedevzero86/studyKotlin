@@ -1,7 +1,7 @@
 package com.kposti.domain.post.service
 
-import com.back.domain.post.post.entity.Post
 import com.kposti.domain.member.entity.Member
+import com.kposti.domain.post.entity.Post
 import com.kposti.domain.post.repository.PostRepository
 import com.kposti.global.https.RespData
 import com.kposti.standard.search.PostSearchKeywordTypeV1
@@ -21,14 +21,13 @@ class PostService(private val postRepository: PostRepository) {
     fun countByListed(listed: Boolean): Long = postRepository.countByListed(listed)
 
     fun write(author: Member, title: String, content: String, published: Boolean, listed: Boolean): Post =
-        Post.builder()
-            .author(author)
-            .title(title)
-            .content(content)
-            .published(published)
-            .listed(listed)
-            .build()
-            .let(postRepository::save)
+        Post().apply {
+            this.author = author
+            this.title = title
+            this.content = content
+            this.published = published
+            this.listed = listed
+        }.let(postRepository::save)
 
     fun findAllByOrderByIdDesc(): List<Post> = postRepository.findAllByOrderByIdDesc()
 
@@ -39,10 +38,10 @@ class PostService(private val postRepository: PostRepository) {
     fun modify(post: Post, title: String, content: String, published: Boolean, listed: Boolean) {
         val wasTemp = post.isTemp()
 
-        post.setTitle(title)
-        post.setContent(content)
-        post.setPublished(published)
-        post.setListed(listed)
+        post.title = title
+        post.content = content
+        post.published = published
+        post.listed = listed
 
         if (wasTemp && !post.isTemp()) post.setCreateDateNow()
     }

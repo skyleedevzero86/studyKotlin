@@ -24,7 +24,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException::class)
     fun handle(ex: MaxUploadSizeExceededException): ResponseEntity<RespData<Empty>> =
-        handleException(ex, HttpStatus.BAD_REQUEST, "413-1", "업로드되는 파일의 용량은 ${AppConfig.getSpringServletMultipartMaxFileSize()}(을)를 초과할 수 없습니다.")
+        handleException(ex, HttpStatus.BAD_REQUEST, "413-1","업로드되는 파일의 용량은 ${AppConfig.springServletMultipartMaxFileSize}(을)를 초과할 수 없습니다.")
 
     @ExceptionHandler(NoSuchElementException::class)
     fun handle(ex: NoSuchElementException): ResponseEntity<RespData<Empty>> =

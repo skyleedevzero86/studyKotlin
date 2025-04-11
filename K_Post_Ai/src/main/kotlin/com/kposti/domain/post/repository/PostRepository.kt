@@ -1,7 +1,7 @@
 package com.kposti.domain.post.repository
 
-import com.back.domain.post.post.entity.Post
 import com.kposti.domain.member.entity.Member
+import com.kposti.domain.post.entity.Post
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.*
 

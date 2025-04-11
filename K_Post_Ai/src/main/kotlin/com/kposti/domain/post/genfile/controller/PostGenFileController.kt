@@ -14,8 +14,8 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
+import java.io.File
 import java.io.FileInputStream
-import java.io.FileNotFoundException
 
 @Controller
 @RequestMapping("/post/genFile")
@@ -33,13 +33,17 @@ class PostGenFileController(
         val post = postService.findById(postId).get()
         val genFile = post.genFiles.first { it.fileName == fileName }
 
-        val filePath = genFile.filePath
-        val resource: Resource = InputStreamResource(FileInputStream(filePath))
+        val filePath = "${genFile.fileDateDir}/${genFile.fileName}" // 예시 코드
+
+        val file = File(filePath)
+        val resource: Resource = InputStreamResource(FileInputStream(file))
 
         var contentType = request.servletContext.getMimeType(filePath)
         if (contentType == null) contentType = "application/octet-stream"
 
-        val downloadFileName = UtClass.url.encode(genFile.originalFileName).replace("%20", " ")
+        // null 체크 추가
+        val originalFileName = genFile.originalFileName ?: fileName
+        val downloadFileName = UtClass.url.encode(originalFileName).replace("%20", " ")
 
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$downloadFileName\"")

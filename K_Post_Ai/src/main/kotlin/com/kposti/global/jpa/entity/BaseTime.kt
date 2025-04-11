@@ -12,19 +12,16 @@ import java.time.LocalDateTime
 abstract class BaseTime : BaseEntity() {
 
     @CreatedDate
-    private var createDate: LocalDateTime? = null
+    var createDate: LocalDateTime? = null
+        protected set
 
     @LastModifiedDate
-    private var modifyDate: LocalDateTime? = null
+    var modifyDate: LocalDateTime? = null
+        protected set
 
-    fun getCreateDate(): LocalDateTime? = createDate
-    open fun getModifyDate(): LocalDateTime? = modifyDate
-
-    fun setCreateDateNow() {
-        LocalDateTime.now().apply {
-            createDate = this
-            modifyDate = this
-        }
+    open fun setCreateDateNow() {
+        val now = LocalDateTime.now()
+        this.createDate = now
+        this.modifyDate = now
     }
-
 }

@@ -1,7 +1,7 @@
 package com.kposti.domain.post.repository
 
-import com.back.domain.post.post.entity.Post
 import com.kposti.domain.member.entity.Member
+import com.kposti.domain.post.entity.Post
 import com.kposti.standard.search.PostSearchKeywordTypeV1
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

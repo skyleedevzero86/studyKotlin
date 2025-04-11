@@ -19,10 +19,14 @@ class CustomOAuth2AuthenticationSuccessHandler(
         response: HttpServletResponse,
         authentication: Authentication
     ) {
-        val actor = memberService.findById(rq.getActor().id).get()
+        val actorId = rq.getActor().id ?: throw IllegalArgumentException("Actor ID가 null입니다.")
+        val actor = memberService.findById(actorId)
+            .orElseThrow { IllegalStateException("해당 ID의 사용자가 존재하지 않습니다: $actorId") }
+
         rq.makeAuthCookies(actor)
 
         val redirectUrl = request.getParameter("state")
         response.sendRedirect(redirectUrl)
     }
+
 }

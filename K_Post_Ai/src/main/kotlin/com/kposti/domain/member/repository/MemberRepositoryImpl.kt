@@ -8,7 +8,6 @@ import com.querydsl.core.types.OrderSpecifier
 import com.querydsl.core.types.dsl.PathBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
 import org.springframework.data.support.PageableExecutionUtils
 import org.springframework.stereotype.Repository
@@ -37,11 +36,11 @@ class MemberRepositoryImpl(
             .where(builder)
 
         pageable.sort.forEach { order ->
-            val pathBuilder = PathBuilder(member.type, member.metadata)
+            val pathBuilder = PathBuilder(Member::class.java, "member")
             membersQuery.orderBy(
                 OrderSpecifier(
                     if (order.isAscending) Order.ASC else Order.DESC,
-                    pathBuilder.get(order.property)
+                    pathBuilder.getComparable(order.property, Comparable::class.java)
                 )
             )
         }

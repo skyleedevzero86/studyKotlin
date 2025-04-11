@@ -37,6 +37,16 @@ data class Member(
         this.id = id
     }
 
+    constructor(
+        id: Long,
+        username: String,
+        nickname: String,
+        apiKey: String,
+        authorities: Collection<GrantedAuthority>
+    ) : this(username = username, nickname = nickname, apiKey = apiKey) {
+        this.id = id
+    }
+
     fun getAuthorities(): Collection<GrantedAuthority> =
         getAuthoritiesAsStringList().map { SimpleGrantedAuthority(it) }
 

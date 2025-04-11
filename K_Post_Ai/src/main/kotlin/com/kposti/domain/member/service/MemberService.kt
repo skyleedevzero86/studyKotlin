@@ -6,7 +6,6 @@ import com.kposti.global.exceptions.ServiceException
 import com.kposti.standard.search.MemberSearchKeywordTypeV1
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import java.util.*
