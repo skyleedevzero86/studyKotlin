@@ -28,10 +28,10 @@ class AuthController(
         return ResponseEntity.ok(authService.signIn(request))
     }
 
-    @Operation(summary = "test")
+/*    @Operation(summary = "test")
     @SecurityRequirement(name = "JWT")
     @GetMapping("/test")
     fun test(@AuthMember id: Long): String {
         return "hi $id"
-    }
+    }*/
 }

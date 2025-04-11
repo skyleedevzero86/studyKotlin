@@ -57,7 +57,6 @@ class JwtTokenProvider(
                 .body.id.toLong()
         } catch (exception: JwtException) {
             throw handleTokenException(exception)
-        } catch (exception: IllegalArgumentException) {
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException("토큰의 값이 유효하지 않습니다.")
         }

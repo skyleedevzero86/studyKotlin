@@ -1,6 +1,6 @@
 package com.karchitecture.global.config.auth
 
-
+import com.karchitecture.global.config.auth.support.HttpMethod.*
 import com.karchitecture.global.annotation.ParseMemberIdFromTokenInterceptor
 import com.karchitecture.global.config.auth.interceptor.LoginValidCheckerInterceptor
 import com.karchitecture.global.config.auth.interceptor.PathMatcherInterceptor
