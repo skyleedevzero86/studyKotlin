@@ -4,6 +4,7 @@ applicaiton-test.yml
 applicaiton-selecret.yml.default
 applicaiton-prod.yml
 applicaiton-dev.yml
+db_dev.mv.db
 HELP.md
 .gradle
 build/
