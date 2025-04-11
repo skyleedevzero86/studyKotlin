@@ -1,12 +1,11 @@
 package com.karchitecture.auth.ui
 
-import com.karchitecture.auth.ui.response.*
 import com.karchitecture.auth.application.request.*
 import com.karchitecture.auth.application.*
+import com.karchitecture.auth.ui.response.*
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 
 @RequestMapping("/api/auth")
 @RestController
@@ -16,9 +15,11 @@ class AuthController(
 
     @PostMapping("/sign-up")
     override fun signUp(request: SignUpRequest): ResponseEntity<AuthResponse> {
-        return ResponseEntity.ok(authService.signUp(request))
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(authService.signUp(request))
     }
 
+    @GetMapping("/sign-in")
     override fun signIn(request: SignInRequest): ResponseEntity<AuthResponse> {
         return ResponseEntity.ok(authService.signIn(request))
     }
