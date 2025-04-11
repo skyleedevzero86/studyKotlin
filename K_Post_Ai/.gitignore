@@ -1,9 +1,10 @@
 build.gradle.kts
 application.yml
-applicaiton-test.yml
-applicaiton-selecret.yml.default
-applicaiton-prod.yml
-applicaiton-dev.yml
+application-test.yml
+application-secret.yml.default
+application-prod.yml
+application-dev.yml
+application-secret.yml
 db_dev.mv.db
 HELP.md
 .gradle
