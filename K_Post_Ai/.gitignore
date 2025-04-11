@@ -1,6 +1,9 @@
 build.gradle.kts
 application.yml
-applicaiton-*.yml
+applicaiton-test.yml
+applicaiton-selecret.yml.default
+applicaiton-prod.yml
+applicaiton-dev.yml
 HELP.md
 .gradle
 build/
