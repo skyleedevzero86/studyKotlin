@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class SwaggerConfig(
     @Value("\${swagger.url}")
-    private val swaggerUrl: String
+    private val swaggerUrl: String,
 ) {
 
     @Bean
@@ -22,7 +22,7 @@ class SwaggerConfig(
         val components = makeComponents(BEARER_FORMAT)
 
         val server = Server()
-        server.setUrl(swaggerUrl)
+        server.url = swaggerUrl
 
         return OpenAPI()
             .components(Components())

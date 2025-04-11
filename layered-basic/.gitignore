@@ -1,6 +1,7 @@
 build.gradle.kts
 application.yml
 application-*.yml
+db.mv.db
 HELP.md
 .gradle
 build/
