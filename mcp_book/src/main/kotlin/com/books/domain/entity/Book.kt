@@ -26,8 +26,9 @@ data class Book(
     @Column(nullable = false)
     val publicationDate: LocalDate,
 
-    @field:NotBlank(message = "ISBN은 비어 있을 수 없습니다.")
-    @Column(nullable = true, unique = true)  // nullable을 true로 설정
-    val isbn: String?
+    @field:NotNull(message = "ISBN은 필수입니다.")
+    @field:Pattern(regexp = "^(97[89])?\\d{9}(\\d|X)\$", message = "유효한 ISBN을 입력하세요.")
+    @Column(nullable = false, unique = true)
+    val isbn: String
 
-) : BaseEntity() {}
+) : BaseEntity()

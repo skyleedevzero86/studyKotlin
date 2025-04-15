@@ -5,6 +5,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.MappedSuperclass
 import lombok.Getter
+import lombok.Setter
 import lombok.ToString
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
@@ -14,9 +15,11 @@ import java.time.format.DateTimeFormatter
 
 @MappedSuperclass
 @Getter
+@Setter
 @EntityListeners(AuditingEntityListener::class)
 @ToString(callSuper = true)
 open class BaseEntity : IdEntity() {
+
     @Schema(hidden = true)
     @CreatedDate
     @Column(columnDefinition = "DATETIME(0)")
