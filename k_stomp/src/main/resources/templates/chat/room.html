@@ -1,5 +1,5 @@
-<!doctype html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!DOCTYPE html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>채팅방</title>
@@ -24,14 +24,14 @@
     const stompClient = Stomp.over(socket);
 
     stompClient.debug = function(str) {
-        console.log("test: ", str);
+        console.log("STOMP Debug: ", str);
     };
-
 
     function App() {
         const lastChatMessageId = useRef(0);
         const [chatRoom, setChatRoom] = useState();
         const [chatMessages, setChatMessages] = useState([]);
+        const [connected, setConnected] = useState(false);
 
         const loadMoreChatMessages = () => {
             fetch(`/api/v1/chat/rooms/${chatRoomId}/messages?afterChatMessageId=${lastChatMessageId.current}`)
@@ -42,29 +42,55 @@
                         lastChatMessageId.current = data[0].id;
                         setChatMessages(prev => [...data, ...prev]);
                     }
-                });
+                })
+                .catch(err => console.error("Failed to load messages:", err));
         };
 
         useEffect(() => {
+            // 채팅방 정보 불러오기
             fetch(`/api/v1/chat/rooms/${chatRoomId}`)
                 .then(res => res.json())
-                .then(setChatRoom);
+                .then(setChatRoom)
+                .catch(err => console.error("Failed to load chat room:", err));
 
+            // 초기 메시지 불러오기
             loadMoreChatMessages();
 
+            // 웹소켓 연결
             stompClient.connect({}, function (frame) {
-                console.log("Connected: " + frame);
+                console.log("Connected to WebSocket: " + frame);
+                setConnected(true);
 
+                // 이 채팅방의 RabbitMQ 토픽 구독
                 stompClient.subscribe(
                     `/topic/chat.rooms.${chatRoomId}.messages.created`,
-                    function (data) {
-                        console.log("Received message: ", data.body);
-                        setChatMessages(prev => {
-                            return [JSON.parse(data.body), ...prev];
-                        });
-                    }
+                    function (message) {
+                        console.log("Received message: ", message.body);
+                        try {
+                            const receivedMessage = JSON.parse(message.body);
+                            setChatMessages(prev => [receivedMessage, ...prev]);
+                        } catch (e) {
+                            console.error("Failed to parse message:", e);
+                        }
+                    },
+                    { id: `chat-subscription-${chatRoomId}` }
                 );
+            }, function(error) {
+                console.error("STOMP connection error:", error);
+                setConnected(false);
+                // 일정 시간 후 재연결 시도
+                setTimeout(() => {
+                    window.location.reload();
+                }, 5000);
             });
+
+            // 컴포넌트 언마운트 시 정리
+            return () => {
+                if (stompClient && stompClient.connected) {
+                    stompClient.disconnect();
+                    console.log("Disconnected from WebSocket");
+                }
+            };
         }, []);
 
         const onChatMessageFormSubmit = (e) => {
@@ -86,14 +112,24 @@
                 return;
             }
 
+            if (!connected) {
+                alert("서버와의 연결이 끊어졌습니다. 페이지를 새로고침해 주세요.");
+                return;
+            }
+
+            const messageData = { writerName, content };
+            console.log("Sending message:", messageData);
+
+            // 올바른 목적지로 메시지 전송
+            stompClient.send(
+                `/app/chat/rooms/${chatRoomId}/messages/create`,
+                {},
+                JSON.stringify(messageData)
+            );
+
+            // 폼 초기화
             form.content.value = "";
             form.content.focus();
-
-            stompClient.send(
-                `/chat/rooms/${chatRoomId}/messages/create`,
-                {},
-                JSON.stringify({writerName, content})
-            );
         };
 
         if (!chatRoom) return <div>로딩중...</div>;
@@ -102,6 +138,7 @@
             <div>
                 <h1>채팅방(No {chatRoom.id} : {chatRoom.name})</h1>
                 <div>개설날짜 : {dateForPrint(chatRoom.createDate)}</div>
+                <div>연결 상태: {connected ? '연결됨' : '연결 안됨'}</div>
                 <hr/>
                 <h2>채팅 메세지 작성</h2>
                 <form onSubmit={onChatMessageFormSubmit}>

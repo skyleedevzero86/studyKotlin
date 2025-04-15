@@ -16,14 +16,16 @@ class StompRabbitMqBrokerConfig : WebSocketMessageBrokerConfigurer {
     }
 
     override fun configureMessageBroker(registry: MessageBrokerRegistry) {
-        registry
-            .setApplicationDestinationPrefixes("/app")
-            .enableStompBrokerRelay("/exchange", "/queue", "/topic", "/amq/queue")
+        registry.setApplicationDestinationPrefixes("/app")
+
+        registry.enableStompBrokerRelay("/exchange", "/queue", "/topic", "/amq/queue")
             .setRelayHost("localhost")
-            .setRelayPort(61613)
+            .setRelayPort(61613)  // This is the STOMP port, not the AMQP port
             .setClientLogin("admin")
             .setClientPasscode("admin")
             .setSystemLogin("admin")
             .setSystemPasscode("admin")
+            .setSystemHeartbeatSendInterval(10000)
+            .setSystemHeartbeatReceiveInterval(10000)
     }
 }
