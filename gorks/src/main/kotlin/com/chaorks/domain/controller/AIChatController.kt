@@ -5,6 +5,7 @@ import com.chaorks.domain.entity.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
 import com.chaorks.domain.dto.AIChatRoomMessageDto
 import com.chaorks.domain.service.AiChatRoomService
 import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.Message
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.prompt.Prompt
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Lazy
 
 @Controller
 @RequestMapping("/ai/chat")
@@ -22,6 +25,9 @@ class AIChatController(
     private val chatClient: OpenAiChatModel,
     private val aiChatRoomService: AiChatRoomService
 ) {
+    @Autowired
+    @Lazy
+    private lateinit var self: AIChatController
 
     @GetMapping("/generate")
     @ResponseBody
@@ -67,7 +73,15 @@ class AIChatController(
     }
 
     private fun handleRegularMessage(aiChatRoom: AIChatRoom, chatRoomId: Long, message: String): Flux<ServerSentEvent<String>> {
-        val previousMessages = aiChatRoom.messages.takeLast(PREVIEWS_MESSAGES_COUNT)
+        // 이전 대화 내용 가져오기
+        val oldMessages = aiChatRoom.messages
+        val oldMessagesToIndex = oldMessages.size - 1
+
+        // 무조건 최소 N개의 이전 메시지를 가져오도록 수정
+        var oldMessagesFromIndex = maxOf(0, oldMessagesToIndex - PREVIEWS_MESSAGES_COUNT + 1)
+
+        val previousMessages = oldMessages
+            .subList(oldMessagesFromIndex, oldMessagesToIndex + 1)
             .flatMap { msg ->
                 listOf(
                     UserMessage(msg.userMessage?.replace(Regex("[a-zA-Z]"), "") ?: ""),
@@ -75,30 +89,48 @@ class AIChatController(
                 )
             }
 
-        val messages = listOf(
-            SystemMessage("""
+        // 모든 메시지 준비
+        val messages = mutableListOf<Message>()
+
+        // 시스템 메시지 추가
+        messages.add(SystemMessage("""
             당신은 한국인과 대화하고 있습니다.
             한국의 문화와 정서를 이해하고 있어야 합니다.
             최대한 한국어/영어만 사용해줘요.
             한자사용 자제해줘.
             영어보다 한국어를 우선적으로 사용해줘요.
-        """.trimIndent())
-        ) + aiChatRoom.summaryMessages.lastOrNull()?.let { SystemMessage("지난 대화 요약\n\n${it.message}") }.let { listOfNotNull(it) } +
-                previousMessages + UserMessage(message)
+        """.trimIndent()))
+
+        // 요약 메시지가 있으면 추가
+        aiChatRoom.summaryMessages.lastOrNull()?.let {
+            messages.add(SystemMessage("지난 대화 요약\n\n${it.message}"))
+        }
+
+        // 이전 대화 메시지 추가
+        messages.addAll(previousMessages)
+
+        // 현재 사용자 메시지 추가
+        messages.add(UserMessage(message))
 
         val prompt = Prompt(messages)
+        val responseBuilder = StringBuilder()
+
         val responseFlux = chatClient.stream(prompt)
             .mapNotNull { it.result?.output?.text }
             .map { chunk -> ServerSentEvent.builder<String>().data(chunk).build() }
-
-        val responseBuilder = StringBuilder()
-        return responseFlux
             .doOnNext { event ->
                 responseBuilder.append(event.data())
             }
             .doOnComplete {
-                aiChatRoomService.addMessage(chatRoomId, message, responseBuilder.toString())
+                self.addMessage(chatRoomId, message, responseBuilder.toString())
             }
+
+        return responseFlux
+    }
+
+    @Transactional
+    fun addMessage(chatRoomId: Long, userMessage: String, botMessage: String) {
+        aiChatRoomService.addMessage(chatRoomId, userMessage, botMessage)
     }
 
     @GetMapping
