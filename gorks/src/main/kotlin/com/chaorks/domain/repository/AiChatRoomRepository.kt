@@ -1,6 +1,6 @@
-package com.chaorks.repository
+package com.chaorks.domain.repository
 
-import com.chaorks.domain.AIChatRoom
+import com.chaorks.domain.entity.AIChatRoom
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface AiChatRoomRepository : JpaRepository<AIChatRoom, Long>

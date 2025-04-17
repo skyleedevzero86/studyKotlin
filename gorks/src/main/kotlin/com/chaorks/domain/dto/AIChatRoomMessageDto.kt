@@ -1,6 +1,6 @@
-package com.chaorks.dto
+package com.chaorks.domain.dto
 
-import com.chaorks.domain.AIChatRoomMessage
+import com.chaorks.domain.entity.AIChatRoomMessage
 
 data class AIChatRoomMessageDto(
     val id: Long,

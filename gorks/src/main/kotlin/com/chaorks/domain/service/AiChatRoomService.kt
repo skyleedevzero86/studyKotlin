@@ -1,9 +1,8 @@
-package com.chaorks.service
+package com.chaorks.domain.service
 
-import com.chaorks.domain.AIChatRoom
-import com.chaorks.domain.AIChatRoomSummaryMessage
-import com.chaorks.repository.AiChatRoomRepository
-import com.chaorks.repository.AIChatRoomSummaryMessageRepository
+import com.chaorks.domain.entity.AIChatRoom
+import com.chaorks.domain.repository.AiChatRoomRepository
+import com.chaorks.domain.repository.AIChatRoomSummaryMessageRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

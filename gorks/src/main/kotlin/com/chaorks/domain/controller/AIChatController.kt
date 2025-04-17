@@ -1,9 +1,9 @@
-package com.chaorks.controller
+package com.chaorks.domain.controller
 
-import com.chaorks.domain.AIChatRoom
-import com.chaorks.domain.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
-import com.chaorks.dto.AIChatRoomMessageDto
-import com.chaorks.service.AiChatRoomService
+import com.chaorks.domain.entity.AIChatRoom
+import com.chaorks.domain.entity.AIChatRoom.Companion.PREVIEWS_MESSAGES_COUNT
+import com.chaorks.domain.dto.AIChatRoomMessageDto
+import com.chaorks.domain.service.AiChatRoomService
 import org.springframework.ai.chat.messages.AssistantMessage
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
