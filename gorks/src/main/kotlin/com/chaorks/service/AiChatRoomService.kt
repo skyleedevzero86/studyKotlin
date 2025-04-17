@@ -4,8 +4,8 @@ import com.chaorks.domain.AIChatRoom
 import com.chaorks.domain.AIChatRoomSummaryMessage
 import com.chaorks.repository.AiChatRoomRepository
 import com.chaorks.repository.AIChatRoomSummaryMessageRepository
-import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AiChatRoomService(
@@ -13,12 +13,14 @@ class AiChatRoomService(
     private val aiChatRoomSummaryMessageRepository: AIChatRoomSummaryMessageRepository
 ) {
 
+    @Transactional(readOnly = true)
     fun findById(id: Long): AIChatRoom {
         return aiChatRoomRepository.findById(id).orElseThrow {
             IllegalArgumentException("채팅방을 찾을 수 없습니다.")
         }
     }
 
+    @Transactional
     fun makeNewRoom(): AIChatRoom {
         val aiChatRoom = AIChatRoom(
             systemMessage = """
@@ -42,27 +44,7 @@ class AiChatRoomService(
         val chatRoom = aiChatRoomRepository.findById(chatRoomId).orElseThrow {
             IllegalArgumentException("채팅방을 찾을 수 없습니다.")
         }
-        val updatedChatRoom = chatRoom.addMessage(userMessage, botMessage)
-        return saveWithSummary(updatedChatRoom, userMessage, botMessage)
-    }
-
-    private fun saveWithSummary(chatRoom: AIChatRoom, userMessage: String, botMessage: String): AIChatRoom {
-        val needsSummary = chatRoom.messages.size > AIChatRoom.PREVIEWS_MESSAGES_COUNT
-        val savedChatRoom = aiChatRoomRepository.save(chatRoom)
-        return if (needsSummary) {
-            val summaryMessage = AIChatRoomSummaryMessage(
-                chatRoom = savedChatRoom,
-                message = """
-                    ${savedChatRoom.systemStrategyMessage}
-
-                    Q: $userMessage
-                    A: $botMessage
-                """.trimIndent(),
-                startMessageIndex = savedChatRoom.messages.size - AIChatRoom.PREVIEWS_MESSAGES_COUNT,
-                endMessageIndex = savedChatRoom.messages.size - 1
-            )
-            aiChatRoomSummaryMessageRepository.save(summaryMessage)
-            savedChatRoom.copy(summaryMessages = savedChatRoom.summaryMessages + summaryMessage)
-        } else savedChatRoom
+        chatRoom.addMessage(userMessage, botMessage)
+        return aiChatRoomRepository.save(chatRoom)
     }
 }

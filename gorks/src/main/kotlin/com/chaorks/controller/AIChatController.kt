@@ -87,15 +87,18 @@ class AIChatController(
                 previousMessages + UserMessage(message)
 
         val prompt = Prompt(messages)
-        return chatClient.stream(prompt)
+        val responseFlux = chatClient.stream(prompt)
             .mapNotNull { it.result?.output?.text }
             .map { chunk -> ServerSentEvent.builder<String>().data(chunk).build() }
-            .doOnComplete {
-                val fullMessage = aiChatRoom.messages.takeLast(PREVIEWS_MESSAGES_COUNT)
-                    .joinToString("") { it.userMessage.orEmpty() + it.botMessage.orEmpty() } + message
-                aiChatRoomService.addMessage(chatRoomId, message, fullMessage)
-            }
 
+        val responseBuilder = StringBuilder()
+        return responseFlux
+            .doOnNext { event ->
+                responseBuilder.append(event.data())
+            }
+            .doOnComplete {
+                aiChatRoomService.addMessage(chatRoomId, message, responseBuilder.toString())
+            }
     }
 
     @GetMapping

@@ -1,5 +1,6 @@
 package com.chaorks.domain
 
+import com.chaorks.global.base.BaseEntity
 import jakarta.persistence.*
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
@@ -9,17 +10,6 @@ import java.time.LocalDateTime
 @Entity
 @EntityListeners(AuditingEntityListener::class)
 class AIChatRoomSummaryMessage(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
-
-    @CreatedDate
-    @Column(updatable = false)
-    var createDate: LocalDateTime? = null,
-
-    @LastModifiedDate
-    var modifyDate: LocalDateTime? = null,
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_room_id")
     var chatRoom: AIChatRoom,
@@ -30,7 +20,7 @@ class AIChatRoomSummaryMessage(
     var startMessageIndex: Int,
 
     var endMessageIndex: Int
-) {
+) : BaseEntity() {
     fun getMessageNo() = startMessageIndex + 1
     fun getEndMessageNo() = endMessageIndex + 1
 }
