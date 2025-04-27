@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mariadb:
+    build:
+      context: ../../../mariadb_lky
+    container_name: mariadb_lky
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: 1234
+      MARIADB_DATABASE: db_lky
+      MARIADB_USER: lky
+      MARIADB_PASSWORD: 1234
+    ports:
+      - "3308:3306"
+    volumes:
+      - mariadb_1_data:/var/lib/mysql  # 데이터 영속화 볼륨
+
+volumes:
+  mariadb_1_data:
