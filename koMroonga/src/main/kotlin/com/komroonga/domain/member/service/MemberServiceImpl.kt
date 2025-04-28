@@ -5,10 +5,12 @@ import com.komroonga.global.error.types.MemberError
 import com.komroonga.global.utils.CacheService
 import com.komroonga.member.entity.Member
 import com.komroonga.member.repository.MemberRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 
 @Service
@@ -18,7 +20,8 @@ class MemberServiceImpl(
 ) : MemberService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-    private val cacheTtl = Duration.ofHours(1)
+    private val cacheTtl = Duration.ofMinutes(30) // 캐시 시간 단축
+    private val memberDispatcher = Dispatchers.IO.limitedParallelism(10)
 
     override suspend fun register(request: MemberRequest): MemberResult<MemberResponse> =
         runCatching {
@@ -32,11 +35,41 @@ class MemberServiceImpl(
             val saved = memberRepository.save(member)
             logger.info("Saved username: ${saved.username}")
 
-            cacheService.putInCache("member:dto:${saved.id}", MemberResponse(saved.id!!, saved.username), cacheTtl)
+            if (cacheService.enableCaching) {
+                cacheService.putInCache("member:dto:${saved.id}", MemberResponse(saved.id!!, saved.username), cacheTtl)
+            }
             MemberResponse(saved.id!!, saved.username)
         }.onFailure {
             logger.error("회원 등록 실패: ${request.username}, 오류: ${it.message}", it)
         }
+
+    // 벌크 저장 기능 추가
+    @Transactional
+    suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse> {
+        val responses = mutableListOf<MemberResponse>()
+        val cacheItems = mutableMapOf<Long, MemberResponse>()
+
+        for (request in requests) {
+            try {
+                validateRequest(request)
+                val member = Member(username = request.username, password = request.password)
+                val saved = memberRepository.save(member)
+                val response = MemberResponse(saved.id!!, saved.username)
+                responses.add(response)
+                cacheItems[saved.id!!] = response
+            } catch (e: Exception) {
+                logger.error("Batch 회원 등록 실패: ${request.username}, 오류: ${e.message}", e)
+                // 에러 발생해도 계속 진행
+            }
+        }
+
+        // 벌크 캐싱
+        if (cacheService.enableCaching && cacheItems.isNotEmpty()) {
+            cacheService.putBulkInCache(cacheItems, "member:dto", cacheTtl)
+        }
+
+        return responses
+    }
 
     override suspend fun findByUsername(username: String): MemberResult<MemberResponse> =
         runCatching {
@@ -84,7 +117,6 @@ class MemberServiceImpl(
         }.onFailure {
             logger.error("회원 엔티티 조회 실패 (ID: $id): ${it.message}", it)
         }
-
 
     private fun validateRequest(request: MemberRequest) {
         if (request.username.isBlank()) {

@@ -9,11 +9,15 @@ import com.komroonga.global.error.types.PostError
 import com.komroonga.global.utils.CacheService
 import com.komroonga.member.entity.Member
 import com.komroonga.member.service.MemberService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class PostServiceImpl(
@@ -23,7 +27,11 @@ class PostServiceImpl(
 ) : PostService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-    private val cacheTtl = Duration.ofHours(1)
+    private val cacheTtl = Duration.ofMinutes(30) // 캐시 시간 단축
+    private val postDispatcher = Dispatchers.IO.limitedParallelism(12)
+
+    // 멤버 ID 캐시 (초기화 과정에서 사용)
+    private val memberCache = ConcurrentHashMap<Long, Member>()
 
     override suspend fun count(): Long = runCatching {
         postRepository.count()
@@ -43,6 +51,68 @@ class PostServiceImpl(
             .onFailure { e ->
                 logger.error("게시글 작성 실패: {}", e.message, e)
             }
+
+    // 벌크 저장 기능 추가
+    @Transactional
+    suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> {
+        val results = mutableListOf<Result<PostResponse>>()
+        val cacheItems = mutableMapOf<Long, PostResponse>()
+
+        for ((index, request) in requests.withIndex()) {
+            validateRequest(request).fold(
+                onSuccess = { validated ->
+                    try {
+                        // 코루틴 내부에서 suspend 함수 호출
+                        val authorId = validated.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
+
+                        // memberCache에서 먼저 찾고, 없으면 withContext를 사용하여 suspend 함수 호출
+                        val author = memberCache[authorId] ?: withContext(Dispatchers.Default) {
+                            val member = memberService.findMemberEntityById(authorId).getOrThrow()
+                            memberCache[authorId] = member
+                            member
+                        }
+
+                        val post = Post(
+                            title = validated.title,
+                            content = validated.content,
+                            author = author
+                        )
+                        val savedPost = postRepository.save(post)
+                        val response = postToResponse(savedPost)
+
+                        // 캐시 데이터 준비
+                        cacheItems[savedPost.id!!] = response
+                        results.add(Result.success(response))
+
+                        if ((index + 1) % 1000 == 0) {
+                            logger.info("Created batch posts: {}/{}", index + 1, requests.size)
+                            true
+                        } else {
+                            false
+                        }
+                    } catch (e: Exception) {
+                        logger.error("Batch 게시글 생성 실패 (index: $index): ${e.message}", e)
+                        results.add(Result.failure(e))
+                    }
+                },
+                onFailure = { error ->
+                    logger.error("Batch 게시글 검증 실패 (index: $index): ${error.message}", error)
+                    results.add(Result.failure(error))
+                }
+            )
+        }
+
+        // 벌크 캐싱
+        if (cacheItems.isNotEmpty()) {
+            if (cacheService.enableCaching) {
+                cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
+            } else {
+                logger.debug("Caching is disabled, skipping bulk cache update")
+            }
+        }
+
+        return results
+    }
 
     private fun createPost(request: PostRequest, author: Member): Result<Post> = runCatching {
         val post = Post(
@@ -108,4 +178,9 @@ class PostServiceImpl(
             onSuccess = { it },
             onFailure = { Result.failure(it) }
         )
+
+    // 초기화용 유틸리티 메서드
+    fun clearMemberCache() {
+        memberCache.clear()
+    }
 }
