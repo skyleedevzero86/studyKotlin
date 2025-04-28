@@ -10,4 +10,7 @@ sealed class PostError : Throwable() {
     data class ExternalService(val serviceName: String, override val cause: Throwable) : PostError() {
         override val message: String = "$serviceName 서비스 오류"
     }
+    data class Unauthorized(val reason: String) : PostError() {
+        override val message: String = "권한 오류: $reason"
+    }
 }

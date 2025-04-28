@@ -13,4 +13,5 @@ interface MemberService {
     suspend fun findAll(): Flow<MemberResponse>
     suspend fun count(): MemberResult<Long>
     suspend fun findMemberEntityByUsername(username: String): Result<Member>
+    suspend fun findMemberEntityById(id: Long): Result<Member> // 추가
 }

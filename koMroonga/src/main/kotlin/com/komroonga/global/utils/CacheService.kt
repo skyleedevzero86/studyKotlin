@@ -23,13 +23,17 @@ class CacheService(
                 throw AppError.ExternalService(
                     message = "Redis 연결 실패",
                     cause = e,
-                    serviceName = "Redis"
+                    serviceName = "Redis",
+                    errorCode = "REDIS_CONNECTION_FAILURE",
+                    details = "Redis 서버에 연결할 수 없습니다."
                 )
             } catch (e: TimeoutException) {
                 throw AppError.ExternalService(
                     message = "Redis 타임아웃",
                     cause = e,
-                    serviceName = "Redis"
+                    serviceName = "Redis",
+                    errorCode = "REDIS_TIMEOUT",
+                    details = "Redis 요청이 시간 초과되었습니다."
                 )
             }
         }
@@ -44,13 +48,17 @@ class CacheService(
                 throw AppError.ExternalService(
                     message = "Redis 연결 실패",
                     cause = e,
-                    serviceName = "Redis"
+                    serviceName = "Redis",
+                    errorCode = "REDIS_CONNECTION_FAILURE",
+                    details = "Redis 서버에 연결할 수 없습니다."
                 )
             } catch (e: TimeoutException) {
                 throw AppError.ExternalService(
                     message = "Redis 타임아웃",
                     cause = e,
-                    serviceName = "Redis"
+                    serviceName = "Redis",
+                    errorCode = "REDIS_TIMEOUT",
+                    details = "Redis 요청이 시간 초과되었습니다."
                 )
             }
         }

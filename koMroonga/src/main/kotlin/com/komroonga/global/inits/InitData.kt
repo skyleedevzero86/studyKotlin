@@ -1,12 +1,17 @@
 package com.komroonga.global.inits
 
 import com.komroonga.domain.member.dto.MemberRequest
+import com.komroonga.domain.post.dto.PostRequest
 import com.komroonga.domain.post.service.PostService
 import com.komroonga.global.utils.InitializationResult
 import com.komroonga.member.service.MemberService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -20,16 +25,16 @@ class InitData(
     private val memberService: MemberService,
     private val postService: PostService,
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     companion object {
-        private const val MEMBER_COUNT = 1_000_000
-        private const val POSTS_PER_MEMBER = 1  // 각 멤버당 게시물 수 (총 100만 게시물)
-        private const val BATCH_SIZE = 1000     // 트랜잭션당 처리할 항목 수
+        private const val MEMBER_COUNT = 100_000
+        private const val POSTS_PER_MEMBER = 1
+        private const val BATCH_SIZE = 1000
     }
 
-    // 불변 데이터 클래스 정의
     data class PostData(val title: String, val content: String)
 
-    // 샘플 제목과 내용 리스트
     private val sampleTitles = listOf(
         "봄날의 산책", "고양이 일기", "커피 한 잔의 여유", "서울 여행기",
         "스터디 후기", "운동 루틴 공유", "책 리뷰", "비 오는 날",
@@ -49,131 +54,112 @@ class InitData(
         "새로운 기술을 배우기 시작했어요. 정말 흥미롭네요."
     )
 
-    // 멤버 데이터 생성을 위한 시퀀스 생성 함수
     private fun generateMemberSequence(): Sequence<MemberRequest> = sequence {
         for (i in 1..MEMBER_COUNT) {
-            val username = "user$i"
-            val password = "pass$i"
-            yield(MemberRequest(username, password))
+            yield(MemberRequest("user$i", "pass%02d".format(i)))
         }
     }
 
-    // 게시글 데이터 생성을 위한 시퀀스 생성 함수
     private fun generatePostSequence(memberCount: Int): Sequence<Pair<Int, PostData>> = sequence {
         val random = java.util.Random()
-
         for (memberId in 1..memberCount) {
             for (postIdx in 1..POSTS_PER_MEMBER) {
                 val titleIdx = random.nextInt(sampleTitles.size)
                 val contentIdx = random.nextInt(sampleContents.size)
-
                 val uniqueId = UUID.randomUUID().toString().substring(0, 8)
                 val title = "${sampleTitles[titleIdx]} #$uniqueId"
                 val content = "${sampleContents[contentIdx]} (작성자: user$memberId, 번호: $postIdx)"
-
                 yield(memberId to PostData(title, content))
             }
         }
     }
 
-    // 멤버 초기화 함수
-    private suspend fun initializeMembers(): InitializationResult = runCatching {
-        val count = memberService.count().getOrThrow()
-        if (count > 0) {
-            println("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
-            return@runCatching
+    private suspend fun initializeMembers(): InitializationResult = withContext(Dispatchers.IO) {
+        val countResult = memberService.count()
+        if (countResult.isSuccess && countResult.getOrNull() ?: 0 > 0) {
+            logger.info("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
+            return@withContext Result.success(Unit)
         }
 
-        println("멤버 생성 시작... 총 $MEMBER_COUNT 멤버")
+        logger.info("멤버 생성 시작... 총 {} 멤버", MEMBER_COUNT)
         val time = measureTimeMillis {
-            // 시퀀스를 청크로 나누어 배치 처리
             generateMemberSequence()
-                .chunked(BATCH_SIZE)
-                .forEachIndexed { index, batchMembers ->
+                .asFlow()
+                .buffer(BATCH_SIZE)
+                .map { request ->
                     executeInNewTransaction {
-                        runBlocking {
-                            batchMembers.forEach { request ->
-                                memberService.register(request)
-                            }
+                        val registerResult = memberService.register(request)
+                        if (registerResult.isFailure) {
+                            logger.error("멤버 등록 실패: {}", request.username, registerResult.exceptionOrNull())
+                            throw registerResult.exceptionOrNull() ?: Exception("Unknown error")
                         }
-                    }
-
-                    if ((index + 1) % 100 == 0) {
-                        println("멤버 생성 진행 중: ${(index + 1) * BATCH_SIZE}/$MEMBER_COUNT")
+                        logger.debug("Processing member: {}", request.username)
                     }
                 }
+                .collect { it }
         }
-        println("멤버 생성 완료. 소요 시간: ${time / 1000}초")
+        logger.info("멤버 생성 완료. 소요 시간: {}초", time / 1000)
+        Result.success(Unit)
     }
 
-
-    // 게시글 초기화 함수
-    private suspend fun initializePosts(): InitializationResult = runCatching {
-        if (postService.count() > 0) {
-            println("이미 게시글이 존재합니다. 게시글 초기화를 건너뜁니다.")
-            return@runCatching
+    private suspend fun initializePosts(): InitializationResult = withContext(Dispatchers.IO) {
+        val count = postService.count()
+        if (count > 0) {
+            logger.info("이미 게시글이 존재합니다. 게시글 초기화를 건너뜁니다.")
+            return@withContext Result.success(Unit)
         }
 
-        println("게시글 생성 시작... 총 ${MEMBER_COUNT * POSTS_PER_MEMBER} 게시글")
+        logger.info("게시글 생성 시작... 총 {} 게시글", MEMBER_COUNT * POSTS_PER_MEMBER)
         val time = measureTimeMillis {
-            // 시퀀스를 청크로 나누어 배치 처리
             generatePostSequence(MEMBER_COUNT)
-                .chunked(BATCH_SIZE)
-                .forEachIndexed { index, batchPosts ->
+                .asFlow()
+                .buffer(BATCH_SIZE)
+                .map { (memberId, postData) ->
                     executeInNewTransaction {
-                        runBlocking {
-                            batchPosts.forEach { (memberId, postData) ->
-                                val member = withContext(Dispatchers.IO) {
-                                    memberService.findByUsername("user$memberId").getOrThrow()
-                                }
-                                postService.edit(member, postData.title, postData.content)
-                            }
+                        val memberResult = memberService.findMemberEntityByUsername("user$memberId")
+                        if (memberResult.isFailure) {
+                            logger.error("회원 조회 실패 for user{}: {}", memberId, memberResult.exceptionOrNull()?.message)
+                            throw memberResult.exceptionOrNull() ?: Exception("Unknown error")
                         }
-                    }
-
-                    if ((index + 1) % 100 == 0) {
-                        println("게시글 생성 진행 중: ${(index + 1) * BATCH_SIZE}/${MEMBER_COUNT * POSTS_PER_MEMBER}")
+                        val member = memberResult.getOrThrow()
+                        val request = PostRequest(postData.title, postData.content, member.id)
+                        val createResult = postService.create(request)
+                        if (createResult.isFailure) {
+                            logger.error("게시글 생성 실패 for user{}: {}", memberId, createResult.exceptionOrNull()?.message)
+                            throw createResult.exceptionOrNull() ?: Exception("Unknown error")
+                        }
+                        logger.debug("Created post for user{}: title={}", memberId, postData.title)
                     }
                 }
+                .collect { it }
         }
-        println("게시글 생성 완료. 소요 시간: ${time / 1000}초")
+        logger.info("게시글 생성 완료. 소요 시간: {}초", time / 1000)
+        Result.success(Unit)
     }
 
-    // 트랜잭션 분리를 위한 함수
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun executeInNewTransaction(block: () -> Unit) {
-        block()
-    }
+    suspend fun <T> executeInNewTransaction(block: suspend () -> T): T = block()
 
     private fun interface DataInitializer {
         suspend fun initialize(): InitializationResult
     }
 
-    private val memberInitializer = DataInitializer {
-        initializeMembers()
-    }
-
-    private val postInitializer = DataInitializer {
-        initializePosts()
-    }
+    private val memberInitializer = DataInitializer { initializeMembers() }
+    private val postInitializer = DataInitializer { initializePosts() }
 
     @Bean
-    fun notProdInitDataApplicationRunner(): ApplicationRunner {
-        return ApplicationRunner {
-            runBlocking {
-                withContext(Dispatchers.IO) {
-                    println("데이터 초기화 시작...")
-                    val totalTime = measureTimeMillis {
-                        // 멤버 생성 후 게시글 생성
-                        memberInitializer.initialize()
-                            .onSuccess { postInitializer.initialize() }
-                            .onFailure { exception ->
-                                println("초기화 중 오류 발생: ${exception.message}")
-                                exception.printStackTrace()
-                            }
-                    }
-                    println("모든 데이터 초기화 완료. 총 소요 시간: ${totalTime / 1000}초")
+    fun notProdInitDataApplicationRunner(): ApplicationRunner = ApplicationRunner {
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                logger.info("데이터 초기화 시작...")
+                val totalTime = measureTimeMillis {
+                    memberInitializer.initialize()
+                        .onSuccess { postInitializer.initialize() }
+                        .onFailure { e ->
+                            logger.error("초기화 중 오류 발생: {}", e.message, e)
+                        }
                 }
+                logger.info("모든 데이터 초기화 완료. 총 소요 시간: {}초", totalTime / 1000)
             }
         }
     }

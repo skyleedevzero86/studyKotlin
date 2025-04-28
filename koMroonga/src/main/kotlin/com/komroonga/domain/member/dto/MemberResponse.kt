@@ -1,6 +1,9 @@
 package com.komroonga.domain.member.dto
 
-data class MemberResponse(
-    val id: Long,
-    val username: String
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonProperty
+
+data class MemberResponse @JsonCreator constructor(
+    @JsonProperty("id") val id: Long,
+    @JsonProperty("username") val username: String
 )

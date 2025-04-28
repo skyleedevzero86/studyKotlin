@@ -27,7 +27,9 @@ sealed class AppError(
     data class ExternalService(
         override val message: String,
         override val cause: Throwable? = null,
-        val serviceName: String
+        val serviceName: String,
+        val errorCode: String? = null,
+        val details: String? = null
     ) : AppError(message, cause)
 
     data class System(
