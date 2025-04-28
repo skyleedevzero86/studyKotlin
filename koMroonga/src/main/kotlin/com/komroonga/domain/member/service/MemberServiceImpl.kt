@@ -8,11 +8,11 @@ import com.komroonga.member.entity.Member
 import com.komroonga.member.repository.MemberRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Duration
+import kotlinx.coroutines.flow.asFlow
 
 @Service
 class MemberServiceImpl(
@@ -55,6 +55,7 @@ class MemberServiceImpl(
         logger.info("전체 회원 조회 요청")
         return memberRepository.findAll()
             .map { MemberResponse(it.id!!, it.username) }
+            .asFlow()
             .also { logger.info("전체 회원 조회 완료") }
     }
 
