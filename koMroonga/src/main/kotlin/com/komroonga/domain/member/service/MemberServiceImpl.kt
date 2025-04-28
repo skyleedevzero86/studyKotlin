@@ -66,6 +66,15 @@ class MemberServiceImpl(
         }
     }.onFailure { logger.error("회원 수 조회 실패: ${it.message}", it) }
 
+    override suspend fun findMemberEntityByUsername(username: String): Result<Member> = runCatching {
+        withContext(Dispatchers.IO) {
+            logger.info("회원 엔티티 조회 요청: username=$username")
+            val member = memberRepository.findByUsername(username)
+                ?: throw MemberError.NotFound(username)
+            member
+        }
+    }.onFailure { logger.error("회원 엔티티 조회 실패: ${it.message}", it) }
+
     private fun validateRequest(request: MemberRequest) {
         if (request.username.isBlank()) {
             throw MemberError.InvalidInput("username", "사용자 이름은 비어 있을 수 없습니다")
