@@ -14,6 +14,7 @@ import java.time.Duration
 import com.komroonga.global.error.types.PostError
 import com.komroonga.global.utils.CacheService
 import com.komroonga.domain.post.entity.Post
+import com.komroonga.member.entity.Member
 
 @Service
 class PostServiceImpl(
@@ -35,7 +36,7 @@ class PostServiceImpl(
             val post = Post(
                 title = request.title,
                 content = request.content,
-                author = Post.Member(id = request.authorId, username = "testuser", password = "")
+                author = Member(id = request.authorId, username = "testuser", password = "")
             )
             val saved = postRepository.save(post)
             logger.info("게시글 작성 성공: id=${saved.id}")
@@ -77,10 +78,10 @@ class PostServiceImpl(
             if (content.isBlank()) throw PostError.InvalidInput("content", "내용은 비어 있을 수 없습니다")
 
             // MemberResponse를 Post.Member로 변환
-            val postMember = Post.Member(
+            val postMember = Member(
                 id = memberResponse.id,
                 username = memberResponse.username,
-                password = "" // 보안상 비밀번호는 비워둡니다
+                password = ""
             )
 
             // 게시글 수정

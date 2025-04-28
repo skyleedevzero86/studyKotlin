@@ -15,6 +15,12 @@ services:
       - "3306:3306"
     volumes:
       - mariadb_1_data:/var/lib/mysql  # 데이터 영속화 볼륨
+    networks:
+      - mariadb_network  # 네트워크 추가
 
 volumes:
   mariadb_1_data:
+
+networks:
+  mariadb_network:
+    driver: bridge  # 명시적으로 브리지 네트워크 사용

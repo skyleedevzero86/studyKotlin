@@ -51,3 +51,17 @@
 10. **검색 최적화 설정**
     - Mroonga의 래퍼 모드를 사용하여 기존 테이블에 검색 인덱스 추가
     - `Post` 테이블의 title과 content 필드에 대한 Mroonga 인덱스 설정
+
+11. **도커계정생성**
+   - docker run --name mariadb_komroonga -e MYSQL_ROOT_PASSWORD=yourpassword -d mariadb:latest
+   - docker exec -it mariadb_komroonga mariadb -u root -p
+   - CREATE USER '계정'@'%' IDENTIFIED BY 'yourpassword';
+   - GRANT ALL PRIVILEGES ON *.* TO '아이디'@'%' WITH GRANT OPTION;
+   - FLUSH PRIVILEGES;
+   - SHOW GRANTS FOR '계정'@'%';
+   - docker exec -it mariadb_komroonga mariadb -u 아이디 -p
+   - docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' mariadb_komroonga
+   - docker-compose down 
+   - docker-compose up -d 
+   - 
+

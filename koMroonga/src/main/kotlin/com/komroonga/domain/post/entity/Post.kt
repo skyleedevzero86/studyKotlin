@@ -1,6 +1,7 @@
 package com.komroonga.domain.post.entity
 
 import jakarta.persistence.*
+import com.komroonga.member.entity.Member
 
 @Entity
 data class Post(
@@ -14,9 +15,5 @@ data class Post(
     @ManyToOne
     val author: Member
 ) {
-    data class Member(
-        @Id val id: Long,
-        val username: String,
-        val password: String
-    )
+
 }
