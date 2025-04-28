@@ -1,4 +1,4 @@
-package com.komroonga.global.initdata
+package com.komroonga.global.inits
 
 import com.komroonga.domain.member.dto.MemberRequest
 import com.komroonga.domain.post.service.PostService
@@ -145,7 +145,6 @@ class InitData(
         block()
     }
 
-    // 트랜잭션 처리를 분리하여 함수형 인터페이스로 정의
     private fun interface DataInitializer {
         suspend fun initialize(): InitializationResult
     }
