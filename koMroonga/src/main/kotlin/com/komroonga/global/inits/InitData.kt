@@ -8,20 +8,11 @@ import com.komroonga.global.utils.CacheService
 import com.komroonga.global.utils.InitializationResult
 import com.komroonga.member.service.MemberService
 import com.komroonga.member.service.MemberServiceImpl
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 import kotlin.system.measureTimeMillis
@@ -37,8 +28,8 @@ class InitData(
     companion object {
         private const val MEMBER_COUNT = 100_000
         private const val POSTS_PER_MEMBER = 1
-        private const val BATCH_SIZE = 500 // 배치 크기 감소
-        private const val PARALLEL_BATCHES = 4 // 병렬 처리 수
+        private const val BATCH_SIZE = 2000
+        private const val PARALLEL_BATCHES = 4
     }
 
     data class PostData(val title: String, val content: String)
@@ -74,7 +65,6 @@ class InitData(
                 MemberRequest("user$i", "pass%02d".format(i))
             })
         }
-
         return batches
     }
 
@@ -100,16 +90,14 @@ class InitData(
                 batchRequests.add(PostRequest(title, content, memberId.toLong()))
                 postIndex++
             }
-
             batches.add(batchRequests)
         }
-
         return batches
     }
 
-    private suspend fun initializeMembers(): InitializationResult = withContext(Dispatchers.IO) {
-        val customDispatcher = Dispatchers.IO.limitedParallelism(PARALLEL_BATCHES)
-
+    @Transactional
+    suspend fun initializeMembers(): InitializationResult = withContext(Dispatchers.IO) {
+        val beforeMemory = getUsedMemoryMB()
         val countResult = memberService.count()
         if (countResult.isSuccess && countResult.getOrNull() ?: 0 > 0) {
             logger.info("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
@@ -117,40 +105,37 @@ class InitData(
         }
 
         logger.info("멤버 생성 시작... 총 {} 멤버, 배치 크기: {}", MEMBER_COUNT, BATCH_SIZE)
-
-        // 초기화 중에는 캐싱 비활성화
         val prevCachingState = cacheService.enableCaching
         cacheService.enableCaching = false
 
         val time = measureTimeMillis {
             val memberBatches = generateMemberBatches()
-
-            coroutineScope {
-                memberBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
-                    val tasks = batchChunk.map { batch ->
-                        async(customDispatcher) {
-                            executeInNewTransaction {
-                                (memberService as? MemberServiceImpl)?.registerBatch(batch)
-                                    ?: throw IllegalStateException("MemberService는 MemberServiceImpl의 인스턴스여야 합니다")
-                            }
-                            logger.info("프로세스 배치: {} 멤버", batch.size)
-                        }
+            memberBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
+                batchChunk.map { batch ->
+                    async {
+                        (memberService as? MemberServiceImpl)?.registerBatch(batch)
+                            ?: throw IllegalStateException("MemberService는 MemberServiceImpl의 인스턴스여야 합니다")
                     }
-                    tasks.awaitAll()
-                }
+                }.awaitAll()
             }
         }
 
-        // 캐싱 상태 복원
         cacheService.enableCaching = prevCachingState
 
+        val afterMemory = getUsedMemoryMB()
+        val memoryReduction = beforeMemory - afterMemory
+        val memoryReductionPercent = if (beforeMemory != 0.0)
+            (memoryReduction / beforeMemory) * 100 else 0.0
+
         logger.info("멤버 생성 완료. 소요 시간: {}초", time / 1000)
+        logger.info("멤버 생성 완료. 소요 시간: {}초", time / 1000)
+        logger.info("메모리 사용량: 이전 = ${"%.2f".format(beforeMemory)}MB, 이후 = ${"%.2f".format(afterMemory)}MB")
+        logger.info("예상 메모리 감소율: ${"%.1f".format(memoryReductionPercent)}%")
         Result.success(Unit)
     }
 
-    private suspend fun initializePosts(): InitializationResult = withContext(Dispatchers.IO) {
-        val customDispatcher = Dispatchers.IO.limitedParallelism(PARALLEL_BATCHES)
-
+    @Transactional
+    suspend fun initializePosts(): InitializationResult = withContext(Dispatchers.IO) {
         val count = postService.count()
         if (count > 0) {
             logger.info("이미 게시글이 존재합니다. 게시글 초기화를 건너뜁니다.")
@@ -158,42 +143,52 @@ class InitData(
         }
 
         logger.info("게시글 생성 시작... 총 {} 게시글, 배치 크기: {}", MEMBER_COUNT * POSTS_PER_MEMBER, BATCH_SIZE)
-
-        // 초기화 중에는 캐싱 비활성화
         val prevCachingState = cacheService.enableCaching
         cacheService.enableCaching = false
 
-        // 포스트 서비스 멤버 캐시 초기화
-        (postService as? PostServiceImpl)?.clearMemberCache()
+        // 멤버 캐시 사전 로드
+        val memberIds = (1..MEMBER_COUNT).map { it.toLong() }
+        (postService as? PostServiceImpl)?.preloadMemberCache(memberIds)
 
         val time = measureTimeMillis {
             val postBatches = generatePostBatches(MEMBER_COUNT)
-
-            coroutineScope {
-                postBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
-                    val tasks = batchChunk.map { batch ->
-                        async(customDispatcher) {
-                            executeInNewTransaction {
-                                (postService as? PostServiceImpl)?.createBatch(batch)
-                                    ?: throw IllegalStateException("PostService는 PostServiceImpl의 인스턴스여야 합니다")
-                            }
-                            logger.info("프로세스 배치: {} 게시글", batch.size)
-                        }
+            postBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
+                batchChunk.map { batch ->
+                    async {
+                        (postService as? PostServiceImpl)?.createBatch(batch)
+                            ?: throw IllegalStateException("PostService는 PostServiceImpl의 인스턴스여야 합니다")
                     }
-                    tasks.awaitAll()
-                }
+                }.awaitAll()
             }
         }
 
-        // 캐싱 상태 복원
         cacheService.enableCaching = prevCachingState
-
         logger.info("게시글 생성 완료. 소요 시간: {}초", time / 1000)
         Result.success(Unit)
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    suspend fun <T> executeInNewTransaction(block: suspend () -> T): T = block()
+    @Bean
+    fun notProdInitDataApplicationRunner(): ApplicationRunner = ApplicationRunner {
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                logger.info("데이터 초기화 시작...")
+                val totalTime = measureTimeMillis {
+                    memberInitializer.initialize()
+                        .onSuccess {
+                            logger.info("멤버 초기화 성공, 게시글 초기화 시작")
+                            postInitializer.initialize()
+                                .onFailure { e ->
+                                    logger.error("게시글 초기화 중 오류 발생: {}", e.message, e)
+                                }
+                        }
+                        .onFailure { e ->
+                            logger.error("멤버 초기화 중 오류 발생: {}", e.message, e)
+                        }
+                }
+                logger.info("모든 데이터 초기화 완료. 총 소요 시간: {}초", totalTime / 1000)
+            }
+        }
+    }
 
     private fun interface DataInitializer {
         suspend fun initialize(): InitializationResult
@@ -202,35 +197,10 @@ class InitData(
     private val memberInitializer = DataInitializer { initializeMembers() }
     private val postInitializer = DataInitializer { initializePosts() }
 
-    @Bean
-    fun notProdInitDataApplicationRunner(): ApplicationRunner = ApplicationRunner {
-        runBlocking {
-            withContext(Dispatchers.IO) {
-                logger.info("데이터 초기화 시작...")
-                val totalTime = measureTimeMillis {
-                    // 초기화 중에는 캐싱 비활성화
-                    val prevCachingState = cacheService.enableCaching
-                    cacheService.enableCaching = false
-
-                    try {
-                        memberInitializer.initialize()
-                            .onSuccess {
-                                logger.info("멤버 초기화 성공, 게시글 초기화 시작")
-                                postInitializer.initialize()
-                                    .onFailure { e ->
-                                        logger.error("게시글 초기화 중 오류 발생: {}", e.message, e)
-                                    }
-                            }
-                            .onFailure { e ->
-                                logger.error("멤버 초기화 중 오류 발생: {}", e.message, e)
-                            }
-                    } finally {
-                        // 캐싱 상태 복원
-                        cacheService.enableCaching = prevCachingState
-                    }
-                }
-                logger.info("모든 데이터 초기화 완료. 총 소요 시간: {}초", totalTime / 1000)
-            }
-        }
+    fun getUsedMemoryMB(): Double {
+        val runtime = Runtime.getRuntime()
+        val usedBytes = runtime.totalMemory() - runtime.freeMemory()
+        return usedBytes.toDouble() / (1024 * 1024)
     }
+
 }

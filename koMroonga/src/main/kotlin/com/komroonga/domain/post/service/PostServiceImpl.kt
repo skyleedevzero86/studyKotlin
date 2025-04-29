@@ -27,10 +27,8 @@ class PostServiceImpl(
 ) : PostService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-    private val cacheTtl = Duration.ofMinutes(30) // 캐시 시간 단축
+    private val cacheTtl = Duration.ofMinutes(30)
     private val postDispatcher = Dispatchers.IO.limitedParallelism(12)
-
-    // 멤버 ID 캐시 (초기화 과정에서 사용)
     private val memberCache = ConcurrentHashMap<Long, Member>()
 
     override suspend fun count(): Long = runCatching {
@@ -52,74 +50,26 @@ class PostServiceImpl(
                 logger.error("게시글 작성 실패: {}", e.message, e)
             }
 
-    // 벌크 저장 기능 추가
     @Transactional
     suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> {
-        val results = mutableListOf<Result<PostResponse>>()
-        val cacheItems = mutableMapOf<Long, PostResponse>()
-
-        for ((index, request) in requests.withIndex()) {
-            validateRequest(request).fold(
-                onSuccess = { validated ->
-                    try {
-                        // 코루틴 내부에서 suspend 함수 호출
-                        val authorId = validated.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
-
-                        // memberCache에서 먼저 찾고, 없으면 withContext를 사용하여 suspend 함수 호출
-                        val author = memberCache[authorId] ?: withContext(Dispatchers.Default) {
-                            val member = memberService.findMemberEntityById(authorId).getOrThrow()
-                            memberCache[authorId] = member
-                            member
-                        }
-
-                        val post = Post(
-                            title = validated.title,
-                            content = validated.content,
-                            author = author
-                        )
-                        val savedPost = postRepository.save(post)
-                        val response = postToResponse(savedPost)
-
-                        // 캐시 데이터 준비
-                        cacheItems[savedPost.id!!] = response
-                        results.add(Result.success(response))
-
-                        if ((index + 1) % 1000 == 0) {
-                            logger.info("Created batch posts: {}/{}", index + 1, requests.size)
-                            true
-                        } else {
-                            false
-                        }
-                    } catch (e: Exception) {
-                        logger.error("Batch 게시글 생성 실패 (index: $index): ${e.message}", e)
-                        results.add(Result.failure(e))
-                    }
-                },
-                onFailure = { error ->
-                    logger.error("Batch 게시글 검증 실패 (index: $index): ${error.message}", error)
-                    results.add(Result.failure(error))
-                }
-            )
+        val posts = requests.map { request ->
+            validateRequest(request).getOrThrow()
+            val authorId = request.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
+            val author = memberCache[authorId] ?: throw PostError.NotFound(authorId)
+            Post(title = request.title, content = request.content, author = author)
         }
+        val savedPosts = postRepository.saveAll(posts) // 배치 삽입 활용
+        val responses = savedPosts.map { Result.success(postToResponse(it)) }
 
-        // 벌크 캐싱
-        if (cacheItems.isNotEmpty()) {
-            if (cacheService.enableCaching) {
-                cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
-            } else {
-                logger.debug("Caching is disabled, skipping bulk cache update")
-            }
+        if (cacheService.enableCaching) {
+            val cacheItems = savedPosts.associate { it.id!! to postToResponse(it) }
+            cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
         }
-
-        return results
+        return responses
     }
 
     private fun createPost(request: PostRequest, author: Member): Result<Post> = runCatching {
-        val post = Post(
-            title = request.title,
-            content = request.content,
-            author = author
-        )
+        val post = Post(title = request.title, content = request.content, author = author)
         postRepository.save(post)
     }
 
@@ -179,8 +129,18 @@ class PostServiceImpl(
             onFailure = { Result.failure(it) }
         )
 
-    // 초기화용 유틸리티 메서드
     fun clearMemberCache() {
         memberCache.clear()
+    }
+
+    // 멤버 캐시 사전 로드 메서드 추가
+    suspend fun preloadMemberCache(memberIds: List<Long>) {
+        memberIds.chunked(1000).forEach { chunk ->
+            chunk.map { id ->
+                memberService.findMemberEntityById(id).getOrThrow()
+            }.forEach { member ->
+                memberCache[member.id!!] = member
+            }
+        }
     }
 }

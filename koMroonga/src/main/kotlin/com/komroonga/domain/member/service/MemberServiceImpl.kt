@@ -20,7 +20,7 @@ class MemberServiceImpl(
 ) : MemberService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
-    private val cacheTtl = Duration.ofMinutes(30) // 캐시 시간 단축
+    private val cacheTtl = Duration.ofMinutes(30)
     private val memberDispatcher = Dispatchers.IO.limitedParallelism(10)
 
     override suspend fun register(request: MemberRequest): MemberResult<MemberResponse> =
@@ -43,31 +43,19 @@ class MemberServiceImpl(
             logger.error("회원 등록 실패: ${request.username}, 오류: ${it.message}", it)
         }
 
-    // 벌크 저장 기능 추가
     @Transactional
     suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse> {
-        val responses = mutableListOf<MemberResponse>()
-        val cacheItems = mutableMapOf<Long, MemberResponse>()
-
-        for (request in requests) {
-            try {
-                validateRequest(request)
-                val member = Member(username = request.username, password = request.password)
-                val saved = memberRepository.save(member)
-                val response = MemberResponse(saved.id!!, saved.username)
-                responses.add(response)
-                cacheItems[saved.id!!] = response
-            } catch (e: Exception) {
-                logger.error("Batch 회원 등록 실패: ${request.username}, 오류: ${e.message}", e)
-                // 에러 발생해도 계속 진행
-            }
+        val members = requests.map { request ->
+            validateRequest(request)
+            Member(username = request.username, password = request.password)
         }
+        val savedMembers = memberRepository.saveAll(members) // 배치 삽입 활용
+        val responses = savedMembers.map { MemberResponse(it.id!!, it.username) }
 
-        // 벌크 캐싱
-        if (cacheService.enableCaching && cacheItems.isNotEmpty()) {
+        if (cacheService.enableCaching) {
+            val cacheItems = responses.associateBy { it.id }
             cacheService.putBulkInCache(cacheItems, "member:dto", cacheTtl)
         }
-
         return responses
     }
 
