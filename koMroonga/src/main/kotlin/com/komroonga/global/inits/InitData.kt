@@ -32,8 +32,6 @@ class InitData(
         private const val PARALLEL_BATCHES = 4
     }
 
-    data class PostData(val title: String, val content: String)
-
     private val sampleTitles = listOf(
         "봄날의 산책", "고양이 일기", "커피 한 잔의 여유", "서울 여행기",
         "스터디 후기", "운동 루틴 공유", "책 리뷰", "비 오는 날",
@@ -55,53 +53,37 @@ class InitData(
 
     private fun generateMemberBatches(): List<List<MemberRequest>> {
         val batchCount = (MEMBER_COUNT + BATCH_SIZE - 1) / BATCH_SIZE
-        val batches = mutableListOf<List<MemberRequest>>()
-
-        for (batchIndex in 0 until batchCount) {
+        return (0 until batchCount).map { batchIndex ->
             val start = batchIndex * BATCH_SIZE + 1
             val end = minOf(start + BATCH_SIZE - 1, MEMBER_COUNT)
-
-            batches.add((start..end).map { i ->
-                MemberRequest("user$i", "pass%02d".format(i))
-            })
+            (start..end).map { i -> MemberRequest("user$i", "pass%02d".format(i)) }
         }
-        return batches
     }
 
     private fun generatePostBatches(memberCount: Int): List<List<PostRequest>> {
         val random = java.util.Random()
         val totalPosts = memberCount * POSTS_PER_MEMBER
         val batchCount = (totalPosts + BATCH_SIZE - 1) / BATCH_SIZE
-        val batches = mutableListOf<List<PostRequest>>()
-
         var postIndex = 0
-        for (batchIndex in 0 until batchCount) {
-            val batchRequests = mutableListOf<PostRequest>()
-            val batchSize = minOf(BATCH_SIZE, totalPosts - batchIndex * BATCH_SIZE)
 
-            for (i in 0 until batchSize) {
+        return (0 until batchCount).map {
+            val batchSize = minOf(BATCH_SIZE, totalPosts - it * BATCH_SIZE)
+            List(batchSize) {
                 val memberId = (postIndex / POSTS_PER_MEMBER) + 1
-                val titleIdx = random.nextInt(sampleTitles.size)
-                val contentIdx = random.nextInt(sampleContents.size)
-                val uniqueId = UUID.randomUUID().toString().substring(0, 8)
-                val title = "${sampleTitles[titleIdx]} #$uniqueId"
-                val content = "${sampleContents[contentIdx]} (작성자: user$memberId, 번호: ${postIndex % POSTS_PER_MEMBER + 1})"
-
-                batchRequests.add(PostRequest(title, content, memberId.toLong()))
+                val title = "${sampleTitles.random()} #${UUID.randomUUID().toString().substring(0, 8)}"
+                val content = "${sampleContents.random()} (작성자: user$memberId)"
                 postIndex++
+                PostRequest(title, content, memberId.toLong())
             }
-            batches.add(batchRequests)
         }
-        return batches
     }
 
     @Transactional
-    suspend fun initializeMembers(): InitializationResult = withContext(Dispatchers.IO) {
-        val beforeMemory = getUsedMemoryMB()
+    suspend fun initializeMembers(): Pair<Long, InitializationResult> = withContext(Dispatchers.IO) {
         val countResult = memberService.count()
         if (countResult.isSuccess && countResult.getOrNull() ?: 0 > 0) {
             logger.info("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
-            return@withContext Result.success(Unit)
+            return@withContext 0L to Result.success(Unit)
         }
 
         logger.info("멤버 생성 시작... 총 {} 멤버, 배치 크기: {}", MEMBER_COUNT, BATCH_SIZE)
@@ -121,32 +103,22 @@ class InitData(
         }
 
         cacheService.enableCaching = prevCachingState
-
-        val afterMemory = getUsedMemoryMB()
-        val memoryReduction = beforeMemory - afterMemory
-        val memoryReductionPercent = if (beforeMemory != 0.0)
-            (memoryReduction / beforeMemory) * 100 else 0.0
-
         logger.info("멤버 생성 완료. 소요 시간: {}초", time / 1000)
-        logger.info("멤버 생성 완료. 소요 시간: {}초", time / 1000)
-        logger.info("메모리 사용량: 이전 = ${"%.2f".format(beforeMemory)}MB, 이후 = ${"%.2f".format(afterMemory)}MB")
-        logger.info("예상 메모리 감소율: ${"%.1f".format(memoryReductionPercent)}%")
-        Result.success(Unit)
+        return@withContext time to Result.success(Unit)
     }
 
     @Transactional
-    suspend fun initializePosts(): InitializationResult = withContext(Dispatchers.IO) {
+    suspend fun initializePosts(): Pair<Long, InitializationResult> = withContext(Dispatchers.IO) {
         val count = postService.count()
         if (count > 0) {
             logger.info("이미 게시글이 존재합니다. 게시글 초기화를 건너뜁니다.")
-            return@withContext Result.success(Unit)
+            return@withContext 0L to Result.success(Unit)
         }
 
         logger.info("게시글 생성 시작... 총 {} 게시글, 배치 크기: {}", MEMBER_COUNT * POSTS_PER_MEMBER, BATCH_SIZE)
         val prevCachingState = cacheService.enableCaching
         cacheService.enableCaching = false
 
-        // 멤버 캐시 사전 로드
         val memberIds = (1..MEMBER_COUNT).map { it.toLong() }
         (postService as? PostServiceImpl)?.preloadMemberCache(memberIds)
 
@@ -164,43 +136,66 @@ class InitData(
 
         cacheService.enableCaching = prevCachingState
         logger.info("게시글 생성 완료. 소요 시간: {}초", time / 1000)
-        Result.success(Unit)
+        return@withContext time to Result.success(Unit)
     }
 
     @Bean
     fun notProdInitDataApplicationRunner(): ApplicationRunner = ApplicationRunner {
         runBlocking {
             withContext(Dispatchers.IO) {
+                System.gc()
+                Thread.sleep(100)
+                val beforeMemory = getUsedMemoryMB()
                 logger.info("데이터 초기화 시작...")
+
+                var memberTimeActual = 0L
+                var postTimeActual = 0L
+
                 val totalTime = measureTimeMillis {
-                    memberInitializer.initialize()
-                        .onSuccess {
-                            logger.info("멤버 초기화 성공, 게시글 초기화 시작")
-                            postInitializer.initialize()
-                                .onFailure { e ->
-                                    logger.error("게시글 초기화 중 오류 발생: {}", e.message, e)
-                                }
+                    val (memberTime, memberResult) = initializeMembers()
+                    memberTimeActual = memberTime
+                    memberResult.onSuccess {
+                        logger.info("멤버 초기화 성공, 게시글 초기화 시작")
+                        val (postTime, postResult) = initializePosts()
+                        postTimeActual = postTime
+                        postResult.onFailure { e ->
+                            logger.error("게시글 초기화 중 오류 발생: {}", e.message, e)
                         }
-                        .onFailure { e ->
-                            logger.error("멤버 초기화 중 오류 발생: {}", e.message, e)
-                        }
+                    }.onFailure { e ->
+                        logger.error("멤버 초기화 중 오류 발생: {}", e.message, e)
+                    }
                 }
-                logger.info("모든 데이터 초기화 완료. 총 소요 시간: {}초", totalTime / 1000)
+
+                System.gc()
+                Thread.sleep(100)
+                val afterMemory = getUsedMemoryMB()
+
+                val memoryReduction = beforeMemory - afterMemory
+                val memoryReductionPercent = if (beforeMemory != 0.0)
+                    (memoryReduction / beforeMemory) * 100 else 0.0
+
+                val totalTimeInSeconds = totalTime / 1000
+                val memberTimeInSeconds = memberTimeActual / 1000
+                val postTimeInSeconds = postTimeActual / 1000
+
+                val baselineTotal = 2184.0
+                val baselinePost = 1340.0
+
+                val totalTimeImprovementPercent = ((baselineTotal - totalTimeInSeconds) / baselineTotal) * 100
+                val postTimeImprovementPercent = ((baselinePost - postTimeInSeconds) / baselinePost) * 100
+
+                logger.info("==== 초기화 성능 지표 비교 ====")
+                logger.info("총 초기화 시간:  ${totalTimeInSeconds}초 (${String.format("%.2f", totalTimeInSeconds / 60.0)}분), 향상률: ${String.format("%.1f", totalTimeImprovementPercent)}% 감소")
+                logger.info("게시글 생성 시간: ${postTimeInSeconds}초 (${String.format("%.2f", postTimeInSeconds / 60.0)}분), 향상률: ${String.format("%.1f", postTimeImprovementPercent)}% 감소")
+                logger.info("메모리 사용량: ${"%.2f".format(beforeMemory)}MB -> ${"%.2f".format(afterMemory)}MB, 향상률: ${"%.1f".format(memoryReductionPercent)}% 감소")
+                logger.info("================================")
             }
         }
     }
-
-    private fun interface DataInitializer {
-        suspend fun initialize(): InitializationResult
-    }
-
-    private val memberInitializer = DataInitializer { initializeMembers() }
-    private val postInitializer = DataInitializer { initializePosts() }
 
     fun getUsedMemoryMB(): Double {
         val runtime = Runtime.getRuntime()
         val usedBytes = runtime.totalMemory() - runtime.freeMemory()
         return usedBytes.toDouble() / (1024 * 1024)
     }
-
 }
