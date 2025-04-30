@@ -29,7 +29,6 @@ suspend fun <T> Try<T>.withLogging(
 object ApiV1BaseController {
     private val log = logger()
 
-    // FP 스타일로 의존성을 함수에 전달
     private fun embedText(
         text: String,
         embeddingModel: EmbeddingModel,
