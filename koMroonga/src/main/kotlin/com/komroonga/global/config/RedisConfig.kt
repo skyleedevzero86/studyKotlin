@@ -1,5 +1,8 @@
 package com.komroonga.global.config
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator
 import org.springframework.cache.annotation.EnableCaching
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -16,14 +19,27 @@ import java.time.Duration
 @Configuration
 @EnableCaching
 class RedisConfig {
+
     @Bean
-    fun redisTemplate(redisConnectionFactory: RedisConnectionFactory): RedisTemplate<String, Any> {
+    fun objectMapper(): ObjectMapper {
+        val objectMapper = ObjectMapper()
+        val ptv = BasicPolymorphicTypeValidator.builder()
+            .allowIfSubType(Any::class.java)
+            .build()
+        objectMapper.activateDefaultTyping(
+            ptv,
+            ObjectMapper.DefaultTyping.EVERYTHING,
+            JsonTypeInfo.As.PROPERTY
+        )
+        return objectMapper
+    }
+
+    @Bean
+    fun redisTemplate(redisConnectionFactory: RedisConnectionFactory, objectMapper: ObjectMapper): RedisTemplate<String, Any> {
         return RedisTemplate<String, Any>().apply {
             setConnectionFactory(redisConnectionFactory)
             keySerializer = StringRedisSerializer()
-            valueSerializer = GenericJackson2JsonRedisSerializer()
-
-            // 연결 풀 설정 최적화
+            valueSerializer = GenericJackson2JsonRedisSerializer(objectMapper) // 커스터마이즈된 ObjectMapper 사용
             afterPropertiesSet()
         }
     }
@@ -31,17 +47,17 @@ class RedisConfig {
     @Bean
     fun lettuceConnectionFactory(): LettuceConnectionFactory {
         val factory = LettuceConnectionFactory()
-        factory.setShareNativeConnection(false) // 각 작업에 새로운 연결 사용
+        factory.setShareNativeConnection(false)
         return factory
     }
 
     @Bean
-    fun cacheManager(connectionFactory: RedisConnectionFactory): RedisCacheManager {
+    fun cacheManager(connectionFactory: RedisConnectionFactory, objectMapper: ObjectMapper): RedisCacheManager {
         val defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(Duration.ofMinutes(10))
             .serializeValuesWith(
                 RedisSerializationContext.SerializationPair.fromSerializer(
-                    GenericJackson2JsonRedisSerializer()
+                    GenericJackson2JsonRedisSerializer(objectMapper) // 커스터마이즈된 ObjectMapper 사용
                 )
             )
 
@@ -51,11 +67,21 @@ class RedisConfig {
                 "posts",
                 RedisCacheConfiguration.defaultCacheConfig()
                     .entryTtl(Duration.ofMinutes(5))
+                    .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                            GenericJackson2JsonRedisSerializer(objectMapper) // 동일 ObjectMapper 적용
+                        )
+                    )
             )
             .withCacheConfiguration(
                 "members",
                 RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(30)) // 캐시 시간 단축
+                    .entryTtl(Duration.ofMinutes(30))
+                    .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                            GenericJackson2JsonRedisSerializer(objectMapper) // 동일 ObjectMapper 적용
+                        )
+                    )
             )
             .build()
     }

@@ -1,11 +1,32 @@
-# mariadb:11 이미지를 기반으로 사용
+# 1단계: 빌드 스테이지
+FROM mariadb:11 AS builder
+
+RUN apt-get update && \
+    apt-get install -y \
+        gcc \
+        make \
+        libcurl4-openssl-dev \
+        libmariadb-dev
+
+COPY http_post.c /usr/src/http_post.c
+
+RUN gcc -std=c99 -Wall \
+    -I/usr/include/mariadb \
+    -fPIC -shared \
+    /usr/src/http_post.c \
+    -o /usr/lib/mysql/plugin/http_post.so \
+    -lcurl
+
+# 2단계: 최종 스테이지
 FROM mariadb:11
 
-# 패키지 목록 업데이트 및 Mroonga 플러그인 설치
 RUN apt-get update && \
-    apt-get install -y mariadb-plugin-mroonga && \
+    apt-get install -y \
+        mariadb-plugin-mroonga \
+        libcurl4-openssl-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 컨테이너 초기화 시 Mroonga 플러그인을 자동으로 설치하도록 SQL 스크립트 복사
+COPY --from=builder /usr/lib/mysql/plugin/http_post.so /usr/lib/mysql/plugin/http_post.so
+
 COPY install-mroonga.sql /docker-entrypoint-initdb.d/
