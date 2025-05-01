@@ -1,5 +1,6 @@
 package com.komroonga.domain.post.service
 
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.domain.post.dto.PostRequest
 import com.komroonga.domain.post.dto.PostResponse
@@ -9,27 +10,32 @@ import com.komroonga.global.error.types.PostError
 import com.komroonga.global.utils.CacheService
 import com.komroonga.member.entity.Member
 import com.komroonga.member.service.MemberService
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 @Service
 class PostServiceImpl(
     private val postRepository: PostRepository,
     private val cacheService: CacheService,
     private val memberService: MemberService,
+    @PersistenceContext private val entityManager: EntityManager
 ) : PostService {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val cacheTtl = Duration.ofMinutes(30)
-    private val postDispatcher = Dispatchers.IO.limitedParallelism(12)
-    private val memberCache = ConcurrentHashMap<Long, Member>()
+    private val postDispatcher = Dispatchers.IO.limitedParallelism(16)
+    private val memberCache = Caffeine.newBuilder()
+        .expireAfterWrite(30, TimeUnit.MINUTES)
+        .maximumSize(100_000)
+        .build<Long, Member>()
 
     override suspend fun count(): Long = runCatching {
         postRepository.count()
@@ -55,16 +61,17 @@ class PostServiceImpl(
         val posts = requests.map { request ->
             validateRequest(request).getOrThrow()
             val authorId = request.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
-            val author = memberCache[authorId] ?: throw PostError.NotFound(authorId)
+            val author = memberCache.getIfPresent(authorId) ?: throw PostError.NotFound(authorId)
             Post(title = request.title, content = request.content, author = author)
         }
-        val savedPosts = postRepository.saveAll(posts) // 배치 삽입 활용
+        val savedPosts = postRepository.saveAll(posts)
         val responses = savedPosts.map { Result.success(postToResponse(it)) }
 
         if (cacheService.enableCaching) {
             val cacheItems = savedPosts.associate { it.id!! to postToResponse(it) }
             cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
         }
+        entityManager.clear()
         return responses
     }
 
@@ -130,16 +137,15 @@ class PostServiceImpl(
         )
 
     fun clearMemberCache() {
-        memberCache.clear()
+        memberCache.invalidateAll()
     }
 
-    // 멤버 캐시 사전 로드 메서드 추가
     suspend fun preloadMemberCache(memberIds: List<Long>) {
         memberIds.chunked(1000).forEach { chunk ->
             chunk.map { id ->
                 memberService.findMemberEntityById(id).getOrThrow()
             }.forEach { member ->
-                memberCache[member.id!!] = member
+                memberCache.put(member.id!!, member)
             }
         }
     }

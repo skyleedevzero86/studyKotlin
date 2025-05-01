@@ -6,8 +6,11 @@ import com.komroonga.domain.post.service.PostService
 import com.komroonga.domain.post.service.PostServiceImpl
 import com.komroonga.global.utils.CacheService
 import com.komroonga.global.utils.InitializationResult
+import com.komroonga.global.utils.PerformanceMetrics
 import com.komroonga.member.service.MemberService
 import com.komroonga.member.service.MemberServiceImpl
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationRunner
@@ -16,20 +19,22 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 import kotlin.system.measureTimeMillis
+import java.time.Duration
 
 @Configuration
 class InitData(
     private val memberService: MemberService,
     private val postService: PostService,
-    private val cacheService: CacheService
+    private val cacheService: CacheService,
+    @PersistenceContext private val entityManager: EntityManager
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
         private const val MEMBER_COUNT = 100_000
         private const val POSTS_PER_MEMBER = 1
-        private const val BATCH_SIZE = 2000
-        private const val PARALLEL_BATCHES = 4
+        private const val BATCH_SIZE = 2000 // 배치 크기 감소로 메모리 부담 완화
+        private const val PARALLEL_BATCHES = 4 // 병렬 처리 단위 증가
     }
 
     private val sampleTitles = listOf(
@@ -88,17 +93,23 @@ class InitData(
 
         logger.info("멤버 생성 시작... 총 {} 멤버, 배치 크기: {}", MEMBER_COUNT, BATCH_SIZE)
         val prevCachingState = cacheService.enableCaching
-        cacheService.enableCaching = false
+        cacheService.enableCaching = true
+        cacheService.putInCache("test:key", "test-value", Duration.ofMinutes(30))
 
         val time = measureTimeMillis {
             val memberBatches = generateMemberBatches()
-            memberBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
+            memberBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
                 batchChunk.map { batch ->
                     async {
                         (memberService as? MemberServiceImpl)?.registerBatch(batch)
                             ?: throw IllegalStateException("MemberService는 MemberServiceImpl의 인스턴스여야 합니다")
                     }
                 }.awaitAll()
+                // 배치마다 EntityManager 클리어로 메모리 최적화
+                if (chunkIndex % 2 == 0) {
+                    entityManager.clear()
+                    System.gc()
+                }
             }
         }
 
@@ -117,24 +128,31 @@ class InitData(
 
         logger.info("게시글 생성 시작... 총 {} 게시글, 배치 크기: {}", MEMBER_COUNT * POSTS_PER_MEMBER, BATCH_SIZE)
         val prevCachingState = cacheService.enableCaching
-        cacheService.enableCaching = false
+        cacheService.enableCaching = true
+        cacheService.putInCache("test:key", "test-value", Duration.ofMinutes(30))
 
         val memberIds = (1..MEMBER_COUNT).map { it.toLong() }
         (postService as? PostServiceImpl)?.preloadMemberCache(memberIds)
 
         val time = measureTimeMillis {
             val postBatches = generatePostBatches(MEMBER_COUNT)
-            postBatches.chunked(PARALLEL_BATCHES).forEach { batchChunk ->
+            postBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
                 batchChunk.map { batch ->
                     async {
                         (postService as? PostServiceImpl)?.createBatch(batch)
                             ?: throw IllegalStateException("PostService는 PostServiceImpl의 인스턴스여야 합니다")
                     }
                 }.awaitAll()
+                // 배치마다 EntityManager 클리어로 메모리 최적화
+                if (chunkIndex % 2 == 0) {
+                    entityManager.clear()
+                    System.gc()
+                }
             }
         }
 
         cacheService.enableCaching = prevCachingState
+        (postService as? PostServiceImpl)?.clearMemberCache()
         logger.info("게시글 생성 완료. 소요 시간: {}초", time / 1000)
         return@withContext time to Result.success(Unit)
     }
@@ -164,31 +182,23 @@ class InitData(
                     }.onFailure { e ->
                         logger.error("멤버 초기화 중 오류 발생: {}", e.message, e)
                     }
+                    (postService as? PostServiceImpl)?.clearMemberCache()
                 }
 
                 System.gc()
                 Thread.sleep(100)
                 val afterMemory = getUsedMemoryMB()
 
-                val memoryReduction = beforeMemory - afterMemory
-                val memoryReductionPercent = if (beforeMemory != 0.0)
-                    (memoryReduction / beforeMemory) * 100 else 0.0
+                // 성능 지표 계산
+                val metrics = PerformanceMetrics(
+                    totalTimeMs = totalTime,
+                    memberTimeMs = memberTimeActual,
+                    postTimeMs = postTimeActual,
+                    beforeMemoryMB = beforeMemory,
+                    afterMemoryMB = afterMemory
+                )
 
-                val totalTimeInSeconds = totalTime / 1000
-                val memberTimeInSeconds = memberTimeActual / 1000
-                val postTimeInSeconds = postTimeActual / 1000
-
-                val baselineTotal = 2184.0
-                val baselinePost = 1340.0
-
-                val totalTimeImprovementPercent = ((baselineTotal - totalTimeInSeconds) / baselineTotal) * 100
-                val postTimeImprovementPercent = ((baselinePost - postTimeInSeconds) / baselinePost) * 100
-
-                logger.info("==== 초기화 성능 지표 비교 ====")
-                logger.info("총 초기화 시간:  ${totalTimeInSeconds}초 (${String.format("%.2f", totalTimeInSeconds / 60.0)}분), 향상률: ${String.format("%.1f", totalTimeImprovementPercent)}% 감소")
-                logger.info("게시글 생성 시간: ${postTimeInSeconds}초 (${String.format("%.2f", postTimeInSeconds / 60.0)}분), 향상률: ${String.format("%.1f", postTimeImprovementPercent)}% 감소")
-                logger.info("메모리 사용량: ${"%.2f".format(beforeMemory)}MB -> ${"%.2f".format(afterMemory)}MB, 향상률: ${"%.1f".format(memoryReductionPercent)}% 감소")
-                logger.info("================================")
+                logger.info(metrics.generateReport())
             }
         }
     }

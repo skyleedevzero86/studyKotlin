@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.cache.RedisCacheConfiguration
 import org.springframework.data.redis.cache.RedisCacheManager
 import org.springframework.data.redis.connection.RedisConnectionFactory
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
@@ -20,7 +22,7 @@ import java.time.Duration
 @EnableCaching
 class RedisConfig {
 
-    @Bean
+    @Bean(name = ["redisObjectMapper"])
     fun objectMapper(): ObjectMapper {
         val objectMapper = ObjectMapper()
         val ptv = BasicPolymorphicTypeValidator.builder()
@@ -46,10 +48,20 @@ class RedisConfig {
 
     @Bean
     fun lettuceConnectionFactory(): LettuceConnectionFactory {
+        val redisStandaloneConfiguration = RedisStandaloneConfiguration("localhost", 6379)
+        val clientConfig = LettuceClientConfiguration.builder()
+            .commandTimeout(Duration.ofMillis(500))
+            .shutdownTimeout(Duration.ZERO)
+            .build()
+        return LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig)
+    }
+
+    /*@Bean
+    fun lettuceConnectionFactory(): LettuceConnectionFactory {
         val factory = LettuceConnectionFactory()
         factory.setShareNativeConnection(false)
         return factory
-    }
+    }*/
 
     @Bean
     fun cacheManager(connectionFactory: RedisConnectionFactory, objectMapper: ObjectMapper): RedisCacheManager {
