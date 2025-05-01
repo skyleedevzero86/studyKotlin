@@ -1,15 +1,18 @@
 package com.komroonga.member.entity
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType.IDENTITY
-import jakarta.persistence.Id
+import jakarta.persistence.*
+import org.hibernate.annotations.Index
 
 @Entity
+@Table(
+    name = "member",
+    indexes = [
+        Index(name = "idx_member_username", columnList = "username")
+    ]
+)
 data class Member(
     @Id
-    @GeneratedValue(strategy = IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     val id: Long? = null,
 

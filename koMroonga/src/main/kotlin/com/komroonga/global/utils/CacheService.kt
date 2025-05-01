@@ -3,6 +3,7 @@ package com.komroonga.global.utils
 import com.komroonga.global.error.model.AppError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.springframework.data.redis.RedisConnectionFailureException
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
@@ -13,6 +14,8 @@ import java.util.concurrent.TimeoutException
 class CacheService(
     private val redisTemplate: RedisTemplate<String, Any>
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     // 캐시 활성화 여부 설정 (초기화 중에는 비활성화 가능)
     var enableCaching = true
 
@@ -98,7 +101,8 @@ class CacheService(
                 }
             },
             onFailure = { throwable ->
-                // 캐시 접근 실패 시 DB에서 직접 조회
+                // 캐시 접근 실패 시 로그 기록 및 원본 데이터 조회
+                logger.warn("캐시 접근 실패: ${throwable.message}. 원본 데이터 조회 중...")
                 runCatching { compute() }
             }
         )
