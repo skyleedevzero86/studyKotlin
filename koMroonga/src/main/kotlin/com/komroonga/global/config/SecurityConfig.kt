@@ -28,8 +28,17 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { authorize ->
                 authorize
+                    // 정적 리소스 및 인증 관련 경로
                     .requestMatchers("/auth/**", "/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
+                    // 게시판 관련 공개 접근 경로
+                    .requestMatchers("/posts", "/posts/search", "/posts/{id}", "/posts/notices/all").permitAll()
+                    // 회원 전용 공지
+                    .requestMatchers("/posts/notices/member").authenticated()
+                    // 관리자 전용 경로
                     .requestMatchers("/members/search").hasRole("ADMIN")
+                    // 게시글 작성 및 수정은 로그인 필요
+                    .requestMatchers("/posts/create", "/posts/{id}/edit").authenticated()
+                    // 그 외 모든 요청은 인증 필요
                     .anyRequest().authenticated()
             }
             .formLogin { login ->

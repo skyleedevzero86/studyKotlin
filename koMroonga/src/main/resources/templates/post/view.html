@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${post.title}">게시글 제목</title>
+    <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css">
+    <style>
+        .post-content {
+            min-height: 300px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 th:text="${post.title}">게시글 제목</h1>
+            <div>
+                <a th:href="@{/posts}" class="btn btn-outline-secondary">목록으로</a>
+                <a sec:authorize="isAuthenticated()" th:href="@{/posts/create}" class="btn btn-primary">글쓰기</a>
+                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-outline-danger">로그아웃</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 알림 메시지 -->
+        <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+        <div th:if="${success}" class="alert alert-success" role="alert" th:text="${success}"></div>
+        
+        <!-- 게시글 정보 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <span th:text="${post.authorUsername}">작성자</span>
+                    <span th:if="${post.noticeType == T(com.komroonga.domain.post.entity.NoticeType).ALL}" class="badge bg-primary ms-2">전체공지</span>
+                    <span th:if="${post.noticeType == T(com.komroonga.domain.post.entity.NoticeType).MEMBER}" class="badge bg-info ms-2">회원공지</span>
+                    <span th:if="${post.isPrivate}" class="badge bg-secondary ms-2">비공개</span>
+                </div>
+                <div th:if="${currentUser != null && (currentUser.id == post.authorId || currentUser.role == T(com.komroonga.member.entity.Role).ROLE_ADMIN)}">
+                    <a th:href="@{/posts/{id}/edit(id=${post.id})}" class="btn btn-sm btn-outline-primary">수정</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="post-content" th:text="${post.content}">게시글 내용</div>
+            </div>
+        </div>
+        
+        <!-- 이전/다음 게시글 -->
+        <div class="d-flex justify-content-between mb-4">
+            <a th:href="@{/posts}" class="btn btn-secondary">목록</a>
+        </div>
+    </div>
+    
+    <script src="/webjars/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

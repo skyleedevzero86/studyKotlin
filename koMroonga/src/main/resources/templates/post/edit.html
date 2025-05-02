@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시글 수정</title>
+    <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>게시글 수정</h1>
+            <div>
+                <a th:href="@{/posts/{id}(id=${post.id})}" class="btn btn-outline-secondary">돌아가기</a>
+                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-outline-danger">로그아웃</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 알림 메시지 -->
+        <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+        
+        <!-- 게시글 수정 폼 -->
+        <div class="card">
+            <div class="card-body">
+                <form th:action="@{/posts/{id}/edit(id=${post.id})}" method="post">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">제목</label>
+                        <input type="text" class="form-control" id="title" name="title" th:value="${post.title}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label">내용</label>
+                        <textarea class="form-control" id="content" name="content" rows="10" th:text="${post.content}" required></textarea>
+                    </div>
+                    
+                    <!-- 비공개 설정 (일반 사용자용) -->
+                    <div class="mb-3 form-check" th:unless="${isAdmin}">
+                        <input type="checkbox" class="form-check-input" id="isPrivate" name="isPrivate" th:checked="${post.isPrivate}">
+                        <label class="form-check-label" for="isPrivate">비공개 (작성자와 관리자만 볼 수 있음)</label>
+                    </div>
+                    
+                    <!-- 공지 유형 설정 (관리자용) -->
+                    <div class="mb-3" th:if="${isAdmin}">
+                        <label for="noticeType" class="form-label">공지 유형</label>
+                        <select class="form-select" id="noticeType" name="noticeType">
+                            <option value="NONE" th:selected="${post.noticeType == T(com.komroonga.domain.post.entity.NoticeType).NONE}">일반 게시글</option>
+                            <option value="ALL" th:selected="${post.noticeType == T(com.komroonga.domain.post.entity.NoticeType).ALL}">전체 공지</option>
+                            <option value="MEMBER" th:selected="${post.noticeType == T(com.komroonga.domain.post.entity.NoticeType).MEMBER}">회원 공지</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a th:href="@{/posts/{id}(id=${post.id})}" class="btn btn-secondary me-md-2">취소</a>
+                        <button type="submit" class="btn btn-primary">수정</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/webjars/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

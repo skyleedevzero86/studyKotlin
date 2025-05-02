@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
+import java.util.concurrent.Executors
 import kotlin.system.measureTimeMillis
 import java.time.Duration
 
@@ -33,8 +34,15 @@ class InitData(
     companion object {
         private const val MEMBER_COUNT = 100_000
         private const val POSTS_PER_MEMBER = 1
-        private const val BATCH_SIZE = 2000 // 배치 크기 감소로 메모리 부담 완화
-        private const val PARALLEL_BATCHES = 4 // 병렬 처리 단위 증가
+        private const val BATCH_SIZE = 5000 // 배치 크기 증가로 처리량 향상
+        private const val PARALLEL_BATCHES = 8 // 병렬 처리 단위 증가
+
+        // 최적화된 코루틴 디스패처 설정
+        private val optimizedDispatcher = Dispatchers.IO.limitedParallelism(16)
+
+        // 대량 데이터 처리용 고정 스레드 풀 디스패처
+        private val bulkProcessingDispatcher = Executors.newFixedThreadPool(32)
+            .asCoroutineDispatcher()
     }
 
     private val sampleTitles = listOf(
@@ -56,61 +64,102 @@ class InitData(
         "새로운 기술을 배우기 시작했어요. 정말 흥미롭네요."
     )
 
-    private fun generateMemberBatches(): List<List<MemberRequest>> {
+    // 함수형 스타일로 멤버 배치 생성 최적화
+    private fun generateMemberBatches(): Sequence<List<MemberRequest>> = sequence {
         val batchCount = (MEMBER_COUNT + BATCH_SIZE - 1) / BATCH_SIZE
-        return (0 until batchCount).map { batchIndex ->
+
+        // 시퀀스를 사용하여 메모리 효율성 향상
+        (0 until batchCount).forEach { batchIndex ->
             val start = batchIndex * BATCH_SIZE + 1
             val end = minOf(start + BATCH_SIZE - 1, MEMBER_COUNT)
-            (start..end).map { i -> MemberRequest("user$i", "pass%02d".format(i)) }
+
+            // 배치 단위로 생성하여 메모리 사용량 최적화
+            val batch = (start..end).map { i -> 
+                MemberRequest("user$i", "pass%02d".format(i))
+            }
+
+            yield(batch)
         }
     }
 
-    private fun generatePostBatches(memberCount: Int): List<List<PostRequest>> {
+    // 함수형 스타일로 게시글 배치 생성 최적화
+    private fun generatePostBatches(memberCount: Int): Sequence<List<PostRequest>> = sequence {
         val random = java.util.Random()
         val totalPosts = memberCount * POSTS_PER_MEMBER
         val batchCount = (totalPosts + BATCH_SIZE - 1) / BATCH_SIZE
-        var postIndex = 0
 
-        return (0 until batchCount).map {
-            val batchSize = minOf(BATCH_SIZE, totalPosts - it * BATCH_SIZE)
-            List(batchSize) {
+        // 시퀀스와 원자적 카운터를 사용하여 스레드 안전성 확보
+        val postIndexCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
+        // 각 배치를 독립적으로 생성하여 병렬 처리 가능하게 함
+        (0 until batchCount).forEach { batchIndex ->
+            val batchSize = minOf(BATCH_SIZE, totalPosts - batchIndex * BATCH_SIZE)
+
+            val batch = (0 until batchSize).map {
+                val postIndex = postIndexCounter.getAndIncrement()
                 val memberId = (postIndex / POSTS_PER_MEMBER) + 1
-                val title = "${sampleTitles.random()} #${UUID.randomUUID().toString().substring(0, 8)}"
+
+                // UUID 생성 최적화
+                val uniqueId = UUID.randomUUID().toString().substring(0, 8)
+                val title = "${sampleTitles.random()} #$uniqueId"
                 val content = "${sampleContents.random()} (작성자: user$memberId)"
-                postIndex++
+
                 PostRequest(title, content, memberId.toLong())
             }
+
+            yield(batch)
         }
     }
 
+    /**
+     * 멤버 초기화를 함수형 프로그래밍 스타일로 최적화
+     * - 병렬 처리 향상
+     * - 메모리 사용량 최적화
+     * - 불필요한 GC 호출 제거
+     */
     @Transactional
-    suspend fun initializeMembers(): Pair<Long, InitializationResult> = withContext(Dispatchers.IO) {
-        val countResult = memberService.count()
-        if (countResult.isSuccess && countResult.getOrNull() ?: 0 > 0) {
-            logger.info("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
-            return@withContext 0L to Result.success(Unit)
-        }
+    suspend fun initializeMembers(): Pair<Long, InitializationResult> = withContext(bulkProcessingDispatcher) {
+        // 기존 멤버 확인 - 함수형 스타일로 변환
+        memberService.count()
+            .takeIf { it.isSuccess && (it.getOrNull() ?: 0) > 0 }
+            ?.let {
+                logger.info("이미 멤버가 존재합니다. 멤버 초기화를 건너뜁니다.")
+                return@withContext 0L to Result.success(Unit)
+            }
 
-        logger.info("멤버 생성 시작... 총 {} 멤버, 배치 크기: {}", MEMBER_COUNT, BATCH_SIZE)
+        logger.info("멤버 생성 시작... 총 {} 멤버, 배치 크기: {}, 병렬 처리: {}", 
+            MEMBER_COUNT, BATCH_SIZE, PARALLEL_BATCHES)
+
+        // 캐싱 설정 최적화
         val prevCachingState = cacheService.enableCaching
         cacheService.enableCaching = true
-        cacheService.putInCache("test:key", "test-value", Duration.ofMinutes(30))
 
         val time = measureTimeMillis {
-            val memberBatches = generateMemberBatches()
-            memberBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                batchChunk.map { batch ->
-                    async {
-                        (memberService as? MemberServiceImpl)?.registerBatch(batch)
-                            ?: throw IllegalStateException("MemberService는 MemberServiceImpl의 인스턴스여야 합니다")
+            // 시퀀스 기반 배치 처리로 메모리 효율성 향상
+            generateMemberBatches()
+                .chunked(PARALLEL_BATCHES)
+                .forEachIndexed { chunkIndex, batchChunk ->
+                    // 코루틴 스코프 내에서 병렬 처리
+                    coroutineScope {
+                        val deferreds = batchChunk.map { batch ->
+                            async(optimizedDispatcher) {
+                                (memberService as? MemberServiceImpl)?.registerBatch(batch)
+                                    ?: throw IllegalStateException("MemberService는 MemberServiceImpl의 인스턴스여야 합니다")
+                            }
+                        }
+                        deferreds.awaitAll()
                     }
-                }.awaitAll()
-                // 배치마다 EntityManager 클리어로 메모리 최적화
-                if (chunkIndex % 2 == 0) {
-                    entityManager.clear()
-                    System.gc()
+
+                    // 메모리 관리 최적화 - 불필요한 GC 호출 제거
+                    if (chunkIndex % 4 == 0) {
+                        entityManager.clear()
+                    }
+
+                    // 진행 상황 로깅
+                    val progress = minOf(100, ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / 
+                        ((MEMBER_COUNT + BATCH_SIZE - 1) / BATCH_SIZE))
+                    logger.info("멤버 생성 진행률: {}%", progress)
                 }
-            }
         }
 
         cacheService.enableCaching = prevCachingState
@@ -118,41 +167,68 @@ class InitData(
         return@withContext time to Result.success(Unit)
     }
 
+    /**
+     * 게시글 초기화를 함수형 프로그래밍 스타일로 최적화
+     * - 병렬 처리 향상
+     * - 메모리 사용량 최적화
+     * - 캐시 활용 극대화
+     */
     @Transactional
-    suspend fun initializePosts(): Pair<Long, InitializationResult> = withContext(Dispatchers.IO) {
-        val count = postService.count()
-        if (count > 0) {
+    suspend fun initializePosts(): Pair<Long, InitializationResult> = withContext(bulkProcessingDispatcher) {
+        // 함수형 스타일로 기존 게시글 확인
+        postService.count().takeIf { it > 0 }?.let {
             logger.info("이미 게시글이 존재합니다. 게시글 초기화를 건너뜁니다.")
             return@withContext 0L to Result.success(Unit)
         }
 
-        logger.info("게시글 생성 시작... 총 {} 게시글, 배치 크기: {}", MEMBER_COUNT * POSTS_PER_MEMBER, BATCH_SIZE)
+        logger.info("게시글 생성 시작... 총 {} 게시글, 배치 크기: {}, 병렬 처리: {}", 
+            MEMBER_COUNT * POSTS_PER_MEMBER, BATCH_SIZE, PARALLEL_BATCHES)
+
+        // 캐싱 최적화
         val prevCachingState = cacheService.enableCaching
         cacheService.enableCaching = true
-        cacheService.putInCache("test:key", "test-value", Duration.ofMinutes(30))
 
+        // 멤버 캐시 최적화 - 병렬로 멤버 데이터 미리 로드
         val memberIds = (1..MEMBER_COUNT).map { it.toLong() }
-        (postService as? PostServiceImpl)?.preloadMemberCache(memberIds)
+        val postServiceImpl = postService as? PostServiceImpl 
+            ?: throw IllegalStateException("PostService는 PostServiceImpl의 인스턴스여야 합니다")
 
-        val time = measureTimeMillis {
-            val postBatches = generatePostBatches(MEMBER_COUNT)
-            postBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                batchChunk.map { batch ->
-                    async {
-                        (postService as? PostServiceImpl)?.createBatch(batch)
-                            ?: throw IllegalStateException("PostService는 PostServiceImpl의 인스턴스여야 합니다")
-                    }
-                }.awaitAll()
-                // 배치마다 EntityManager 클리어로 메모리 최적화
-                if (chunkIndex % 2 == 0) {
-                    entityManager.clear()
-                    System.gc()
-                }
-            }
+        // 병렬 캐시 프리로딩
+        withContext(optimizedDispatcher) {
+            postServiceImpl.preloadMemberCache(memberIds)
         }
 
+        val time = measureTimeMillis {
+            // 시퀀스 기반 배치 처리로 메모리 효율성 향상
+            generatePostBatches(MEMBER_COUNT)
+                .chunked(PARALLEL_BATCHES)
+                .forEachIndexed { chunkIndex, batchChunk ->
+                    // 코루틴 스코프 내에서 병렬 처리
+                    coroutineScope {
+                        val deferreds = batchChunk.map { batch ->
+                            async(optimizedDispatcher) {
+                                postServiceImpl.createBatch(batch)
+                            }
+                        }
+                        deferreds.awaitAll()
+                    }
+
+                    // 메모리 관리 최적화 - 불필요한 GC 호출 제거
+                    if (chunkIndex % 4 == 0) {
+                        entityManager.clear()
+                    }
+
+                    // 진행 상황 로깅
+                    val totalBatches = (MEMBER_COUNT * POSTS_PER_MEMBER + BATCH_SIZE - 1) / BATCH_SIZE
+                    val progress = minOf(100, ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / totalBatches)
+                    logger.info("게시글 생성 진행률: {}%", progress)
+                }
+        }
+
+        // 리소스 정리
         cacheService.enableCaching = prevCachingState
-        (postService as? PostServiceImpl)?.clearMemberCache()
+        postServiceImpl.clearMemberCache()
+
         logger.info("게시글 생성 완료. 소요 시간: {}초", time / 1000)
         return@withContext time to Result.success(Unit)
     }
