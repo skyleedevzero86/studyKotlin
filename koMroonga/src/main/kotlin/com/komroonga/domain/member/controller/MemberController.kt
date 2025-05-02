@@ -5,12 +5,10 @@ import com.komroonga.global.error.types.MemberError
 import com.komroonga.member.service.MemberService
 import kotlinx.coroutines.flow.toList
 import org.slf4j.LoggerFactory
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.ModelAttribute
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
 @Controller
@@ -62,6 +60,36 @@ class MemberController(
                         "redirect:/members/register"
                     }
                 }
+            }
+        )
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN')")
+    suspend fun searchForm(model: Model): String {
+        logger.info("회원 검색 페이지 요청")
+        model.addAttribute("keyword", "")
+        return "member/search"
+    }
+
+    @PostMapping("/search")
+    @PreAuthorize("hasRole('ADMIN')")
+    suspend fun search(
+        @RequestParam keyword: String,
+        model: Model
+    ): String {
+        logger.info("회원 검색 요청: keyword=$keyword")
+        return memberService.searchByKeyword(keyword).fold(
+            onSuccess = { members ->
+                model.addAttribute("members", members)
+                model.addAttribute("keyword", keyword)
+                "member/search-results"
+            },
+            onFailure = { error ->
+                logger.error("회원 검색 실패: ${error.message}", error)
+                model.addAttribute("error", "검색 중 오류가 발생했습니다: ${error.message}")
+                model.addAttribute("keyword", keyword)
+                "member/search"
             }
         )
     }

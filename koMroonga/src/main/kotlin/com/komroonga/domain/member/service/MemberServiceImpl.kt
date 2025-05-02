@@ -8,6 +8,7 @@ import com.komroonga.member.repository.MemberRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -31,14 +32,19 @@ class MemberServiceImpl(
                 logger.warn("Username ${request.username} already exists")
                 throw MemberError.AlreadyExists(request.username)
             }
-            val member = Member(username = request.username, password = request.password)
+            val member = Member(
+                username = request.username, 
+                password = request.password,
+                name = request.name,
+                email = request.email
+            )
             val saved = memberRepository.save(member)
             logger.info("Saved username: ${saved.username}")
 
             if (cacheService.enableCaching) {
-                cacheService.putInCache("member:dto:${saved.id}", MemberResponse(saved.id!!, saved.username), cacheTtl)
+                cacheService.putInCache("member:dto:${saved.id}", MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role), cacheTtl)
             }
-            MemberResponse(saved.id!!, saved.username)
+            MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role)
         }.onFailure {
             logger.error("회원 등록 실패: ${request.username}, 오류: ${it.message}", it)
         }
@@ -50,7 +56,7 @@ class MemberServiceImpl(
             Member(username = request.username, password = request.password)
         }
         val savedMembers = memberRepository.saveAll(members) // 배치 삽입 활용
-        val responses = savedMembers.map { MemberResponse(it.id!!, it.username) }
+        val responses = savedMembers.map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
 
         if (cacheService.enableCaching) {
             val cacheItems = responses.associateBy { it.id }
@@ -67,13 +73,13 @@ class MemberServiceImpl(
             ) {
                 val member = memberRepository.findByUsername(username)
                     ?: throw MemberError.NotFound(username)
-                MemberResponse(member.id!!, member.username)
+                MemberResponse(member.id!!, member.username, member.name, member.email, member.role)
             }.getOrThrow()
         }.onFailure { logger.error("회원 조회 실패: ${it.message}", it) }
 
     override suspend fun findAll(): Flow<MemberResponse> = flow {
         memberRepository.findAll()
-            .map { MemberResponse(it.id!!, it.username) }
+            .map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
             .onEach { logger.info("전체 회원 조회 완료") }
             .forEach { emit(it) }
     }
@@ -114,4 +120,12 @@ class MemberServiceImpl(
             throw MemberError.InvalidInput("password", "비밀번호는 6자 이상이어야 합니다")
         }
     }
+
+    override suspend fun searchByKeyword(keyword: String): MemberResult<List<MemberResponse>> =
+        runCatching {
+            withContext(memberDispatcher) {
+                val members = memberRepository.searchByKeyword(keyword)
+                members.map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
+            }
+        }.onFailure { logger.error("회원 검색 실패: ${it.message}", it) }
 }

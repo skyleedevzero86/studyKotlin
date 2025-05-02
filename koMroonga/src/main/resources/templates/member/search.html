@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원 검색</title>
+    <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h2>회원 검색</h2>
+                <div sec:authorize="isAuthenticated()">
+                    <span th:text="'안녕하세요, ' + ${#authentication.name} + '님'"></span>
+                    <form th:action="@{/auth/logout}" method="post" class="d-inline ms-2">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">로그아웃</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <form th:action="@{/members/search}" method="post">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" name="keyword" th:value="${keyword}" 
+                                       placeholder="이름, 이메일, 사용자명으로 검색" required>
+                                <button class="btn btn-primary" type="submit">검색</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
+    <script src="/webjars/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
