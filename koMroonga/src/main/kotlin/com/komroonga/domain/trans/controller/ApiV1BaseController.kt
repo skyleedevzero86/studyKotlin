@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.ai.embedding.EmbeddingModel
-import org.springframework.ai.transformers.TransformersEmbeddingModel
+//import org.springframework.ai.embedding.EmbeddingModel
+//import org.springframework.ai.transformers.TransformersEmbeddingModel
 import java.time.Duration
 
 // 순수 함수들을 최상위 레벨에 정의
@@ -30,7 +30,7 @@ fun <T> Try<T>.withLogging(
 }
 
 // 임베딩 처리를 위한 순수 함수
-fun embedText(
+/*fun embedText(
     text: String,
     embeddingModel: EmbeddingModel,
     cacheService: CacheService,
@@ -56,9 +56,10 @@ fun embedText(
             failureMessage = { error: Throwable -> "임베딩 실패: ${error.message}" }
         )
     }
-}
+}*/
 
 // 모델 정보를 조회하는 함수
+/*
 fun getModelInfoDetails(
     modelUri: String,
     tokenizerUri: String,
@@ -126,4 +127,4 @@ class ApiV1BaseController @Autowired constructor(
             "모델 정보 가져오는 데 오류가 발생했습니다: ${e.message}"
         }
     }
-}
+}*/
