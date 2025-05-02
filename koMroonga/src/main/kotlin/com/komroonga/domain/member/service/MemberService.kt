@@ -15,4 +15,5 @@ interface MemberService {
     suspend fun findMemberEntityByUsername(username: String): Result<Member>
     suspend fun findMemberEntityById(id: Long): Result<Member>
     suspend fun searchByKeyword(keyword: String): MemberResult<List<MemberResponse>>
+    suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse>
 }
