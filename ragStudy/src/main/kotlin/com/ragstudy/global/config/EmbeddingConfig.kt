@@ -19,9 +19,10 @@ class EmbeddingConfig(
     @Bean
     fun transformersEmbeddingModel(): TransformersEmbeddingModel {
         return TransformersEmbeddingModel(MetadataMode.NONE, ObservationRegistry.NOOP).apply {
-            setTokenizerResource(modelUri)
+            setModelResource(modelUri)
+            setTokenizerResource(tokenizerUri)
             setTokenizerOptions(mapOf())
-            setModelOutputName(modelOutputName)
+            setModelOutputName("last_hidden_state")
         }
     }
 
