@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>텍스트 분석</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.0/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container">
+    <h1 class="my-4">텍스트 분석 서비스</h1>
+
+    <!-- 텍스트 유사도 비교 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>텍스트 유사도 비교</h4>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/api/v1/text-analysis/similarity}" method="get">
+                <div class="mb-3">
+                    <label for="text1" class="form-label">텍스트 1</label>
+                    <input type="text" class="form-control" id="text1" name="text1" required>
+                </div>
+                <div class="mb-3">
+                    <label for="text2" class="form-label">텍스트 2</label>
+                    <input type="text" class="form-control" id="text2" name="text2" required>
+                </div>
+                <button type="submit" class="btn btn-primary">유사도 비교</button>
+            </form>
+            <div th:if="${similarity != null}">
+                <h5 class="mt-3">유사도: <span th:text="${similarity}"></span></h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- 키워드 추출 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>키워드 추출</h4>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/api/v1/text-analysis/keywords}" method="get">
+                <div class="mb-3">
+                    <label for="keywordsText" class="form-label">텍스트</label>
+                    <input type="text" class="form-control" id="keywordsText" name="text" required>
+                </div>
+                <button type="submit" class="btn btn-primary">키워드 추출</button>
+            </form>
+            <div th:if="${keywords != null}">
+                <h5 class="mt-3">추출된 키워드:</h5>
+                <ul>
+                    <li th:each="keyword : ${keywords}" th:text="${keyword}"></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 감정 분석 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>감정 분석</h4>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/api/v1/text-analysis/sentiment}" method="get">
+                <div class="mb-3">
+                    <label for="sentimentText" class="form-label">텍스트</label>
+                    <input type="text" class="form-control" id="sentimentText" name="text" required>
+                </div>
+                <button type="submit" class="btn btn-primary">감정 분석</button>
+            </form>
+            <div th:if="${sentiment != null}">
+                <h5 class="mt-3">감정: <span th:text="${sentiment}"></span></h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- 문서 군집화 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>문서 군집화</h4>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/api/v1/text-analysis/cluster}" method="post">
+                <div class="mb-3">
+                    <label for="documents" class="form-label">문서 리스트 (여러 줄로 입력)</label>
+                    <textarea class="form-control" id="documents" name="documents" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">군집화</button>
+            </form>
+            <div th:if="${clusters != null}">
+                <h5 class="mt-3">군집화된 문서들:</h5>
+                <div th:each="cluster : ${clusters}">
+                    <ul>
+                        <li th:each="document : ${cluster}" th:text="${document}"></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.0/js/bootstrap.min.js"></script>
+</body>
+</html>
