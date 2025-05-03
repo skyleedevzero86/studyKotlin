@@ -30,13 +30,14 @@ class DocumentClusteringService(private val embedService: EmbedService) {
 
         // 클러스터 수 및 반복 설정
         val maxIter = 100
-        val kmeans = KMeans.fit(data, actualK, maxIter)
+        val tol = 1e-4 // 허용 오차
+        val kmeans = KMeans.fit(data, actualK, maxIter, tol)
 
-        // 클러스터에 문서 매핑
+        // 클러스터에 문서 매핑 (predict를 사용해 동적으로 클러스터 레이블 얻기)
         val clusters = Array(actualK) { mutableListOf<String>() }
-        for ((i, doc) in filteredDocuments.withIndex()) {
-            val clusterIndex = kmeans.predict(data[i])
-            clusters[clusterIndex].add(doc)
+        for (i in filteredDocuments.indices) {
+            val clusterIndex = kmeans.predict(data[i]) // 각 데이터 포인트의 클러스터 예측
+            clusters[clusterIndex].add(filteredDocuments[i])
         }
 
         // 클러스터 유사도 점수 계산 (선택적)
@@ -49,11 +50,9 @@ class DocumentClusteringService(private val embedService: EmbedService) {
         clusters: Array<MutableList<String>>,
         embeddings: List<FloatArray>
     ): List<Double> {
-        // 각 클러스터 내 문서들의 평균 유사도 점수 계산
         return clusters.mapIndexed { _, cluster ->
-            if (cluster.size <= 1) return@mapIndexed 1.0 // 단일 문서 클러스터는 완벽한 유사도
+            if (cluster.size <= 1) return@mapIndexed 1.0
 
-            // 클러스터 내 모든 문서 쌍의 유사도 평균 계산
             var totalSimilarity = 0.0
             var pairCount = 0
 
