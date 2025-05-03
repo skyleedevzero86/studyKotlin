@@ -1,7 +1,7 @@
 package com.ragstudy.global.config
 
-import com.ragstudy.domain.entity.EmbeddingModel
-import com.ragstudy.domain.entity.SimpleEmbeddingModel
+import com.ragstudy.domain.model.EmbeddingModel
+import com.ragstudy.domain.model.SimpleEmbeddingModel
 import io.micrometer.observation.ObservationRegistry
 import org.springframework.ai.document.MetadataMode
 import org.springframework.ai.transformers.TransformersEmbeddingModel

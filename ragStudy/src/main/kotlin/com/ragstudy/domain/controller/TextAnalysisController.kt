@@ -3,7 +3,7 @@ package com.ragstudy.domain.controller
 
 import com.ragstudy.domain.service.DocumentClusteringService
 import com.ragstudy.domain.service.TextSimilarityService
-import com.ragstudy.domain.servuce.*
+import com.ragstudy.domain.service.*
 import org.springframework.web.bind.annotation.*
 
 @RestController

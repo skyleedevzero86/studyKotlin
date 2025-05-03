@@ -1,6 +1,6 @@
-package com.ragstudy.domain.servuce
+package com.ragstudy.domain.service
 
-import com.ragstudy.domain.entity.EmbeddingModel
+import com.ragstudy.domain.model.EmbeddingModel
 import org.springframework.stereotype.Service
 
 @Service

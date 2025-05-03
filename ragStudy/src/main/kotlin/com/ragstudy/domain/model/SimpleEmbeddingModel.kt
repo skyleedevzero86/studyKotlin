@@ -1,4 +1,4 @@
-package com.ragstudy.domain.entity
+package com.ragstudy.domain.model
 
 import org.springframework.ai.transformers.TransformersEmbeddingModel
 

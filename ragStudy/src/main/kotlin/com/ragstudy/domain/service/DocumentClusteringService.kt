@@ -2,7 +2,6 @@ package com.ragstudy.domain.service
 
 import org.springframework.stereotype.Service
 import smile.clustering.KMeans
-import com.ragstudy.domain.servuce.EmbedService
 
 @Service
 class DocumentClusteringService(private val embedService: EmbedService) {

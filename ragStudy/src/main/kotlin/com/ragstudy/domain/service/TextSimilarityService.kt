@@ -1,7 +1,6 @@
 package com.ragstudy.domain.service
 
 import org.springframework.stereotype.Service
-import com.ragstudy.domain.servuce.EmbedService
 import kotlin.math.sqrt
 
 @Service

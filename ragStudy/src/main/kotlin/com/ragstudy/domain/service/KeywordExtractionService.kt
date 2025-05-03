@@ -1,4 +1,4 @@
-package com.ragstudy.domain.servuce
+package com.ragstudy.domain.service
 
 import org.springframework.stereotype.Service
 
