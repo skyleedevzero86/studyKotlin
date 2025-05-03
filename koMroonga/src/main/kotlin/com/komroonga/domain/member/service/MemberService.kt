@@ -5,6 +5,10 @@ import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.member.entity.Member
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 회원 서비스 인터페이스
+ * 회원 관련 비즈니스 로직 정의
+ */
 typealias MemberResult<T> = Result<T>
 
 interface MemberService {

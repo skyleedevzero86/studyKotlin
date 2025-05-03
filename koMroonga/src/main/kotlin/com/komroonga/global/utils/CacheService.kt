@@ -10,18 +10,41 @@ import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.concurrent.TimeoutException
 
+/**
+ * 캐시 서비스 클래스
+ * Redis를 이용한 데이터 캐싱 기능 제공
+ */
 @Component
 class CacheService(
     private val redisTemplate: RedisTemplate<String, Any>
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    // 캐시 활성화 여부 설정 (초기화 중에는 비활성화 가능)
-    var enableCaching = true
+    var enableCaching = true // 캐시 활성화 여부
 
-    // 향상된 코루틴 디스패처 - IO 작업에 최적화
     private val redisCacheDispatcher = Dispatchers.IO.limitedParallelism(8)
 
+    /**
+     * 캐시에 키가 존재하는지 확인
+     */
+    suspend fun exists(key: String): Boolean {
+        if (!enableCaching) return false
+
+        return runCatching {
+            withContext(redisCacheDispatcher) {
+                try {
+                    redisTemplate.hasKey(key) ?: false
+                } catch (e: Exception) {
+                    logger.warn("캐시 키 확인 실패: ${e.message}")
+                    false
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /**
+     * 캐시에서 데이터 조회
+     */
     suspend fun <T> getFromCache(key: String): Result<T?> {
         if (!enableCaching) return Result.success(null)
 
@@ -51,6 +74,9 @@ class CacheService(
         }
     }
 
+    /**
+     * 캐시에 데이터 저장
+     */
     suspend fun <T> putInCache(key: String, value: T, ttl: Duration): Result<Unit> {
         if (!enableCaching) return Result.success(Unit)
 
@@ -79,6 +105,9 @@ class CacheService(
         }
     }
 
+    /**
+     * 캐시된 데이터 조회 또는 새로 계산
+     */
     suspend fun <T> getCachedOrCompute(
         key: String,
         ttl: Duration,
@@ -101,14 +130,15 @@ class CacheService(
                 }
             },
             onFailure = { throwable ->
-                // 캐시 접근 실패 시 로그 기록 및 원본 데이터 조회
                 logger.warn("캐시 접근 실패: ${throwable.message}. 원본 데이터 조회 중...")
                 runCatching { compute() }
             }
         )
     }
 
-    // 벌크 캐싱 메서드 추가
+    /**
+     * 벌크 데이터 캐싱
+     */
     suspend fun <K, V> putBulkInCache(items: Map<K, V>, keyPrefix: String, ttl: Duration): Result<Unit> {
         if (!enableCaching || items.isEmpty()) return Result.success(Unit)
 

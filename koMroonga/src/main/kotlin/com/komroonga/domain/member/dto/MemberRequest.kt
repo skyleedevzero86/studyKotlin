@@ -2,6 +2,9 @@ package com.komroonga.domain.member.dto
 
 import com.komroonga.member.entity.Role
 
+/**
+ * 회원 요청 DTO
+ */
 data class MemberRequest(
     val username: String,
     val password: String,

@@ -35,7 +35,7 @@ class PostServiceImpl(
     private val postDispatcher = Dispatchers.IO.limitedParallelism(16)
     private val memberCache = Caffeine.newBuilder()
         .expireAfterWrite(30, TimeUnit.MINUTES)
-        .maximumSize(100_000)
+        .maximumSize(10_000)
         .build<Long, Member>()
 
     override suspend fun count(): Long = runCatching {
@@ -62,10 +62,17 @@ class PostServiceImpl(
         val posts = requests.map { request ->
             validateRequest(request).getOrThrow()
             val authorId = request.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
-            val author = memberCache.getIfPresent(authorId) ?: throw PostError.NotFound(authorId)
+            val author = memberCache.getIfPresent(authorId) ?: try {
+                val member = memberService.findMemberEntityById(authorId).getOrThrow()
+                memberCache.put(authorId, member)
+                member
+            } catch (e: Exception) {
+                logger.error("작성자 조회 실패: authorId=$authorId", e)
+                throw PostError.NotFound(authorId)
+            }
             Post(
-                title = request.title, 
-                content = request.content, 
+                title = request.title,
+                content = request.content,
                 author = author,
                 isPrivate = request.isPrivate,
                 noticeType = request.noticeType
@@ -84,8 +91,8 @@ class PostServiceImpl(
 
     private fun createPost(request: PostRequest, author: Member): Result<Post> = runCatching {
         val post = Post(
-            title = request.title, 
-            content = request.content, 
+            title = request.title,
+            content = request.content,
             author = author,
             isPrivate = request.isPrivate,
             noticeType = request.noticeType
@@ -102,9 +109,9 @@ class PostServiceImpl(
 
     private fun postToResponse(post: Post): PostResponse =
         PostResponse(
-            id = post.id!!, 
-            title = post.title, 
-            content = post.content, 
+            id = post.id!!,
+            title = post.title,
+            content = post.content,
             authorUsername = post.author.username,
             authorId = post.author.id!!,
             isPrivate = post.isPrivate,
@@ -121,7 +128,7 @@ class PostServiceImpl(
 
     private suspend fun fetchPostById(id: Long, currentUser: MemberResponse?): Result<PostResponse> = runCatching {
         val post = postRepository.findById(id).orElseThrow { PostError.NotFound(id) }
-        
+
         // 비공개 게시글 접근 권한 확인
         if (post.isPrivate) {
             val userId = currentUser?.id
@@ -129,18 +136,18 @@ class PostServiceImpl(
             if (userId == null) {
                 throw PostError.Unauthorized("비공개 게시글에 접근할 수 없습니다")
             }
-            
+
             // 작성자나 관리자만 비공개 게시글 접근 가능
             if (post.author.id != userId && currentUser.role != com.komroonga.member.entity.Role.ROLE_ADMIN) {
                 throw PostError.Unauthorized("비공개 게시글에 접근할 수 없습니다")
             }
         }
-        
+
         // 회원 공지는 로그인 사용자만 접근 가능
         if (post.noticeType == NoticeType.MEMBER && currentUser == null) {
             throw PostError.Unauthorized("회원 공지에 접근할 수 없습니다")
         }
-        
+
         postToResponse(post)
     }
 
@@ -154,10 +161,10 @@ class PostServiceImpl(
     }
 
     override suspend fun edit(
-        postId: Long, 
-        memberResponse: MemberResponse, 
-        title: String, 
-        content: String, 
+        postId: Long,
+        memberResponse: MemberResponse,
+        title: String,
+        content: String,
         isPrivate: Boolean,
         noticeType: NoticeType
     ): Result<PostResponse> =
@@ -166,21 +173,21 @@ class PostServiceImpl(
                 runCatching {
                     val post = postRepository.findById(postId)
                         .orElseThrow { PostError.NotFound(postId) }
-                    
+
                     // 작성자나 관리자만 게시글 수정 가능
                     if (post.author.id != memberResponse.id && memberResponse.role != com.komroonga.member.entity.Role.ROLE_ADMIN) {
                         throw PostError.Unauthorized("게시글 수정 권한이 없습니다")
                     }
-                    
+
                     // 관리자가 아닌 경우 공지 유형 변경 불가
-                    if (memberResponse.role != com.komroonga.member.entity.Role.ROLE_ADMIN && 
-                        post.noticeType != noticeType && 
+                    if (memberResponse.role != com.komroonga.member.entity.Role.ROLE_ADMIN &&
+                        post.noticeType != noticeType &&
                         noticeType != NoticeType.NONE) {
                         throw PostError.Unauthorized("공지 유형 변경 권한이 없습니다")
                     }
-                    
+
                     val updatedPost = post.copy(
-                        title = request.title, 
+                        title = request.title,
                         content = request.content,
                         isPrivate = request.isPrivate,
                         noticeType = request.noticeType
@@ -195,19 +202,19 @@ class PostServiceImpl(
             }
 
     override suspend fun search(
-        searchType: String, 
-        keyword: String, 
+        searchType: String,
+        keyword: String,
         currentUser: MemberResponse?
     ): Flow<PostResponse> = flow {
         val userId = currentUser?.id
-        
+
         // 검색 결과 중 접근 가능한 게시글만 필터링
         postRepository.search(searchType, keyword)
             .filter { post ->
                 // 비공개 게시글은 작성자나 관리자만 볼 수 있음
                 if (post.isPrivate) {
                     userId != null && (post.author.id == userId || currentUser.role == com.komroonga.member.entity.Role.ROLE_ADMIN)
-                } 
+                }
                 // 회원 공지는 로그인 사용자만 볼 수 있음
                 else if (post.noticeType == NoticeType.MEMBER) {
                     userId != null
@@ -219,20 +226,20 @@ class PostServiceImpl(
             }
             .map { postToResponse(it) }
             .forEach { emit(it) }
-        
+
         logger.info("게시글 검색 완료: 검색 유형=$searchType, 키워드=$keyword")
     }
 
     override suspend fun findByNoticeType(
-        noticeType: NoticeType, 
+        noticeType: NoticeType,
         currentUser: MemberResponse?
     ): Flow<PostResponse> = flow {
         val userId = currentUser?.id
-        
+
         postRepository.findVisiblePostsByNoticeType(noticeType, userId)
             .map { postToResponse(it) }
             .forEach { emit(it) }
-        
+
         logger.info("공지 유형별 게시글 조회 완료: 공지 유형=$noticeType")
     }
 

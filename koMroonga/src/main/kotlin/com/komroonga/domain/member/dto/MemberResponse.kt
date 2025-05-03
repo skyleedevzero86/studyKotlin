@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.komroonga.member.entity.Role
 
+/**
+ * 회원 응답 DTO
+ */
 data class MemberResponse @JsonCreator constructor(
     @JsonProperty("id") val id: Long,
     @JsonProperty("username") val username: String,

@@ -10,7 +10,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
-import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
@@ -25,7 +24,9 @@ class SecurityConfig(
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
-            .csrf { it.disable() }
+            //.csrf { it.disable() }
+            //.formLogin { it.disable() }
+            //.httpBasic { it.disable() } // 기본 인증도 비활성화
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { authorize ->
                 authorize
@@ -36,29 +37,15 @@ class SecurityConfig(
                     .requestMatchers("/posts/create", "/posts/{id}/edit").authenticated()
                     .anyRequest().authenticated()
             }
-            .formLogin { login ->
-                login
-                    .loginPage("/auth/login")
-                    .permitAll()
-            }
-            .logout { logout ->
-                logout
-                    .logoutUrl("/auth/logout")
-                    .logoutSuccessUrl("/auth/login?logout")
-                    .permitAll()
-            }
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
     }
 
     @Bean
-    fun passwordEncoder(): PasswordEncoder {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder() // Use DelegatingPasswordEncoder
-    }
+    fun passwordEncoder(): PasswordEncoder = CustomPasswordEncoder()
 
     @Bean
-    fun authenticationManager(authenticationConfiguration: AuthenticationConfiguration): AuthenticationManager {
-        return authenticationConfiguration.authenticationManager
-    }
+    fun authenticationManager(authConfig: AuthenticationConfiguration): AuthenticationManager =
+        authConfig.authenticationManager
 }

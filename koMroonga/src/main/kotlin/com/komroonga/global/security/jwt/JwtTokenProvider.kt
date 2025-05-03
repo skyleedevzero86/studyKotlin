@@ -3,109 +3,80 @@ package com.komroonga.global.security.jwt
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.SignatureAlgorithm
 import io.jsonwebtoken.security.Keys
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import java.util.*
+import java.util.Date
+import javax.crypto.SecretKey
 
 /**
- * JWT 토큰 생성 및 검증을 담당하는 컴포넌트
- * 함수형 프로그래밍 스타일로 구현
+ * JWT 토큰 생성 및 검증 클래스
  */
 @Component
-class JwtTokenProvider {
+class JwtTokenProvider(
+    @Value("\${jwt.secret}") private val secret: String,
+    @Value("\${jwt.expiration}") private val _expiration: Long
+) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val secretKey: SecretKey
 
-    @Value("\${jwt.secret}")
-    private lateinit var secretKey: String
+    val expiration: Long
+        get() = _expiration
 
-    @Value("\${jwt.expiration}")
-    val validityInMilliseconds: Long = 0
+    init {
+        // 키 길이 검증
+        val secretBytes = secret.toByteArray(Charsets.UTF_8)
+        if (secretBytes.size < 32) {
+            logger.error("JWT secret key is too short: {} bytes. Must be at least 32 bytes (256 bits).", secretBytes.size)
+            throw IllegalArgumentException("JWT secret key must be at least 32 bytes (256 bits)")
+        }
+        secretKey = Keys.hmacShaKeyFor(secretBytes)
+        logger.info("JWT Secret loaded: {} bytes", secretBytes.size)
+        logger.info("JWT Expiration: {} ms", _expiration)
+    }
 
     /**
-     * 사용자명과 권한 목록을 기반으로 JWT 토큰을 생성합니다.
-     *
-     * @param username 사용자명
-     * @param roles 사용자 권한 목록 (선택적)
-     * @return 생성된 JWT 토큰
+     * JWT 토큰 생성
      */
-    fun createToken(username: String, roles: List<String> = emptyList()): String {
-        val claims = Jwts.claims().setSubject(username)
-
-        // 권한 정보가 있으면 추가
-        if (roles.isNotEmpty()) {
-            claims["roles"] = roles
-        }
-
+    fun generateToken(username: String): String {
         val now = Date()
-        val validity = Date(now.time + validityInMilliseconds)
+        val expiryDate = Date(now.time + _expiration)
 
+        logger.debug("Generating token for user: {}", username)
         return Jwts.builder()
-            .setClaims(claims)
+            .setSubject(username)
             .setIssuedAt(now)
-            .setExpiration(validity)
-            .signWith(Keys.hmacShaKeyFor(secretKey.toByteArray()), SignatureAlgorithm.HS256)
+            .setExpiration(expiryDate)
+            .signWith(secretKey, SignatureAlgorithm.HS512)
             .compact()
     }
 
     /**
-     * 토큰에서 사용자명을 추출합니다.
-     *
-     * @param token JWT 토큰
-     * @return 사용자명
+     * JWT 토큰에서 사용자 이름 추출
      */
-    fun getUsernameFromToken(token: String): String =
-        getClaimsFromToken(token).subject
-
-    /**
-     * 토큰에서 권한 목록을 추출합니다.
-     *
-     * @param token JWT 토큰
-     * @return 권한 목록
-     */
-    fun getRolesFromToken(token: String): List<String> =
-        getClaimsFromToken(token)["roles"]?.let {
-            when (it) {
-                is List<*> -> it.filterIsInstance<String>()
-                else -> emptyList()
-            }
-        } ?: emptyList()
-
-    /**
-     * 토큰의 유효성을 검증합니다.
-     *
-     * @param token JWT 토큰
-     * @return 유효성 여부
-     */
-    fun validateToken(token: String): Boolean =
-        runCatching {
-            val claims = getClaimsFromToken(token)
-            !claims.expiration.before(Date())
-        }.getOrDefault(false)
-
-    /**
-     * 토큰에서 클레임을 추출합니다. (내부 사용)
-     *
-     * @param token JWT 토큰
-     * @return JWT 클레임
-     */
-    private fun getClaimsFromToken(token: String) =
-        Jwts.parserBuilder()
-            .setSigningKey(Keys.hmacShaKeyFor(secretKey.toByteArray()))
+    fun getUsernameFromToken(token: String): String {
+        return Jwts.parserBuilder()
+            .setSigningKey(secretKey)
             .build()
             .parseClaimsJws(token)
             .body
+            .subject
+    }
 
-    companion object {
-        /**
-         * 토큰 만료 검사를 수행합니다.
-         *
-         * @param token JWT 토큰
-         * @param provider JwtTokenProvider 인스턴스
-         * @return 만료되었는지 여부
-         */
-        fun isTokenExpired(token: String, provider: JwtTokenProvider): Boolean =
-            runCatching {
-                val expiration = provider.getClaimsFromToken(token).expiration
-                expiration.before(Date())
-            }.getOrDefault(true)
+    /**
+     * JWT 토큰 유효성 검증
+     */
+    fun validateToken(token: String): Boolean {
+        return try {
+            Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+            logger.debug("Token validated successfully")
+            true
+        } catch (e: Exception) {
+            logger.error("JWT 토큰 검증 실패: ${e.message}", e)
+            false
+        }
     }
 }

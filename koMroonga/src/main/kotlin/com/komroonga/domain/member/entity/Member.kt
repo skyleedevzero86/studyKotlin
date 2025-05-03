@@ -7,9 +7,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.UserDetails
 
 /**
- * Member 엔티티 클래스
- * 함수형 프로그래밍 스타일로 구현
- * UserDetails 인터페이스 충돌 해결
+ * 회원 엔티티 클래스
+ * UserDetails 인터페이스 구현
  */
 @Entity
 @Table(
@@ -39,13 +38,11 @@ class Member(
     val role: Role = Role.ROLE_USER
 ) : UserDetails {
 
-    // 초기 검증 로직
     init {
         require(username.isNotBlank()) { "사용자 이름은 비어 있을 수 없습니다" }
         require(password.isNotBlank()) { "비밀번호는 비어 있을 수 없습니다" }
     }
 
-    // UserDetails 인터페이스 구현
     override fun getAuthorities(): Collection<GrantedAuthority> =
         listOf(SimpleGrantedAuthority(role.name))
 
@@ -61,7 +58,6 @@ class Member(
 
     override fun isEnabled(): Boolean = true
 
-    // 함수형 스타일 유틸리티 메서드들
     fun copy(
         id: Long? = this.id,
         username: String = this.username,
@@ -71,7 +67,6 @@ class Member(
         role: Role = this.role
     ): Member = Member(id, username, password, name, email, role)
 
-    // equals, hashCode, toString 구현
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Member) return false
@@ -94,7 +89,6 @@ class Member(
 
     override fun toString(): String =
         "Member(id=$id, username=$username, name=$name, email=$email, role=$role)"
-
 
     companion object {
         fun create(

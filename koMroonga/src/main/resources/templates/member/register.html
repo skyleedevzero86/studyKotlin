@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원 검색 결과</title>
+    <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h2>회원 검색 결과</h2>
+                <div sec:authorize="isAuthenticated()">
+                    <span th:text="'안녕하세요, ' + ${#authentication.name} + '님'"></span>
+                    <form th:action="@{/auth/logout}" method="post" class="d-inline ms-2">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">로그아웃</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col">
+                <a th:href="@{/members/search}" class="btn btn-outline-primary">새 검색</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 th:text="'검색어: ' + ${keyword}"></h5>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${#lists.isEmpty(members)}" class="alert alert-info">
+                            검색 결과가 없습니다.
+                        </div>
+
+                        <table th:if="${not #lists.isEmpty(members)}" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>사용자명</th>
+                                    <th>이름</th>
+                                    <th>이메일</th>
+                                    <th>권한</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="member : ${members}">
+                                    <td th:text="${member.id}"></td>
+                                    <td th:text="${member.username}"></td>
+                                    <td th:text="${member.name ?: '-'}"></td>
+                                    <td th:text="${member.email ?: '-'}"></td>
+                                    <td th:text="${member.role}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/webjars/jquery/3.7.1/jquery.min.js"></script>
+    <script src="/webjars/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

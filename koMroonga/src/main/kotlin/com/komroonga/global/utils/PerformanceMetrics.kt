@@ -1,5 +1,9 @@
 package com.komroonga.global.utils
 
+/**
+ * 성능 지표 데이터 클래스
+ * 초기화 과정의 성능을 측정하고 보고서 생성
+ */
 data class PerformanceMetrics(
     val totalTimeMs: Long,
     val memberTimeMs: Long,
@@ -12,12 +16,14 @@ data class PerformanceMetrics(
         private const val BASELINE_POST_SECONDS = 1340.0 // 기준 게시글 생성 시간(초)
     }
 
+    /**
+     * 성능 보고서 생성
+     */
     fun generateReport(): String {
         val totalTimeInSeconds = totalTimeMs / 1000.0
         val memberTimeInSeconds = memberTimeMs / 1000.0
         val postTimeInSeconds = postTimeMs / 1000.0
 
-        // 향상률 계산 공식: ((기준값 - 현재값) / 기준값) * 100
         val totalTimeImprovementPercent = if (BASELINE_TOTAL_SECONDS > 0) {
             ((BASELINE_TOTAL_SECONDS - totalTimeInSeconds) / BASELINE_TOTAL_SECONDS) * 100
         } else 0.0
@@ -33,7 +39,7 @@ data class PerformanceMetrics(
             ==== 초기화 성능 지표 비교 ====
             총 초기화 시간: ${String.format("%.2f", totalTimeInSeconds)}초 (${String.format("%.2f", totalTimeInSeconds / 60.0)}분)
             - 향상률: ${String.format("%.1f", totalTimeImprovementPercent)}% 감소
-            멤버 생성 시간: ${String.format("%.2f", memberTimeInSeconds)}초 (${String.format("%.2f", memberTimeInSeconds / 60.0)}분)
+            사용자 생성 시간: ${String.format("%.2f", memberTimeInSeconds)}초 (${String.format("%.2f", memberTimeInSeconds / 60.0)}분)
             게시글 생성 시간: ${String.format("%.2f", postTimeInSeconds)}초 (${String.format("%.2f", postTimeInSeconds / 60.0)}분)
             - 향상률: ${String.format("%.1f", postTimeImprovementPercent)}% 감소
             메모리 사용량: ${String.format("%.2f", beforeMemoryMB)}MB -> ${String.format("%.2f", afterMemoryMB)}MB
