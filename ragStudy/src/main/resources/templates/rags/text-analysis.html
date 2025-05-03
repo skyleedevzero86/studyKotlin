@@ -76,28 +76,62 @@
     </div>
 
     <!-- 문서 군집화 -->
+    <!-- 문서 군집화 -->
     <div class="card mb-4">
         <div class="card-header">
             <h4>문서 군집화</h4>
         </div>
         <div class="card-body">
-            <form th:action="@{/api/v1/text-analysis/cluster}" method="post">
+            <form id="clusterForm">
                 <div class="mb-3">
                     <label for="documents" class="form-label">문서 리스트 (여러 줄로 입력)</label>
-                    <textarea class="form-control" id="documents" name="documents" rows="4" required></textarea>
+                    <textarea class="form-control" id="documents" name="documents" rows="4" required
+                              maxlength="5000" placeholder="문서를 한 줄씩 입력하세요. 예:
+인공지능은 데이터 분석에 유용하다.
+주식 시장은 최근 변동성이 크다."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="k" class="form-label">클러스터 수 (선택, 기본값: 3)</label>
+                    <input type="number" class="form-control" id="k" name="k" min="1" value="3">
                 </div>
                 <button type="submit" class="btn btn-primary">군집화</button>
             </form>
-            <div th:if="${clusters != null}">
-                <h5 class="mt-3">군집화된 문서들:</h5>
-                <div th:each="cluster : ${clusters}">
-                    <ul>
-                        <li th:each="document : ${cluster}" th:text="${document}"></li>
-                    </ul>
-                </div>
-            </div>
+            <div id="clusterResult"></div>
         </div>
     </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#clusterForm').submit(function(e) {
+                e.preventDefault();
+                const documents = $('#documents').val().split('\n').filter(doc => doc.trim() !== '');
+                const k = $('#k').val();
+                const data = { documents, k: parseInt(k) || 3 };
+
+                $.ajax({
+                    url: '/api/v1/text-analysis/cluster',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        let html = '<h5 class="mt-3">군집화된 문서들:</h5>';
+                        response.clusters.forEach((cluster, index) => {
+                            html += `<div><strong>클러스터 ${index + 1}</strong><ul>`;
+                            cluster.forEach(doc => {
+                                html += `<li>${doc}</li>`;
+                            });
+                            html += '</ul></div>';
+                        });
+                        $('#clusterResult').html(html);
+                    },
+                    error: function(xhr) {
+                        $('#clusterResult').html(`<div class="alert alert-danger mt-3">오류: ${xhr.responseJSON.message}</div>`);
+                    }
+                });
+            });
+        });
+    </script>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>

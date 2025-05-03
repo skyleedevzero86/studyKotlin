@@ -5,6 +5,7 @@ import com.ragstudy.domain.dto.ClusterResponse
 import com.ragstudy.domain.dto.TextAnalysisResponse
 import com.ragstudy.domain.service.*
 import com.ragstudy.global.util.TextUtils
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -24,17 +25,26 @@ class TextAnalysisController(
         @RequestParam text1: String,
         @RequestParam text2: String
     ): ResponseEntity<TextAnalysisResponse<Double>> {
-        val normalizedText1 = TextUtils.normalize(text1)
-        val normalizedText2 = TextUtils.normalize(text2)
-        val similarity = textSimilarityService.calculateSimilarity(normalizedText1, normalizedText2)
-
-        return ResponseEntity.ok(
-            TextAnalysisResponse(
-                data = similarity,
-                message = "텍스트 유사도 계산 완료",
-                status = 200
+        return try {
+            val normalizedText1 = TextUtils.normalize(text1)
+            val normalizedText2 = TextUtils.normalize(text2)
+            val similarity = textSimilarityService.calculateSimilarity(normalizedText1, normalizedText2)
+            ResponseEntity.ok(
+                TextAnalysisResponse(
+                    data = similarity,
+                    message = "텍스트 유사도 계산 완료",
+                    status = 200
+                )
             )
-        )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                TextAnalysisResponse(
+                    data = 0.0,
+                    message = "유사도 계산 중 오류 발생: ${e.message}",
+                    status = 500
+                )
+            )
+        }
     }
 
     @GetMapping("/keywords")
@@ -70,23 +80,32 @@ class TextAnalysisController(
         )
     }
 
-    @PostMapping("/cluster")
+    @PostMapping("/cluster", consumes = ["application/json"])
     fun clusterDocuments(
         @RequestBody request: ClusterRequest
     ): ResponseEntity<ClusterResponse> {
-        val normalizedDocuments = request.documents.map { TextUtils.normalize(it) }
-        val clusters = documentClusteringService.clusterDocuments(
-            documents = normalizedDocuments,
-            k = request.k ?: 3
-        )
-
-        return ResponseEntity.ok(
-            ClusterResponse(
-                clusters = clusters,
-                message = "문서 군집화 완료",
-                status = 200
+        return try {
+            val normalizedDocuments = request.documents.map { TextUtils.normalize(it) }
+            val clusters = documentClusteringService.clusterDocuments(
+                documents = normalizedDocuments,
+                k = request.k ?: 3
             )
-        )
+            ResponseEntity.ok(
+                ClusterResponse(
+                    clusters = clusters,
+                    message = "문서 군집화 완료",
+                    status = 200
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                ClusterResponse(
+                    clusters = emptyList(),
+                    message = "문서 군집화 중 오류 발생: ${e.message}",
+                    status = 500
+                )
+            )
+        }
     }
 
     @GetMapping("/summarize")
