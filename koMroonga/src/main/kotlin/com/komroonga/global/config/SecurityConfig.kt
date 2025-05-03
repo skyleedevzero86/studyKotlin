@@ -29,10 +29,10 @@ class SecurityConfig(
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         // URL 패턴 정의
-        val publicUrls = arrayOf("/", "/auth/**", "/css/**", "/js/**", "/images/**", "/webjars/**")
+        val publicUrls = arrayOf("/","/login", "/auth/**", "/css/**", "/js/**", "/images/**", "/webjars/**")
         val publicPostUrls = arrayOf("/posts", "/posts/search", "/posts/{id}", "/posts/notices/all")
         val authenticatedUrls = arrayOf("/posts/notices/member", "/posts/create", "/posts/{id}/edit")
-        val adminUrls = arrayOf("/members/search")
+        val adminUrls = arrayOf("/members/**")
 
         http
             .csrf { it.disable() }

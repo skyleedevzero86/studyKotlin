@@ -1,4 +1,5 @@
 package com.ragstudy.domain.entity
 
-class EmbedRequest {
-}
+data class EmbedRequest(
+    val text: String
+)

@@ -1,4 +1,5 @@
 package com.ragstudy.domain.entity
 
-class EmbeddingModel {
+interface EmbeddingModel {
+    fun embed(text: String): FloatArray
 }
