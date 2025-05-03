@@ -19,6 +19,7 @@
                         <div th:if="${message}" class="alert alert-success" role="alert" th:text="${message}"></div>
                         
                         <form th:action="@{/auth/login}" method="post" th:object="${loginRequest}">
+                            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}" />
                             <div class="mb-3">
                                 <label for="username" class="form-label">사용자 이름</label>
                                 <input type="text" class="form-control" id="username" th:field="*{username}" required>

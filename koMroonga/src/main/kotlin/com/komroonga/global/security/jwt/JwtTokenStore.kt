@@ -5,10 +5,6 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
 
-/**
- * JWT 토큰 저장소
- * Redis를 사용하여 토큰 관리 (중복 로그인 방지)
- */
 @Component
 class JwtTokenStore(
     private val redisTemplate: RedisTemplate<String, Any>
@@ -16,9 +12,6 @@ class JwtTokenStore(
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val tokenPrefix = "jwt:token:"
 
-    /**
-     * 사용자 이름과 토큰을 Redis에 저장
-     */
     fun saveToken(username: String, token: String, expirationMs: Long) {
         try {
             redisTemplate.opsForValue().set(
@@ -34,9 +27,6 @@ class JwtTokenStore(
         }
     }
 
-    /**
-     * 토큰 무효화
-     */
     fun invalidateToken(token: String) {
         try {
             val keys = redisTemplate.keys("$tokenPrefix*")

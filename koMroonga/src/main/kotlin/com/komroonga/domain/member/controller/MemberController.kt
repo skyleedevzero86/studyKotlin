@@ -1,5 +1,6 @@
 package com.komroonga.domain.member.controller
 
+import com.komroonga.domain.auth.dto.LoginRequest
 import com.komroonga.domain.member.dto.MemberRequest
 import com.komroonga.global.error.types.MemberError
 import com.komroonga.member.service.MemberService
@@ -12,11 +13,20 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
 @Controller
-@RequestMapping("/members")
 class MemberController(
     private val memberService: MemberService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    /**
+     * 로그인 페이지 렌더링
+     */
+    @GetMapping("/login")
+    fun loginPage(model: Model): String {
+        model.addAttribute("loginRequest", LoginRequest())
+        return "auth/login"
+    }
+
 
     @GetMapping
     suspend fun list(model: Model): String {
@@ -26,14 +36,14 @@ class MemberController(
         return "member/list"
     }
 
-    @GetMapping("/register")
+    @GetMapping("/members/register")
     fun registerForm(model: Model): String {
         logger.info("회원 등록 페이지 요청")
         model.addAttribute("memberRequest", MemberRequest("", ""))
         return "member/register"
     }
 
-    @PostMapping("/register")
+    @PostMapping("/members/register")
     suspend fun register(
         @ModelAttribute memberRequest: MemberRequest,
         redirectAttributes: RedirectAttributes
@@ -64,7 +74,7 @@ class MemberController(
         )
     }
 
-    @GetMapping("/search")
+    @GetMapping("/members/search")
     @PreAuthorize("hasRole('ADMIN')")
     suspend fun searchForm(model: Model): String {
         logger.info("회원 검색 페이지 요청")
@@ -72,7 +82,7 @@ class MemberController(
         return "member/search"
     }
 
-    @PostMapping("/search")
+    @PostMapping("/members/search")
     @PreAuthorize("hasRole('ADMIN')")
     suspend fun search(
         @RequestParam keyword: String,

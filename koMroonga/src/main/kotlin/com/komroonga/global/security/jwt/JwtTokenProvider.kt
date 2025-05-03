@@ -9,9 +9,6 @@ import org.springframework.stereotype.Component
 import java.util.Date
 import javax.crypto.SecretKey
 
-/**
- * JWT 토큰 생성 및 검증 클래스
- */
 @Component
 class JwtTokenProvider(
     @Value("\${jwt.secret}") private val secret: String,
@@ -24,7 +21,6 @@ class JwtTokenProvider(
         get() = _expiration
 
     init {
-        // 키 길이 검증
         val secretBytes = secret.toByteArray(Charsets.UTF_8)
         if (secretBytes.size < 32) {
             logger.error("JWT secret key is too short: {} bytes. Must be at least 32 bytes (256 bits).", secretBytes.size)
@@ -35,13 +31,9 @@ class JwtTokenProvider(
         logger.info("JWT Expiration: {} ms", _expiration)
     }
 
-    /**
-     * JWT 토큰 생성
-     */
     fun generateToken(username: String): String {
         val now = Date()
         val expiryDate = Date(now.time + _expiration)
-
         logger.debug("Generating token for user: {}", username)
         return Jwts.builder()
             .setSubject(username)
@@ -51,9 +43,6 @@ class JwtTokenProvider(
             .compact()
     }
 
-    /**
-     * JWT 토큰에서 사용자 이름 추출
-     */
     fun getUsernameFromToken(token: String): String {
         return Jwts.parserBuilder()
             .setSigningKey(secretKey)
@@ -63,9 +52,6 @@ class JwtTokenProvider(
             .subject
     }
 
-    /**
-     * JWT 토큰 유효성 검증
-     */
     fun validateToken(token: String): Boolean {
         return try {
             Jwts.parserBuilder()
