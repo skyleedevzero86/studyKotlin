@@ -4,9 +4,9 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 
 @Controller
-class TextAnalisysViewController {
+class TextAnalysisViewController {
     @GetMapping(value = ["/", "/talk"])
-    fun getSimilarity(): String {
+    fun getTextAnalysisPage(): String {
         return "rags/text-analysis"
     }
 }

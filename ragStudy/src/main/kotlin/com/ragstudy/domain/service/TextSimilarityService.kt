@@ -1,14 +1,23 @@
 package com.ragstudy.domain.service
 
 import org.springframework.stereotype.Service
+import com.ragstudy.global.util.ClusteringUtils
 import kotlin.math.sqrt
 
 @Service
 class TextSimilarityService(private val embedService: EmbedService) {
 
     fun calculateSimilarity(text1: String, text2: String): Double {
+        if (text1.isBlank() || text2.isBlank()) {
+            return 0.0
+        }
+
         val embedding1 = embedService.embedText(text1)
         val embedding2 = embedService.embedText(text2)
+
+        if (embedding1.isEmpty() || embedding2.isEmpty()) {
+            return 0.0
+        }
 
         return cosineSimilarity(embedding1, embedding2)
     }

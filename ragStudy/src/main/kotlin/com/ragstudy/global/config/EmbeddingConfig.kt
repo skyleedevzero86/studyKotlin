@@ -22,7 +22,7 @@ class EmbeddingConfig(
             setModelResource(modelUri)
             setTokenizerResource(tokenizerUri)
             setTokenizerOptions(mapOf())
-            setModelOutputName("last_hidden_state")
+            setModelOutputName(modelOutputName)
         }
     }
 
