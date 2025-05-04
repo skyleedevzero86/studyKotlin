@@ -100,16 +100,6 @@
         resultHtml = displaySummarizeResult(data);
         createTextBasedChart(data, '요약 문장');
         break;
-      case 'topic':
-        resultTitle = '주제 분류 결과';
-        resultHtml = displayTopicResult(data);
-        createTopicChart(data);
-        break;
-      case 'tokenize':
-        resultTitle = '토큰화 결과';
-        resultHtml = displayTokenizeResult(data);
-        createTokenChart(data);
-        break;
       case 'similarity':
         resultTitle = '유사도 분석 결과';
         resultHtml = displaySimilarityResult(data);
@@ -118,6 +108,19 @@
         resultTitle = '문서 군집화 결과';
         resultHtml = displayClusterResult(data.clusters || data); // clusters 속성 지원
         break;
+
+      case 'tokenize':
+        resultTitle = '토큰화 결과';
+        resultHtml = displayTokenizeResult(data);
+        createTokenChart(data);
+        break;
+
+      case 'topic':
+        resultTitle = '주제 분류 결과';
+        resultHtml = displayTopicResult(data);
+        createTopicChart(data);
+        break;
+
       default:
         resultHtml = '<p>지원되지 않는 분석 유형입니다.</p>';
     }
