@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>분석 결과</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    .result-container {
+      margin-top: 50px;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .chart-container {
+      position: relative;
+      height: 400px;
+      width: 100%;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="result-container bg-light">
+    <h1 class="mb-4 text-center">분석 결과</h1>
+
+    <div class="row">
+      <div class="col-md-12 mb-4">
+        <div class="card">
+          <div class="card-header">
+            <h4 id="resultTitle">분석 결과</h4>
+          </div>
+          <div class="card-body">
+            <div id="resultContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-12">
+        <div class="chart-container">
+          <canvas id="resultChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-4">
+      <a href="/" class="btn btn-primary">새 분석 시작하기</a>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // 쿼리 파라미터에서 분석 결과 가져오기
+    const urlParams = new URLSearchParams(window.location.search);
+    const resultType = urlParams.get('type');
+    const resultData = JSON.parse(urlParams.get('data'));
+
+    if (resultType && resultData) {
+      displayResult(resultType, resultData);
+    } else {
+      document.getElementById('resultContent').innerText = '분석 결과가 없습니다.';
+    }
+  });
+
+  function displayResult(type, data) {
+    let resultTitle = '분석 결과';
+    let resultHtml = '';
+
+    switch (type) {
+      case 'sentiment':
+        resultTitle = '감정 분석 결과';
+        resultHtml = displaySentimentResult(data);
+        createSentimentChart(data.details);
+        break;
+      case 'keywords':
+        resultTitle = '키워드 추출 결과';
+        resultHtml = displayKeywordsResult(data);
+        createKeywordsChart(data);
+        break;
+      case 'summarize':
+        resultTitle = '텍스트 요약 결과';
+        resultHtml = displaySummarizeResult(data);
+        createTextBasedChart(data, '요약 문장');
+        break;
+      case 'classify-topic':
+        resultTitle = '주제 분류 결과';
+        resultHtml = displayTopicResult(data);
+        createTopicChart(data);
+        break;
+      case 'tokenize':
+        resultTitle = '토큰화 결과';
+        resultHtml = displayTokenizeResult(data);
+        createTokenChart(data);
+        break;
+      default:
+        resultHtml = '<p>지원되지 않는 분석 유형입니다.</p>';
+    }
+
+    document.getElementById('resultTitle').innerText = resultTitle;
+    document.getElementById('resultContent').innerHTML = resultHtml;
+  }
+
+  function displaySentimentResult(data) {
+    let html = `
+                <div class="alert alert-${data.sentiment === 'Positive' ? 'success' : data.sentiment === 'Negative' ? 'danger' : 'secondary'}">
+                    <h5>${data.sentiment === 'Positive' ? '긍정적' : data.sentiment === 'Negative' ? '부정적' : '중립적'} 감정이 감지되었습니다.</h5>
+                    <p>감정 점수: ${data.score.toFixed(2)}</p>
+                </div>
+                <h5>세부 정보</h5>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        긍정적 단어
+                        <span class="badge bg-success rounded-pill">${data.details.positive}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        부정적 단어
+                        <span class="badge bg-danger rounded-pill">${data.details.negative}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        중립적 단어
+                        <span class="badge bg-secondary rounded-pill">${data.details.neutral}</span>
+                    </li>
+                </ul>
+            `;
+    return html;
+  }
+
+  function displayKeywordsResult(data) {
+    if (!data || data.length === 0) {
+      return '<p>추출된 키워드가 없습니다.</p>';
+    }
+
+    let html = '<div class="d-flex flex-wrap">';
+    data.forEach(function(keyword) {
+      html += `<span class="badge bg-primary me-2 mb-2 p-2">${keyword}</span>`;
+    });
+    html += '</div>';
+
+    return html;
+  }
+
+  function displaySummarizeResult(data) {
+    if (!data || data.length === 0) {
+      return '<p>요약 결과가 없습니다.</p>';
+    }
+
+    let html = '';
+    data.forEach(function(sentence, index) {
+      html += `<div class="alert alert-info mb-2">
+                    <strong>${index + 1}.</strong> ${sentence}
+                </div>`;
+    });
+
+    return html;
+  }
+
+  function displayTopicResult(data) {
+    if (!data || Object.keys(data).length === 0) {
+      return '<p>주제 분류 결과가 없습니다.</p>';
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-striped">';
+    html += '<thead><tr><th>주제</th><th>점수</th><th>비율</th></tr></thead><tbody>';
+
+    Object.entries(data).forEach(function([topic, score]) {
+      const percentage = (score * 100).toFixed(2);
+      html += `<tr>
+                    <td>${topic}</td>
+                    <td>${score.toFixed(4)}</td>
+                    <td>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: ${percentage}%;"
+                                aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
+                                ${percentage}%
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+    });
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  function displayTokenizeResult(data) {
+    if (!data || data.length === 0) {
+      return '<p>토큰화 결과가 없습니다.</p>';
+    }
+
+    let html = '<div class="d-flex flex-wrap">';
+    data.forEach(function(token) {
+      html += `<span class="badge bg-secondary me-2 mb-2 p-2">${token}</span>`;
+    });
+    html += '</div>';
+
+    return html;
+  }
+
+  // 차트 생성 함수들
+  function createSentimentChart(details) {
+    const ctx = document.getElementById('resultChart').getContext('2d');
+
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: ['긍정적', '부정적', '중립적'],
+        datasets: [{
+          label: '감정 분석',
+          data: [details.positive, details.negative, details.neutral],
+          backgroundColor: [
+            'rgba(40, 167, 69, 0.7)',
+            'rgba(220, 53, 69, 0.7)',
+            'rgba(108, 117, 125, 0.7)'
+          ],
+          borderColor: [
+            'rgba(40, 167, 69, 1)',
+            'rgba(220, 53, 69, 1)',
+            'rgba(108, 117, 125, 1)'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: true,
+            text: '감정 분석 결과'
+          }
+        }
+      }
+    });
+  }
+
+  function createKeywordsChart(keywords) {
+    const ctx = document.getElementById('resultChart').getContext('2d');
+    const keywordData = keywords.map((_, index) => (keywords.length - index)); // 키워드 순서대로 점수 부여
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: keywords,
+        datasets: [{
+          label: '키워드 중요도',
+          data: keywordData,
+          backgroundColor: Array(keywords.length).fill('rgba(13, 110, 253, 0.7)'),
+          borderColor: Array(keywords.length).fill('rgba(13, 110, 253, 1)'),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: '주요 키워드'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  function createTextBasedChart(data, label) {
+    const ctx = document.getElementById('resultChart').getContext('2d');
+    // 문장 길이를 기준으로 차트 데이터 생성
+    const lengthData = data.map(sentence => sentence.length);
+    const labels = data.map((_, i) => `${i+1}번째 ${label}`);
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '문장 길이',
+          data: lengthData,
+          backgroundColor: Array(data.length).fill('rgba(23, 162, 184, 0.7)'),
+          borderColor: Array(data.length).fill('rgba(23, 162, 184, 1)'),
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: `${label} 길이 분포`
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: '문장 길이 (문자)'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function createTopicChart(data) {
+    const ctx = document.getElementById('resultChart').getContext('2d');
+    const topics = Object.keys(data);
+    const scores = Object.values(data);
+
+    new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: topics,
+        datasets: [{
+          label: '주제 관련성',
+          data: scores,
+          backgroundColor: 'rgba(255, 193, 7, 0.3)',
+          borderColor: 'rgba(255, 193, 7, 1)',
+          borderWidth: 1,
+          pointBackgroundColor: 'rgba(255, 193, 7, 1)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        elements: {
+          line: {
+            tension: 0.2
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: true,
+            text: '주제 분류 결과'
+          }
+        },
+        scales: {
+          r: {
+            beginAtZero: true,
+            max: 1,
+            ticks: {
+              stepSize: 0.2
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function createTokenChart(tokens) {
+    const ctx = document.getElementById('resultChart').getContext('2d');
+    // 토큰 길이를 기준으로 차트 데이터 생성
+    const tokenLengths = tokens.map(token => token.length);
+
+    // 토큰 길이 분포 계산
+    const lengthCounts = {};
+    tokenLengths.forEach(length => {
+      lengthCounts[length] = (lengthCounts[length] || 0) + 1;
+    });
+
+    const lengths = Object.keys(lengthCounts).sort((a, b) => a - b);
+    const counts = lengths.map(length => lengthCounts[length]);
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: lengths,
+        datasets: [{
+          label: '토큰 수',
+          data: counts,
+          backgroundColor: 'rgba(108, 117, 125, 0.5)',
+          borderColor: 'rgba(108, 117, 125, 1)',
+          borderWidth: 2,
+          pointBackgroundColor: 'rgba(108, 117, 125, 1)',
+          tension: 0.1,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: '토큰 길이 분포'
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '토큰 길이'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: '토큰 수'
+            }
+          }
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
