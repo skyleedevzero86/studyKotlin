@@ -55,12 +55,23 @@
   </div>
 </div>
 
-<script th:inline="javascript">
+<script th:inline="none">
   document.addEventListener('DOMContentLoaded', function() {
     // 쿼리 파라미터에서 분석 결과 가져오기
     const urlParams = new URLSearchParams(window.location.search);
     const resultType = urlParams.get('type');
-    const resultData = JSON.parse(urlParams.get('data'));
+    let resultData = null;
+
+    try {
+      const dataParam = urlParams.get('data');
+      if (dataParam) {
+        resultData = JSON.parse(decodeURIComponent(dataParam));
+      }
+    } catch (e) {
+      console.error('데이터 파싱 오류:', e);
+      document.getElementById('resultContent').innerText = '데이터를 파싱할 수 없습니다. 콘솔을 확인하세요.';
+      return;
+    }
 
     if (resultType && resultData) {
       displayResult(resultType, resultData);
@@ -89,7 +100,7 @@
         resultHtml = displaySummarizeResult(data);
         createTextBasedChart(data, '요약 문장');
         break;
-      case 'classify-topic':
+      case 'topic':
         resultTitle = '주제 분류 결과';
         resultHtml = displayTopicResult(data);
         createTopicChart(data);
@@ -98,6 +109,14 @@
         resultTitle = '토큰화 결과';
         resultHtml = displayTokenizeResult(data);
         createTokenChart(data);
+        break;
+      case 'similarity':
+        resultTitle = '유사도 분석 결과';
+        resultHtml = displaySimilarityResult(data);
+        break;
+      case 'cluster':
+        resultTitle = '문서 군집화 결과';
+        resultHtml = displayClusterResult(data.clusters || data); // clusters 속성 지원
         break;
       default:
         resultHtml = '<p>지원되지 않는 분석 유형입니다.</p>';
@@ -203,6 +222,34 @@
     return html;
   }
 
+  function displaySimilarityResult(data) {
+    let html = '';
+    for (const [key, value] of Object.entries(data)) {
+      const percentage = (value * 100).toFixed(2);
+      html += `
+        <div class="mb-2">
+            <strong>${key}:</strong>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: ${percentage}%;" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">${percentage}%</div>
+            </div>
+        </div>
+      `;
+    }
+    return html;
+  }
+
+  function displayClusterResult(data) {
+    let html = '';
+    data.forEach((cluster, index) => {
+      html += `<h5>클러스터 ${index + 1}</h5><ul>`;
+      cluster.forEach(doc => {
+        html += `<li>${doc}</li>`;
+      });
+      html += '</ul>';
+    });
+    return html;
+  }
+
   // 차트 생성 함수들
   function createSentimentChart(details) {
     const ctx = document.getElementById('resultChart').getContext('2d');
@@ -245,7 +292,7 @@
 
   function createKeywordsChart(keywords) {
     const ctx = document.getElementById('resultChart').getContext('2d');
-    const keywordData = keywords.map((_, index) => (keywords.length - index)); // 키워드 순서대로 점수 부여
+    const keywordData = keywords.map((_, index) => (keywords.length - index));
 
     new Chart(ctx, {
       type: 'bar',
@@ -282,7 +329,6 @@
 
   function createTextBasedChart(data, label) {
     const ctx = document.getElementById('resultChart').getContext('2d');
-    // 문장 길이를 기준으로 차트 데이터 생성
     const lengthData = data.map(sentence => sentence.length);
     const labels = data.map((_, i) => `${i+1}번째 ${label}`);
 
@@ -373,10 +419,8 @@
 
   function createTokenChart(tokens) {
     const ctx = document.getElementById('resultChart').getContext('2d');
-    // 토큰 길이를 기준으로 차트 데이터 생성
     const tokenLengths = tokens.map(token => token.length);
 
-    // 토큰 길이 분포 계산
     const lengthCounts = {};
     tokenLengths.forEach(length => {
       lengthCounts[length] = (lengthCounts[length] || 0) + 1;

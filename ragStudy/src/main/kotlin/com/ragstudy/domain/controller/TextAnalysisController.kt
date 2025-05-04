@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/text-analysis")
+@CrossOrigin(origins = ["http://localhost:8080"])
 class TextAnalysisController(
     private val textSimilarityService: TextSimilarityService,
     private val documentClusteringService: DocumentClusteringService,

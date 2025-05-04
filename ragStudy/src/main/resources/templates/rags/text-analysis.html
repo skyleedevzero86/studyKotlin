@@ -199,7 +199,7 @@
         </div>
     </div>
 </div>
-<script>
+<script th:inline="none">
     $(document).ready(function() {
         // 공통 유효성 검사 함수
         function validateInput(value, message) {
@@ -229,40 +229,49 @@
         function sendRequest({ url, method = 'GET', data, contentType = 'application/x-www-form-urlencoded', onSuccess }) {
             showLoading();
             $.ajax({
-                url,
-                type: method,
-                data: method === 'GET' ? data : JSON.stringify(data),
+                url: url,
+                method: method,
+                data: method === 'POST' ? JSON.stringify(data) : data,
                 contentType: contentType,
                 success: function(response) {
+                    console.log('API 응답:', response);
                     hideLoading();
-                    onSuccess(response);
+                    if (response.status === 200) {
+                        const resultData = url === '/api/v1/text-analysis/cluster' ? response.clusters : response.data;
+                        const processedResult = onSuccess({ data: resultData });
+                        if (processedResult) {
+                            redirectToResult(url, resultData);
+                        }
+                    } else {
+                        alert('분석 실패: ' + response.message);
+                    }
                 },
-                error: handleApiError
+                error: function(xhr, status, error) {
+                    handleApiError(xhr, status, error);
+                }
             });
         }
 
-        // 결과 보여주고 리다이렉트
-        function showResultAndRedirect(type, result) {
-            $('#resultText').text(result);
-            $('#resultSection').show();
-            $('#analysisType').val(type);
-            $('#analysisResult').val(result);
+        // 결과 페이지로 리다이렉션
+        function redirectToResult(type, result) {
+            const url = `/result?type=${type.split('/').pop()}&data=${encodeURIComponent(JSON.stringify(result))}`;
+            window.location.href = url;
         }
 
         // 로딩 인디케이터 표시
         function showLoading() {
-            $('#loadingIndicator').show();
+            $('#loadingSpinner').show();
         }
 
         function hideLoading() {
-            $('#loadingIndicator').hide();
+            $('#loadingSpinner').hide();
         }
 
         // API 에러 처리
         function handleApiError(xhr, status, error) {
             hideLoading();
-            console.error('API 호출 에러:', error);
-            alert('API 호출 중 오류가 발생했습니다.');
+            console.error('API 호출 에러:', error, '상태:', status, '응답:', xhr.responseText);
+            alert('API 호출 중 오류가 발생했습니다: ' + (xhr.responseJSON?.message || error));
         }
 
         // 유사도 분석 결과 포맷 함수
@@ -283,16 +292,18 @@
         }
 
         // 키워드 추출
-        $('#keywordForm').submit(function(event) {
+        $('#keywordsForm').submit(function(event) {
             event.preventDefault();
-            const text = $('#text').val();
+            const text = $('#keywordsText').val();
+            const limit = $('#keywordLimit').val();
             if (!validateInput(text, '텍스트를 입력해주세요.')) return;
 
             sendRequest({
                 url: '/api/v1/text-analysis/keywords',
-                data: { text },
+                method: 'GET',
+                data: { text, limit },
                 onSuccess: function(response) {
-                    showResultAndRedirect('keywords', response.data.join(', '));
+                    return response.data.join(', ');
                 }
             });
         });
@@ -300,14 +311,15 @@
         // 감정 분석
         $('#sentimentForm').submit(function(event) {
             event.preventDefault();
-            const text = $('#text2').val();
+            const text = $('#sentimentText').val();
             if (!validateInput(text, '텍스트를 입력해주세요.')) return;
 
             sendRequest({
                 url: '/api/v1/text-analysis/sentiment',
+                method: 'GET',
                 data: { text },
                 onSuccess: function(response) {
-                    showResultAndRedirect('sentiment', response.data);
+                    return response.data;
                 }
             });
         });
@@ -316,21 +328,16 @@
         $('#similarityForm').submit(function(event) {
             event.preventDefault();
             const text1 = $('#text1').val();
-            const text2 = $('#text2_2').val();
+            const text2 = $('#text2').val();
             if (!validateInput(text1, '첫 번째 텍스트를 입력해주세요.')) return;
             if (!validateInput(text2, '두 번째 텍스트를 입력해주세요.')) return;
 
             sendRequest({
                 url: '/api/v1/text-analysis/similarity',
-                method: 'POST',
+                method: 'GET',
                 data: { text1, text2 },
-                contentType: 'application/json',
                 onSuccess: function(response) {
-                    const formatted = formatSimilarityResult(response.data);
-                    $('#resultText').html(formatted);
-                    $('#resultSection').show();
-                    $('#analysisType').val('similarity');
-                    $('#analysisResult').val(response.data);
+                    return formatSimilarityResult({ "text1-text2": response.data });
                 }
             });
         });
@@ -338,39 +345,37 @@
         // 클러스터링
         $('#clusterForm').submit(function(event) {
             event.preventDefault();
-            const documents = $('#documents').val();
+            const documents = $('.document-input').map(function() {
+                return $(this).val();
+            }).get().filter(doc => doc.trim() !== '');
             const clusterCount = $('#clusterCount').val();
 
-            if (!validateInput(documents, '문서를 입력해주세요.')) return;
-            if (!validateNumber(clusterCount, 1, 20, '클러스터 수는 1~20 사이로 입력해주세요.')) return;
+            if (!validateInput(documents.join('\n'), '문서를 입력해주세요.')) return;
+            if (!validateNumber(clusterCount, 2, 10, '클러스터 수는 2~10 사이로 입력해주세요.')) return;
 
             sendRequest({
                 url: '/api/v1/text-analysis/cluster',
                 method: 'POST',
-                data: { documents: documents.split('\n'), clusterCount },
+                data: { documents, k: parseInt(clusterCount) },
                 contentType: 'application/json',
                 onSuccess: function(response) {
-                    const clusters = response.data;
                     let resultHtml = '';
-                    clusters.forEach((cluster, index) => {
+                    response.data.forEach((cluster, index) => {
                         resultHtml += `<h5>클러스터 ${index + 1}</h5><ul>`;
                         cluster.forEach(doc => {
                             resultHtml += `<li>${escapeHtml(doc)}</li>`;
                         });
                         resultHtml += '</ul>';
                     });
-                    $('#resultText').html(resultHtml);
-                    $('#resultSection').show();
-                    $('#analysisType').val('cluster');
-                    $('#analysisResult').val(JSON.stringify(response.data));
+                    return resultHtml;
                 }
             });
         });
 
         // 요약
-        $('#summaryForm').submit(function(event) {
+        $('#summarizeForm').submit(function(event) {
             event.preventDefault();
-            const text = $('#summaryText').val();
+            const text = $('#summarizeText').val();
             const sentenceCount = $('#sentenceCount').val();
 
             if (!validateInput(text, '텍스트를 입력해주세요.')) return;
@@ -378,11 +383,10 @@
 
             sendRequest({
                 url: '/api/v1/text-analysis/summarize',
-                method: 'POST',
+                method: 'GET',
                 data: { text, sentenceCount },
-                contentType: 'application/json',
                 onSuccess: function(response) {
-                    showResultAndRedirect('summary', response.data.join(' '));
+                    return response.data.join(' ');
                 }
             });
         });
@@ -394,29 +398,27 @@
             if (!validateInput(text, '텍스트를 입력해주세요.')) return;
 
             sendRequest({
-                url: '/api/v1/text-analysis/topic',
-                method: 'POST',
+                url: '/api/v1/text-analysis/classify-topic',
+                method: 'GET',
                 data: { text },
-                contentType: 'application/json',
                 onSuccess: function(response) {
-                    showResultAndRedirect('topic', response.data);
+                    return JSON.stringify(response.data);
                 }
             });
         });
 
         // 토큰화
-        $('#tokenForm').submit(function(event) {
+        $('#tokenizeForm').submit(function(event) {
             event.preventDefault();
-            const text = $('#tokenText').val();
+            const text = $('#tokenizeText').val();
             if (!validateInput(text, '텍스트를 입력해주세요.')) return;
 
             sendRequest({
                 url: '/api/v1/text-analysis/tokenize',
-                method: 'POST',
+                method: 'GET',
                 data: { text },
-                contentType: 'application/json',
                 onSuccess: function(response) {
-                    showResultAndRedirect('tokenize', response.data.join(', '));
+                    return response.data.join(', ');
                 }
             });
         });
