@@ -14,13 +14,13 @@ object TextUtils {
     }
 
     fun tokenize(text: String): List<String> {
-        if (text.isBlank()) {
-            return emptyList()
-        }
+
+        if (text.isNullOrBlank()) { return emptyList() }
 
         // 한글/영어 모두 지원하는 토큰화
-        return text.split(Regex("\\s+"))
+        return text.splitToSequence(Regex("\\s+"))
             .filter { it.isNotBlank() }
+            .toList()
     }
 
     // 텍스트 요약 (간단한 추출 요약)
