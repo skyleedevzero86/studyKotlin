@@ -55,32 +55,43 @@
   </div>
 </div>
 
-<script th:inline="none">
+<script>
   document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded 이벤트 실행됨');
+
     // 쿼리 파라미터에서 분석 결과 가져오기
     const urlParams = new URLSearchParams(window.location.search);
     const resultType = urlParams.get('type');
-    let resultData = null;
+    console.log('Result Type:', resultType);
 
+    let resultData = null;
     try {
       const dataParam = urlParams.get('data');
+      console.log('Raw Data Param:', dataParam);
       if (dataParam) {
-        resultData = JSON.parse(decodeURIComponent(dataParam));
+        const decodedData = decodeURIComponent(dataParam);
+        console.log('Decoded Data:', decodedData);
+        resultData = JSON.parse(decodedData);
+        console.log('Parsed Data:', resultData);
+      } else {
+        throw new Error('데이터 파라미터가 존재하지 않습니다.');
       }
     } catch (e) {
       console.error('데이터 파싱 오류:', e);
-      document.getElementById('resultContent').innerText = '데이터를 파싱할 수 없습니다. 콘솔을 확인하세요.';
+      document.getElementById('resultContent').innerHTML = '<p class="text-danger">데이터를 파싱할 수 없습니다. 입력을 확인하고 다시 시도해 주세요.</p>';
       return;
     }
 
     if (resultType && resultData) {
       displayResult(resultType, resultData);
     } else {
-      document.getElementById('resultContent').innerText = '분석 결과가 없습니다.';
+      document.getElementById('resultContent').innerHTML = '<p class="text-warning">분석 결과가 없습니다. 입력을 확인하고 다시 시도해 주세요.</p>';
     }
   });
 
   function displayResult(type, data) {
+    console.log('displayResult 호출됨 - Type:', type, 'Data:', data);
+
     let resultTitle = '분석 결과';
     let resultHtml = '';
 
@@ -106,23 +117,20 @@
         break;
       case 'cluster':
         resultTitle = '문서 군집화 결과';
-        resultHtml = displayClusterResult(data.clusters || data); // clusters 속성 지원
+        resultHtml = displayClusterResult(data.clusters || data);
         break;
-
       case 'tokenize':
         resultTitle = '토큰화 결과';
         resultHtml = displayTokenizeResult(data);
         createTokenChart(data);
         break;
-
-      case 'topic':
+      case 'classify-topic':
         resultTitle = '주제 분류 결과';
         resultHtml = displayTopicResult(data);
         createTopicChart(data);
         break;
-
       default:
-        resultHtml = '<p>지원되지 않는 분석 유형입니다.</p>';
+        resultHtml = '<p class="text-danger">지원되지 않는 분석 유형입니다.</p>';
     }
 
     document.getElementById('resultTitle').innerText = resultTitle;
@@ -184,8 +192,14 @@
   }
 
   function displayTopicResult(data) {
+    console.log('displayTopicResult 호출됨 - Data:', data);
+
     if (!data || Object.keys(data).length === 0) {
-      return '<p>주제 분류 결과가 없습니다.</p>';
+      return '<p>주제 분류 결과가 없습니다. 다른 텍스트를 시도해 보세요.</p>';
+    }
+
+    if (Object.keys(data).length === 1 && data["기타"] === 1.0) {
+      return '<p>입력된 텍스트에 대한 주제를 분류할 수 없습니다. 더 구체적인 내용을 입력해 주세요.</p>';
     }
 
     let html = '<div class="table-responsive"><table class="table table-striped">';
@@ -373,6 +387,19 @@
   }
 
   function createTopicChart(data) {
+    console.log('createTopicChart 호출됨 - Data:', data);
+
+    if (!data || Object.keys(data).length === 0) {
+      console.error('차트 데이터가 비어 있습니다.');
+      return;
+    }
+
+    // "기타" 주제만 있는 경우 차트를 그리지 않음
+    if (Object.keys(data).length === 1 && data["기타"] === 1.0) {
+      console.log('기타 주제만 존재하여 차트를 생성하지 않습니다.');
+      return;
+    }
+
     const ctx = document.getElementById('resultChart').getContext('2d');
     const topics = Object.keys(data);
     const scores = Object.values(data);
