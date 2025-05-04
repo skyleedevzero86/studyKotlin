@@ -1,8 +1,9 @@
-# Text Analysis Application<br/>
+
 
 ![image](https://github.com/user-attachments/assets/aa1a6d9a-db5e-4c42-94e5-9810e2ebce47)
 
-RAG Study - 텍스트 분석 애플리케이션
+
+# Text Analysis Application (텍스트 분석 애플리케이션) <br/>
 Kotlin Spring Boot 기반의 RAG(Retrieval-Augmented Generation) 기술을 활용한 다양한 자연어 처리 기능을 제공하는 텍스트 분석 애플리케이션입니다.
 
 ## Project Overview
