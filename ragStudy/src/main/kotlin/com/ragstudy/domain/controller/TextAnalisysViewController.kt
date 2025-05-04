@@ -10,7 +10,7 @@ class TextAnalysisViewController {
     fun getTextAnalysisPage(): String {
         return "rags/text-analysis"
     }
-    
+
     @GetMapping("/result")
     fun getResultPage(model: Model): String {
         return "rags/analysis-result"

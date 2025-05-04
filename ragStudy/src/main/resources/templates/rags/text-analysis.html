@@ -199,657 +199,228 @@
         </div>
     </div>
 </div>
-
-<script th:inline="javascript">
+<script>
     $(document).ready(function() {
-        // 문서 추가 버튼 클릭 이벤트
-        $('#addDocumentBtn').click(function() {
-            const newInput = `<div class="mb-3">
-                          <textarea class="form-control document-input" rows="3" placeholder="문서 ${$('.document-input').length + 1}" required></textarea>
-                        </div>`;
-            $('#documentInputs').append(newInput);
-        });
-
-        // 유사도 분석 폼 제출
-        $('#similarityForm').submit(function(e) {
-            e.preventDefault();
-            const text1 = $('#text1').val();
-            const text2 = $('#text2').val();
-
-            if (!text1 || !text2) {
-                alert('두 텍스트를 모두 입력해주세요.');
-                return;
+        // 공통 유효성 검사 함수
+        function validateInput(value, message) {
+            if (!value || value.trim() === '') {
+                alert(message);
+                return false;
             }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/similarity',
-                type: 'GET',
-                data: { text1, text2 },
-                success: function(response) {
-                    hideLoading();
-                    displayResult('유사도 분석 결과', formatSimilarityResult(response));
-                },
-                error: handleApiError
-            });
-        });
-
-        // 키워드 추출 폼 제출
-        $('#keywordsForm').submit(function(e) {
-            e.preventDefault();
-            const text = $('#keywordsText').val();
-            const limit = $('#keywordLimit').val();
-
-            if (!text) {
-                alert('텍스트를 입력해주세요.');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/keywords',
-                type: 'GET',
-                data: { text, limit },
-                success: function(response) {
-                    hideLoading();
-                    showResultAndRedirect('keywords', response.data);
-                },
-                error: handleApiError
-            });
-        });
-
-        // 감정 분석 폼 제출
-        $('#sentimentForm').submit(function(e) {
-            e.preventDefault();
-            const text = $('#sentimentText').val();
-
-            if (!text) {
-                alert('텍스트를 입력해주세요.');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/sentiment',
-                type: 'GET',
-                data: { text },
-                success: function(response) {
-                    hideLoading();
-                    showResultAndRedirect('sentiment', response.data);
-                },
-                error: handleApiError
-            });
-        });
-
-        // 문서 군집화 폼 제출
-        $('#clusterForm').submit(function(e) {
-            e.preventDefault();
-            const documents = [];
-            $('.document-input').each(function() {
-                const text = $(this).val().trim();
-                if (text) {
-                    documents.push(text);
-                }
-            });
-
-            if (documents.length < 2) {
-                alert('최소 2개 이상의 문서를 입력해주세요.');
-                return;
-            }
-
-            const k = $('#clusterCount').val();
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/cluster',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ documents, k }),
-                success: function(response) {
-                    hideLoading();
-                    displayClusterResult(response);
-                },
-                error: handleApiError
-            });
-        });
-
-// 텍스트 요약 폼 제출
-        $('#summarizeForm').submit(function(e) {
-            e.preventDefault();
-            const text = $('#summarizeText').val();
-            const sentenceCount = $('#sentenceCount').val();
-
-            if (!text) {
-                alert('텍스트를 입력해주세요.');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/summarize',
-                type: 'GET',
-                data: { text, sentenceCount },
-                success: function(response) {
-                    hideLoading();
-                    displaySummarizeResult(response);
-                },
-                error: handleApiError
-            });
-        });
-
-// 주제 분류 폼 제출
-        $('#topicForm').submit(function(e) {
-            e.preventDefault();
-            const text = $('#topicText').val();
-
-            if (!text) {
-                alert('텍스트를 입력해주세요.');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/classify-topic',
-                type: 'GET',
-                data: { text },
-                success: function(response) {
-                    hideLoading();
-                    displayTopicResult(response);
-                },
-                error: handleApiError
-            });
-        });
-
-// 텍스트 토큰화 폼 제출
-        $('#tokenizeForm').submit(function(e) {
-            e.preventDefault();
-            const text = $('#tokenizeText').val();
-
-            if (!text) {
-                alert('텍스트를 입력해주세요.');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: '/api/v1/text-analysis/tokenize',
-                type: 'GET',
-                data: { text },
-                success: function(response) {
-                    hideLoading();
-                    displayTokenizeResult(response);
-                },
-                error: handleApiError
-            });
-        });
-
-// 결과 표시 함수
-        function formatSimilarityResult(response) {
-            if (response.status !== 200) {
-                return `<div class="alert alert-danger">${response.message}</div>`;
-            }
-
-            const similarity = response.data;
-            const percentage = (similarity * 100).toFixed(2);
-
-            let resultClass = 'bg-danger';
-            if (percentage >= 80) {
-                resultClass = 'bg-success';
-            } else if (percentage >= 50) {
-                resultClass = 'bg-warning';
-            }
-
-            return `
-<div class="text-center mb-4">
-    <h4>두 텍스트의 유사도</h4>
-    <div class="progress" style="height: 40px;">
-        <div class="progress-bar ${resultClass}" role="progressbar" style="width: ${percentage}%"
-             aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
-            ${percentage}%
-        </div>
-    </div>
-</div>
-<p>유사도 점수: ${similarity.toFixed(4)}</p>
-<p>두 텍스트는 ${percentage}% 유사합니다.</p>
-<p class="mt-3">
-    <small class="text-muted">* 0에 가까울수록 상이하고, 1에 가까울수록 유사합니다.</small>
-</p>
-`;
+            return true;
         }
 
-        function displayClusterResult(response) {
-            if (response.status !== 200) {
-                $('#resultContent').html(`<div class="alert alert-danger">${response.message}</div>`);
-                $('#resultSection').show();
-                return;
+        // 숫자 입력값 유효성 검사 함수
+        function validateNumber(value, min, max, message) {
+            const number = parseInt(value, 10);
+            if (isNaN(number) || number < min || number > max) {
+                alert(message);
+                return false;
             }
+            return true;
+        }
 
-            const clusters = response.clusters;
-            let html = `<h4>군집화 결과 (${clusters.length}개 그룹)</h4>`;
+        // XSS 방지용 HTML escape 함수
+        function escapeHtml(text) {
+            return $('<div>').text(text).html();
+        }
 
-            clusters.forEach((cluster, index) => {
-                html += `
-<div class="card mb-3">
-    <div class="card-header bg-light">
-        <strong>클러스터 ${index + 1}</strong> (${cluster.length}개 문서)
-    </div>
-    <div class="card-body">
-        <ol>
-            ${cluster.map(doc => `<li>${doc}</li>`).join('')}
-        </ol>
-    </div>
-</div>
-`;
+        // 공통 Ajax 요청 함수
+        function sendRequest({ url, method = 'GET', data, contentType = 'application/x-www-form-urlencoded', onSuccess }) {
+            showLoading();
+            $.ajax({
+                url,
+                type: method,
+                data: method === 'GET' ? data : JSON.stringify(data),
+                contentType: contentType,
+                success: function(response) {
+                    hideLoading();
+                    onSuccess(response);
+                },
+                error: handleApiError
             });
+        }
 
-            $('#resultContent').html(html);
-            $('#resultTitle').text('문서 군집화 결과');
+        // 결과 보여주고 리다이렉트
+        function showResultAndRedirect(type, result) {
+            $('#resultText').text(result);
             $('#resultSection').show();
+            $('#analysisType').val(type);
+            $('#analysisResult').val(result);
         }
 
-        function displaySummarizeResult(response) {
-            if (response.status !== 200) {
-                $('#resultContent').html(`<div class="alert alert-danger">${response.message}</div>`);
-                $('#resultSection').show();
-                return;
-            }
-
-            const summary = response.data;
-            let html = '<h4>텍스트 요약</h4>';
-
-            if (summary.length === 0) {
-                html += '<div class="alert alert-warning">요약할 내용이 충분하지 않습니다.</div>';
-            } else {
-                html += `
-<div class="card">
-    <div class="card-body">
-        <p>${summary.join(' ')}</p>
-    </div>
-</div>
-`;
-            }
-
-            $('#resultContent').html(html);
-            $('#resultTitle').text('텍스트 요약 결과');
-            $('#resultSection').show();
-        }
-
-        function displayTopicResult(response) {
-            if (response.status !== 200) {
-                $('#resultContent').html(`<div class="alert alert-danger">${response.message}</div>`);
-                $('#resultSection').show();
-                return;
-            }
-
-            const topicScores = response.data;
-            const topics = Object.keys(topicScores);
-
-            if (topics.length === 0) {
-                $('#resultContent').html('<div class="alert alert-warning">주제를 분류할 수 없습니다.</div>');
-                $('#resultSection').show();
-                return;
-            }
-
-// 점수 내림차순 정렬
-            const sortedTopics = topics.sort((a, b) => topicScores[b] - topicScores[a]);
-
-            let html = `<h4>주제 분류 결과</h4>
-<div class="table-responsive">
-    <table class="table table-bordered">
-        <thead>
-        <tr>
-            <th>주제</th>
-            <th>점수</th>
-            <th>비율</th>
-        </tr>
-        </thead>
-        <tbody>`;
-
-            sortedTopics.forEach(topic => {
-                const score = topicScores[topic];
-                const percentage = (score * 100).toFixed(2);
-                html += `
-        <tr>
-            <td>${topic}</td>
-            <td>${score.toFixed(4)}</td>
-            <td>
-                <div class="progress">
-                    <div class="progress-bar bg-info" role="progressbar" style="width: ${percentage}%"
-                         aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
-                        ${percentage}%
-                    </div>
-                </div>
-            </td>
-        </tr>
-        `;
-            });
-
-            html += `</tbody></table></div>`;
-
-            $('#resultContent').html(html);
-            $('#resultTitle').text('주제 분류 결과');
-            $('#resultSection').show();
-        }
-
-        function displayTokenizeResult(response) {
-            if (response.status !== 200) {
-                $('#resultContent').html(`<div class="alert alert-danger">${response.message}</div>`);
-                $('#resultSection').show();
-                return;
-            }
-
-            const tokens = response.data;
-
-            if (tokens.length === 0) {
-                $('#resultContent').html('<div class="alert alert-warning">토큰화할 내용이 없습니다.</div>');
-                $('#resultSection').show();
-                return;
-            }
-
-            let html = `
-<h4>토큰화 결과 (${tokens.length}개)</h4>
-<div class="card">
-    <div class="card-body">
-        ${tokens.map(token => `<span class="badge bg-light text-dark m-1 p-2">${token}</span>`).join('')}
-    </div>
-</div>
-`;
-
-            $('#resultContent').html(html);
-            $('#resultTitle').text('텍스트 토큰화 결과');
-            $('#resultSection').show();
-        }
-
-        function showResultAndRedirect(type, data) {
-            let html = '';
-
-            switch (type) {
-                case 'keywords':
-                    if (data.length === 0) {
-                        html = '<div class="alert alert-warning">키워드를 추출할 수 없습니다.</div>';
-                    } else {
-                        html = `
-<h4>추출된 키워드</h4>
-<div class="d-flex flex-wrap">
-    ${data.map(keyword => `<div class="badge bg-primary m-1 p-2">${keyword}</div>`).join('')}
-</div>
-`;
-                    }
-                    $('#resultTitle').text('키워드 추출 결과');
-                    break;
-
-                case 'sentiment':
-                    const sentiment = data.sentiment;
-                    const score = data.score;
-                    const details = data.details;
-
-                    let sentimentClass = 'bg-warning';
-                    let sentimentIcon = '😐';
-
-                    if (sentiment === 'Positive') {
-                        sentimentClass = 'bg-success';
-                        sentimentIcon = '😊';
-                    } else if (sentiment === 'Negative') {
-                        sentimentClass = 'bg-danger';
-                        sentimentIcon = '😔';
-                    }
-
-                    html = `
-<div class="text-center mb-4">
-    <h4>감정 분석 결과 ${sentimentIcon}</h4>
-    <div class="alert ${sentimentClass} text-white">
-        <h5>${sentiment}</h5>
-        <p>감정 점수: ${score.toFixed(4)}</p>
-    </div>
-</div>
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-success">긍정적 단어</h5>
-                <h2>${details.positive}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-warning">중립적 단어</h5>
-                <h2>${details.neutral}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-danger">부정적 단어</h5>
-                <h2>${details.negative}</h2>
-            </div>
-        </div>
-    </div>
-</div>
-`;
-                    $('#resultTitle').text('감정 분석 결과');
-                    break;
-            }
-
-            $('#resultContent').html(html);
-            $('#resultSection').show();
-        }
-
+        // 로딩 인디케이터 표시
         function showLoading() {
-            $('#loadingSpinner').show();
-            $('#resultSection').hide();
+            $('#loadingIndicator').show();
         }
 
         function hideLoading() {
-            $('#loadingSpinner').hide();
+            $('#loadingIndicator').hide();
         }
 
+        // API 에러 처리
         function handleApiError(xhr, status, error) {
             hideLoading();
-            $('#resultContent').html(`
-<div class="alert alert-danger">
-    <strong>오류 발생:</strong> ${error}<br>
-    서버에서 응답을 받지 못했습니다. 잠시 후 다시 시도해주세요.
-</div>
-`);
-            $('#resultTitle').text('오류');
-            $('#resultSection').show();
+            console.error('API 호출 에러:', error);
+            alert('API 호출 중 오류가 발생했습니다.');
         }
 
-// 차트로 보기 버튼 클릭 이벤트
-        $('#showChartBtn').click(function() {
-            const activeTabId = $('.nav-link.active').attr('id');
-
-            switch (activeTabId) {
-                case 'similarity-tab':
-                    showSimilarityChart();
-                    break;
-                case 'sentiment-tab':
-                    showSentimentChart();
-                    break;
-                case 'topic-tab':
-                    showTopicChart();
-                    break;
-                default:
-                    alert('현재 탭에서는 차트 기능을 지원하지 않습니다.');
-                    break;
+        // 유사도 분석 결과 포맷 함수
+        function formatSimilarityResult(data) {
+            let resultHtml = '';
+            for (const [key, value] of Object.entries(data)) {
+                const percentage = (value * 100).toFixed(2);
+                resultHtml += `
+                <div class="mb-2">
+                    <strong>${escapeHtml(key)}:</strong>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: ${percentage}%;" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">${percentage}%</div>
+                    </div>
+                </div>
+            `;
             }
+            return resultHtml;
+        }
+
+        // 키워드 추출
+        $('#keywordForm').submit(function(event) {
+            event.preventDefault();
+            const text = $('#text').val();
+            if (!validateInput(text, '텍스트를 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/keywords',
+                data: { text },
+                onSuccess: function(response) {
+                    showResultAndRedirect('keywords', response.data.join(', '));
+                }
+            });
         });
 
-        function showSimilarityChart() {
-// 차트가 필요한지 확인
-            const similarityText = $('#resultContent').text();
-            const match = similarityText.match(/유사도 점수: (\d+\.\d+)/);
+        // 감정 분석
+        $('#sentimentForm').submit(function(event) {
+            event.preventDefault();
+            const text = $('#text2').val();
+            if (!validateInput(text, '텍스트를 입력해주세요.')) return;
 
-            if (!match) {
-                alert('표시할 데이터가 없습니다.');
-                return;
-            }
-
-            const similarity = parseFloat(match[1]);
-            const chartHtml = `
-<canvas id="similarityChart" width="400" height="200"></canvas>
-<script>
-    const ctx = document.getElementById('similarityChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['유사', '비유사'],
-            datasets: [{
-                data: [${similarity}, ${1 - similarity}],
-                backgroundColor: [
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 99, 132, 0.8)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: '텍스트 유사도'
+            sendRequest({
+                url: '/api/v1/text-analysis/sentiment',
+                data: { text },
+                onSuccess: function(response) {
+                    showResultAndRedirect('sentiment', response.data);
                 }
-            }
-        }
+            });
+        });
+
+        // 유사도 분석
+        $('#similarityForm').submit(function(event) {
+            event.preventDefault();
+            const text1 = $('#text1').val();
+            const text2 = $('#text2_2').val();
+            if (!validateInput(text1, '첫 번째 텍스트를 입력해주세요.')) return;
+            if (!validateInput(text2, '두 번째 텍스트를 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/similarity',
+                method: 'POST',
+                data: { text1, text2 },
+                contentType: 'application/json',
+                onSuccess: function(response) {
+                    const formatted = formatSimilarityResult(response.data);
+                    $('#resultText').html(formatted);
+                    $('#resultSection').show();
+                    $('#analysisType').val('similarity');
+                    $('#analysisResult').val(response.data);
+                }
+            });
+        });
+
+        // 클러스터링
+        $('#clusterForm').submit(function(event) {
+            event.preventDefault();
+            const documents = $('#documents').val();
+            const clusterCount = $('#clusterCount').val();
+
+            if (!validateInput(documents, '문서를 입력해주세요.')) return;
+            if (!validateNumber(clusterCount, 1, 20, '클러스터 수는 1~20 사이로 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/cluster',
+                method: 'POST',
+                data: { documents: documents.split('\n'), clusterCount },
+                contentType: 'application/json',
+                onSuccess: function(response) {
+                    const clusters = response.data;
+                    let resultHtml = '';
+                    clusters.forEach((cluster, index) => {
+                        resultHtml += `<h5>클러스터 ${index + 1}</h5><ul>`;
+                        cluster.forEach(doc => {
+                            resultHtml += `<li>${escapeHtml(doc)}</li>`;
+                        });
+                        resultHtml += '</ul>';
+                    });
+                    $('#resultText').html(resultHtml);
+                    $('#resultSection').show();
+                    $('#analysisType').val('cluster');
+                    $('#analysisResult').val(JSON.stringify(response.data));
+                }
+            });
+        });
+
+        // 요약
+        $('#summaryForm').submit(function(event) {
+            event.preventDefault();
+            const text = $('#summaryText').val();
+            const sentenceCount = $('#sentenceCount').val();
+
+            if (!validateInput(text, '텍스트를 입력해주세요.')) return;
+            if (!validateNumber(sentenceCount, 1, 10, '요약 문장 수는 1~10 사이로 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/summarize',
+                method: 'POST',
+                data: { text, sentenceCount },
+                contentType: 'application/json',
+                onSuccess: function(response) {
+                    showResultAndRedirect('summary', response.data.join(' '));
+                }
+            });
+        });
+
+        // 주제 분류
+        $('#topicForm').submit(function(event) {
+            event.preventDefault();
+            const text = $('#topicText').val();
+            if (!validateInput(text, '텍스트를 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/topic',
+                method: 'POST',
+                data: { text },
+                contentType: 'application/json',
+                onSuccess: function(response) {
+                    showResultAndRedirect('topic', response.data);
+                }
+            });
+        });
+
+        // 토큰화
+        $('#tokenForm').submit(function(event) {
+            event.preventDefault();
+            const text = $('#tokenText').val();
+            if (!validateInput(text, '텍스트를 입력해주세요.')) return;
+
+            sendRequest({
+                url: '/api/v1/text-analysis/tokenize',
+                method: 'POST',
+                data: { text },
+                contentType: 'application/json',
+                onSuccess: function(response) {
+                    showResultAndRedirect('tokenize', response.data.join(', '));
+                }
+            });
+        });
     });
-</script>
-`;
-
-$('#resultContent').html(chartHtml);
-}
-
-function showSentimentChart() {
-// 감정 분석 결과가 있는지 확인
-const sentimentContent = $('#resultContent');
-if (!sentimentContent.find('.alert').length) {
-alert('표시할 데이터가 없습니다.');
-return;
-}
-
-// 현재 데이터에서 값 추출
-const positive = parseInt(sentimentContent.find('.col-md-4:nth-child(1) h2').text());
-const neutral = parseInt(sentimentContent.find('.col-md-4:nth-child(2) h2').text());
-const negative = parseInt(sentimentContent.find('.col-md-4:nth-child(3) h2').text());
-
-const chartHtml = `
-<canvas id="sentimentChart" width="400" height="300"></canvas>
-<script>
-    const ctx = document.getElementById('sentimentChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['긍정적', '중립적', '부정적'],
-            datasets: [{
-                label: '단어 수',
-                data: [${positive}, ${neutral}, ${negative}],
-                backgroundColor: [
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(255, 206, 86, 0.8)',
-                    'rgba(255, 99, 132, 0.8)'
-                ],
-                borderColor: [
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(255, 206, 86, 1)',
-                    'rgba(255, 99, 132, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: '감정 분석 결과'
-                }
-            }
-        }
-    });
-</script>
-`;
-
-$('#resultContent').html(chartHtml);
-}
-
-function showTopicChart() {
-// 주제 분류 결과가 있는지 확인
-const table = $('#resultContent table');
-if (!table.length) {
-alert('표시할 데이터가 없습니다.');
-return;
-}
-
-// 테이블에서 데이터 추출
-const topics = [];
-const scores = [];
-
-table.find('tbody tr').each(function() {
-const topic = $(this).find('td:first').text();
-const score = parseFloat($(this).find('td:nth-child(2)').text());
-
-topics.push(topic);
-scores.push(score);
-});
-
-const chartHtml = `
-<canvas id="topicChart" width="400" height="300"></canvas>
-<script>
-    const ctx = document.getElementById('topicChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: ${JSON.stringify(topics)},
-    datasets: [{
-        data: ${JSON.stringify(scores)},
-        backgroundColor: [
-        'rgba(255, 99, 132, 0.8)',
-        'rgba(54, 162, 235, 0.8)',
-        'rgba(255, 206, 86, 0.8)',
-        'rgba(75, 192, 192, 0.8)',
-        'rgba(153, 102, 255, 0.8)',
-        'rgba(255, 159, 64, 0.8)'
-    ]
-    }]
-    },
-    options: {
-        responsive: true,
-            plugins: {
-            title: {
-                display: true,
-                    text: '주제 분류 결과'
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        const label = context.label || '';
-                        const value = context.raw;
-                        const percentage = Math.round(value * 100);
-                        return `${label}: ${percentage}%`;
-                    }
-                }
-            }
-        }
-    }
-    });
-</script>
-`;
-
-$('#resultContent').html(chartHtml);
-}
-});
 </script>
 </body>
 </html>
