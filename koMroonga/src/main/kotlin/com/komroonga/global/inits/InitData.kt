@@ -17,6 +17,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
 import kotlin.system.measureTimeMillis
 
@@ -29,15 +30,16 @@ class InitData(
     private val memberService: MemberService,
     private val postService: PostService,
     private val cacheService: CacheService,
-    @PersistenceContext private val entityManager: EntityManager
+    @PersistenceContext private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
         private const val MEMBER_COUNT = 100_000 // 사용자 수
         private const val POSTS_PER_MEMBER = 1 // 사용자당 게시글 수
-        private const val BATCH_SIZE = 2_000 // 배치 크기 증가
-        private const val PARALLEL_BATCHES = 6 // 병렬 처리 최적화
+        private const val BATCH_SIZE = 5_000 // 배치 크기 조정
+        private const val PARALLEL_BATCHES = 2 // 병렬 처리 최적화
 
         // 코루틴 디스패처 설정 (IO 작업 최적화)
         private val optimizedDispatcher = Dispatchers.IO.limitedParallelism(4)
@@ -136,12 +138,6 @@ class InitData(
      */
     @Transactional
     suspend fun initializeMembers(): Triple<Long, InitializationResult, List<Long>> = withContext(optimizedDispatcher) {
-        val currentCount = memberService.count().getOrDefault(0L)
-        if (currentCount > 0) {
-            logger.info("사용자 존재: $currentCount 명, 초기화 건너뜀")
-            return@withContext Triple(0L, Result.success(Unit), listOf(1L, 2L))
-        }
-
         logger.info("사용자 생성 시작: 총 $MEMBER_COUNT 명, 배치 크기: $BATCH_SIZE")
 
         val prevCachingState = cacheService.enableCaching
@@ -149,26 +145,34 @@ class InitData(
         val adminIds = mutableListOf<Long>()
 
         val time = measureTimeMillis {
+            // 관리자 계정 삽입
             val admins = listOf(
                 MemberRequest(username = "admin1", password = "adminpass1", role = Role.ROLE_ADMIN, email = "admin1@example.com", name = "관리자 1"),
                 MemberRequest(username = "admin2", password = "adminpass2", role = Role.ROLE_ADMIN, email = "admin2@example.com", name = "관리자 2")
             )
 
-            (memberService as? MemberServiceImpl)?.registerBatch(admins)?.map { it.id }?.let { adminIds.addAll(it) }
-                ?: throw IllegalStateException("MemberService는 MemberServiceImpl이어야 함")
+            transactionTemplate.execute {
+                runBlocking {
+                    (memberService as? MemberServiceImpl)?.registerBatch(admins)?.map { it.id }?.let { adminIds.addAll(it) }
+                        ?: throw IllegalStateException("MemberService는 MemberServiceImpl이어야 함")
+                }
+            }
 
+            // 일반 사용자 삽입
             val memberBatches = generateMemberBatches()
             memberBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                batchChunk.map { batch ->
-                    async {
-                        (memberService as? MemberServiceImpl)?.registerBatch(batch)
-                            ?.also { logger.debug("배치 처리 완료: ${batch.size} 사용자") }
-                            ?: throw IllegalStateException("배치 처리 실패")
+                batchChunk.forEach { batch ->
+                    transactionTemplate.execute {
+                        runBlocking {
+                            (memberService as? MemberServiceImpl)?.registerBatch(batch)
+                                ?.also { logger.debug("배치 처리 완료: ${batch.size} 사용자") }
+                                ?: throw IllegalStateException("배치 처리 실패")
+                            entityManager.flush()
+                            entityManager.clear()
+                        }
                     }
-                }.awaitAll()
+                }
 
-                entityManager.flush()
-                entityManager.clear()
                 System.gc()
 
                 val progress = ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / memberBatches.size
@@ -212,15 +216,17 @@ class InitData(
         val time = measureTimeMillis {
             val postBatches = generatePostBatches(regularUserCount.toInt(), adminIds)
             postBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                batchChunk.map { batch ->
-                    async {
-                        postServiceImpl.createBatch(batch)
-                            .also { logger.debug("게시글 배치 처리 완료: ${batch.size} 개") }
+                batchChunk.forEach { batch ->
+                    transactionTemplate.execute {
+                        runBlocking {
+                            postServiceImpl.createBatch(batch)
+                                .also { logger.debug("게시글 배치 처리 완료: ${batch.size} 개") }
+                            entityManager.flush()
+                            entityManager.clear()
+                        }
                     }
-                }.awaitAll()
+                }
 
-                entityManager.flush()
-                entityManager.clear()
                 System.gc()
 
                 val progress = ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / postBatches.size

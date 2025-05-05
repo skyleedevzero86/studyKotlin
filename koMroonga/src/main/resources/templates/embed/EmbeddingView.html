@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Input Visualization</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { display: flex; height: 100vh; margin: 0; }
+        aside { width: 30%; background: #f0f0f0; padding: 10px; overflow-y: auto; }
+        main { width: 70%; display: flex; flex-direction: column; }
+        #inputForm { padding: 10px; }
+        #chartContainer { padding: 10px; flex-grow: 1; }
+    </style>
+</head>
+<body>
+<aside>
+    <h3>Input List</h3>
+    <ul id="inputList" th:each="input : ${inputs}">
+        <li th:text="${input.text}" th:data-id="${input.id}" style="cursor: pointer;"></li>
+    </ul>
+</aside>
+<main>
+    <section id="inputForm">
+        <form id="inputFormElement">
+            <input type="text" id="inputText" name="text" placeholder="Enter text">
+            <button type="submit">Submit</button>
+        </form>
+    </section>
+    <section id="chartContainer">
+        <canvas id="myChart"></canvas>
+    </section>
+</main>
+
+<script>
+    $(document).ready(function() {
+        let chart;
+
+        function updateChart(data) {
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('myChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Length', 'Has Keyword'],
+                    datasets: [{
+                        label: 'Result',
+                        data: [data.length, data.hasKeyword ? 1 : 0],
+                        backgroundColor: ['#36A2EB', '#FF6384']
+                    }]
+                },
+                options: { scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        $('#inputFormElement').on('submit', function(e) {
+            e.preventDefault();
+            const text = $('#inputText').val();
+            $.post('/input', { text: text }, function(response) {
+                $('#inputList').append($('<li>').text(response.text).data('id', response.id));
+                $('#inputText').val('');
+                updateChart(response);
+            });
+        });
+
+        $('#inputList').on('click', 'li', function() {
+            const id = $(this).data('id');
+            $.get(`/input/data/${id}`, function(data) {
+                updateChart(data);
+            });
+        });
+
+        // Initial load
+        setInterval(function() {
+            $.get('/input', function(data) {
+                $('#inputList').empty();
+                data.forEach(input => {
+                    $('#inputList').append($('<li>').text(input.text).data('id', input.id));
+                });
+            });
+        }, 5000);
+    });
+</script>
+</body>
+</html>
