@@ -28,14 +28,14 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 게시글 서비스 구현 클래스
- * 게시글 관련 비즈니스 로직 처리
+ * 게기글 관련 비즈니스 로직 처리
  */
 @Service
 class PostServiceImpl(
     private val postRepository: PostRepository,
     private val cacheService: CacheService,
     private val memberService: MemberService,
-    private val transactionTemplate: TransactionTemplate, // TransactionTemplate 주입 추가
+    private val transactionTemplate: TransactionTemplate,
     @PersistenceContext private val entityManager: EntityManager
 ) : PostService {
 
@@ -46,10 +46,10 @@ class PostServiceImpl(
         .expireAfterWrite(30, TimeUnit.MINUTES)
         .maximumSize(10_000)
         .build<Long, Member>()
-    private var cachingEnabled = true // 캐싱 상태 관리
+    private var cachingEnabled = true
 
     companion object {
-        private const val BATCH_SIZE = 2_000 // 배치 크기 정의
+        private const val BATCH_SIZE = 2_000
     }
 
     /**
@@ -79,12 +79,20 @@ class PostServiceImpl(
     /**
      * 초기화 완료 후 캐시 채우기
      */
+    @Transactional(readOnly = true)
     suspend fun populateCacheAfterInitialization() {
         logger.info("게시글 캐시 채우기 시작")
-        val posts = postRepository.findAll()
-        val cacheItems = posts.associate { it.id!! to postToResponse(it) }
-        cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
-        logger.info("게시글 캐시 채우기 완료: ${cacheItems.size}개")
+        try {
+            postRepository.findAllWithAuthor().chunked(BATCH_SIZE).forEach { batch ->
+                val cacheItems = batch.associate { it.id!! to postToResponse(it) }
+                cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
+                entityManager.clear() // 메모리 관리
+            }
+            logger.info("게시글 캐시 채우기 완료")
+        } catch (e: Exception) {
+            logger.error("캐시 채우기 실패: ${e.message}", e)
+            throw e
+        }
     }
 
     /**
@@ -116,7 +124,6 @@ class PostServiceImpl(
     /**
      * 배치 게시글 생성
      */
-
     @Transactional
     suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> {
         val responses = mutableListOf<Result<PostResponse>>()
@@ -161,7 +168,7 @@ class PostServiceImpl(
                                         NoticeType.valueOf(data.noticeType)
                                     } catch (e: IllegalArgumentException) {
                                         logger.error("NoticeType.valueOf 실패: ${data.noticeType}")
-                                        throw PostError.InvalidInput("noticeType", "유효하지 않은 공지 유형: ${data.noticeType}. 허용 값: $validNoticeTypes")
+                                        throw PostError.InvalidInput("noticeType", "유효하지 않은 공지 유형: ${data.noticeType}. 허용 값: $validNoticeTypes " )
                                     }
 
                                     logger.debug("Calling bulkInsert with noticeType: ${data.noticeType}")

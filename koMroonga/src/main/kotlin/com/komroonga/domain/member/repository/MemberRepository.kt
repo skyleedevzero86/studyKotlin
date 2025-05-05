@@ -2,6 +2,7 @@ package com.komroonga.member.repository
 
 import com.komroonga.member.entity.Member
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -17,6 +18,7 @@ interface MemberRepository : JpaRepository<Member, Long> {
     fun searchByKeyword(@Param("keyword") keyword: String): List<Member>
 
     // 성능 최적화를 위한 벌크 삽입 메서드
+    @Modifying
     @Query(
         value = "INSERT INTO member (username, password, name, email, role) VALUES (:username, :password, :name, :email, :role)",
         nativeQuery = true
@@ -27,5 +29,5 @@ interface MemberRepository : JpaRepository<Member, Long> {
         @Param("name") name: String,
         @Param("email") email: String,
         @Param("role") role: String
-    )
+    ): Int
 }

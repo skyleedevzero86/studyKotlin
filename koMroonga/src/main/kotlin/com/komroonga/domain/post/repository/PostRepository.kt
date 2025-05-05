@@ -10,7 +10,9 @@ import java.util.Optional
 
 interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
     override fun findById(id: Long): Optional<Post>
-    override fun findAll(): List<Post>
+
+    @Query("SELECT p FROM Post p JOIN FETCH p.author")
+    fun findAllWithAuthor(): List<Post>
 
     fun findByNoticeType(noticeType: NoticeType): List<Post>
     fun findByIsPrivate(isPrivate: Boolean): List<Post>
@@ -24,7 +26,7 @@ interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
     @Query("SELECT p FROM Post p WHERE p.noticeType = :noticeType AND p.isPrivate = false")
     fun findPublicPostsByNoticeType(@Param("noticeType") noticeType: NoticeType): List<Post>
 
-    // 네이티브 SQL 벌크 삽입 메서드 추가
+    // 네이티브 SQL 벌크 삽입 메서드
     @Modifying
     @Query(
         value = "INSERT INTO post (title, content, author_id, is_private, notice_type, created_at, updated_at) " +

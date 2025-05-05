@@ -136,7 +136,7 @@ class InitData(
      * 사용자 초기화
      */
     @Transactional
-    fun initializeMembers(): Triple<Long, Result<Unit>, List<Long>> {
+    suspend fun initializeMembers(): Triple<Long, Result<Unit>, List<Long>> {
         logger.info("사용자 생성 시작: 총 $MEMBER_COUNT 명, 배치 크기: $BATCH_SIZE")
         val adminIds = mutableListOf<Long>()
 
@@ -150,6 +150,7 @@ class InitData(
                 runBlocking {
                     (memberService as? MemberServiceImpl)?.registerBatch(admins)?.map { it.id }?.let { adminIds.addAll(it) }
                         ?: throw IllegalStateException("MemberService는 MemberServiceImpl이어야 함")
+                    true
                 }
             }
 
@@ -162,6 +163,7 @@ class InitData(
                             (memberService as MemberServiceImpl).registerBatch(batch)
                             entityManager.flush()
                             entityManager.clear()
+                            true
                         } catch (e: Exception) {
                             logger.error("사용자 배치 처리 실패: ${e.message}", e)
                             throw e
@@ -206,14 +208,21 @@ class InitData(
             val postBatches = generatePostBatches(memberCount.toInt() - adminIds.size, adminIds)
             postBatches.forEachIndexed { index, batch ->
                 try {
-                    val results = postServiceImpl.createBatch(batch)
-                    val successCount = results.count { it.isSuccess }
-                    val failCount = results.size - successCount
+                    transactionTemplate.execute {
+                        runBlocking {  // 여기에 runBlocking 추가
+                            val results = postServiceImpl.createBatch(batch)
+                            val successCount = results.count { it.isSuccess }
+                            val failCount = results.size - successCount
 
-                    if (failCount > 0) {
-                        logger.warn("배치 #${index+1}: $successCount 성공, $failCount 실패")
+                            if (failCount > 0) {
+                                logger.warn("배치 #${index+1}: $successCount 성공, $failCount 실패")
+                            }
+                        }
+
+                        entityManager.flush()
+                        entityManager.clear()
+                        true
                     }
-
                     System.gc()
                     val progress = ((index + 1) * 100) / postBatches.size
                     logger.info("게시글 생성 진행률: $progress%")
@@ -232,6 +241,7 @@ class InitData(
         logger.info("게시글 생성 완료: 소요 시간 ${time / 1000}초")
         return time to Result.success(Unit)
     }
+
     /**
      * 애플리케이션 실행 시 데이터 초기화
      */

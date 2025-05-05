@@ -12,10 +12,10 @@ interface PostService {
     suspend fun findById(id: Long, currentUser: MemberResponse?): Result<PostResponse>
     suspend fun findAll(currentUser: MemberResponse?): Flow<PostResponse>
     suspend fun edit(
-        postId: Long, 
-        memberResponse: MemberResponse, 
-        title: String, 
-        content: String, 
+        postId: Long,
+        memberResponse: MemberResponse,
+        title: String,
+        content: String,
         isPrivate: Boolean,
         noticeType: NoticeType
     ): Result<PostResponse>
@@ -28,8 +28,8 @@ interface PostService {
      * @return 검색 결과 게시글 목록
      */
     suspend fun search(
-        searchType: String, 
-        keyword: String, 
+        searchType: String,
+        keyword: String,
         currentUser: MemberResponse?
     ): Flow<PostResponse>
 
@@ -40,7 +40,7 @@ interface PostService {
      * @return 필터링된 게시글 목록
      */
     suspend fun findByNoticeType(
-        noticeType: NoticeType, 
+        noticeType: NoticeType,
         currentUser: MemberResponse?
     ): Flow<PostResponse>
 }
