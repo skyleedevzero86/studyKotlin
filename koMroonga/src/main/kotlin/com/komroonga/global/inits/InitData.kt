@@ -2,6 +2,7 @@ package com.komroonga.global.inits
 
 import com.komroonga.domain.member.dto.MemberRequest
 import com.komroonga.domain.post.dto.PostRequest
+import com.komroonga.domain.post.entity.NoticeType
 import com.komroonga.domain.post.service.PostService
 import com.komroonga.domain.post.service.PostServiceImpl
 import com.komroonga.global.utils.PerformanceMetrics

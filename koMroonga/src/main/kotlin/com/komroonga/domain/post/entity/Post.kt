@@ -1,3 +1,5 @@
+package com.komroonga.domain.post.entity
+
 import jakarta.persistence.*
 import com.komroonga.member.entity.Member
 import org.hibernate.annotations.Index

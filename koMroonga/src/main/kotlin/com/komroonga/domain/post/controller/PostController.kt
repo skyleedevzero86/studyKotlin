@@ -2,6 +2,7 @@ package com.komroonga.domain.post.controller
 
 import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.domain.post.dto.PostRequest
+import com.komroonga.domain.post.entity.NoticeType
 import com.komroonga.domain.post.service.PostService
 import com.komroonga.member.entity.Role
 import kotlinx.coroutines.flow.toList

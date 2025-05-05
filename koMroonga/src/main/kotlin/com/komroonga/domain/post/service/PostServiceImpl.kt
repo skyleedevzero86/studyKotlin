@@ -1,11 +1,11 @@
 package com.komroonga.domain.post.service
 
-import NoticeType
-import Post
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.domain.post.dto.PostRequest
 import com.komroonga.domain.post.dto.PostResponse
+import com.komroonga.domain.post.entity.NoticeType
+import com.komroonga.domain.post.entity.Post
 import com.komroonga.domain.post.repository.PostRepository
 import com.komroonga.global.error.types.PostError
 import com.komroonga.global.utils.CacheService

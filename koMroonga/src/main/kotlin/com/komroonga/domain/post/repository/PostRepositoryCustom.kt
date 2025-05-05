@@ -1,7 +1,7 @@
 package com.komroonga.domain.post.repository
 
-import NoticeType
-import Post
+import com.komroonga.domain.post.entity.NoticeType
+import com.komroonga.domain.post.entity.Post
 
 interface PostRepositoryCustom {
     fun search(searchType: String, keyword: String): List<Post>

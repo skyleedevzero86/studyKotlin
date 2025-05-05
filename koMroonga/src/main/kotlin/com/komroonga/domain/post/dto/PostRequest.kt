@@ -1,6 +1,6 @@
 package com.komroonga.domain.post.dto
 
-import NoticeType
+import com.komroonga.domain.post.entity.NoticeType
 
 data class PostRequest(
     val title: String, 

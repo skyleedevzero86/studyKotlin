@@ -1,9 +1,9 @@
 package com.komroonga.domain.post.service
 
-import NoticeType
 import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.domain.post.dto.PostRequest
 import com.komroonga.domain.post.dto.PostResponse
+import com.komroonga.domain.post.entity.NoticeType
 import kotlinx.coroutines.flow.Flow
 
 interface PostService {
