@@ -205,21 +205,22 @@ class InitData(
         val time = measureTimeMillis {
             val postBatches = generatePostBatches(memberCount.toInt() - adminIds.size, adminIds)
             postBatches.forEachIndexed { index, batch ->
-                transactionTemplate.execute {
-                    runBlocking {
-                        try {
-                            postServiceImpl.createBatch(batch)
-                            entityManager.flush()
-                            entityManager.clear()
-                        } catch (e: Exception) {
-                            logger.error("게시글 배치 처리 실패: ${e.message}", e)
-                            throw e
-                        }
+                try {
+                    val results = postServiceImpl.createBatch(batch)
+                    val successCount = results.count { it.isSuccess }
+                    val failCount = results.size - successCount
+
+                    if (failCount > 0) {
+                        logger.warn("배치 #${index+1}: $successCount 성공, $failCount 실패")
                     }
+
+                    System.gc()
+                    val progress = ((index + 1) * 100) / postBatches.size
+                    logger.info("게시글 생성 진행률: $progress%")
+                } catch (e: Exception) {
+                    logger.error("게시글 배치 처리 실패: ${e.message}", e)
+                    // 특정 배치가 실패해도 다음 배치는 계속 진행
                 }
-                System.gc()
-                val progress = ((index + 1) * 100) / postBatches.size
-                logger.info("게시글 생성 진행률: $progress%")
             }
 
             // 초기화 완료 후 캐시 채우기
@@ -231,7 +232,6 @@ class InitData(
         logger.info("게시글 생성 완료: 소요 시간 ${time / 1000}초")
         return time to Result.success(Unit)
     }
-
     /**
      * 애플리케이션 실행 시 데이터 초기화
      */

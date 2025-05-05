@@ -14,9 +14,12 @@ class PostRepositoryImpl : PostRepositoryCustom {
     private lateinit var entityManager: EntityManager
 
     override fun search(searchType: String, keyword: String): List<Post> {
+        require(searchType.isNotBlank()) { "searchType은 비어 있을 수 없습니다" }
+        require(keyword.isNotBlank()) { "keyword는 비어 있을 수 없습니다" }
+
         val jpql = StringBuilder("SELECT p FROM Post p JOIN FETCH p.author WHERE ")
 
-        when (searchType.lowercase()) {
+        when (searchType.toLowerCase()) {
             "title" -> jpql.append("LOWER(p.title) LIKE LOWER(:keyword)")
             "content" -> jpql.append("LOWER(p.content) LIKE LOWER(:keyword)")
             "author" -> jpql.append("LOWER(p.author.username) LIKE LOWER(:keyword)")

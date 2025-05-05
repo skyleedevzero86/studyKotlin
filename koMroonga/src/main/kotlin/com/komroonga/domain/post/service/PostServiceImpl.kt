@@ -116,49 +116,83 @@ class PostServiceImpl(
     /**
      * 배치 게시글 생성
      */
+
     @Transactional
     suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> {
-        val posts = requests.map { request ->
+        val responses = mutableListOf<Result<PostResponse>>()
+
+        requests.map { request ->
             validateRequest(request).map { req ->
                 val authorId = req.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
                 val author = memberCache.getIfPresent(authorId) ?: memberService.findMemberEntityById(authorId)
                     .getOrThrow()
                     .also { memberCache.put(authorId, it) }
+                val noticeTypeName = req.noticeType.name
+                logger.debug("Creating PostBatchData with noticeType: $noticeTypeName")
                 PostBatchData(
                     title = req.title,
                     content = req.content,
                     authorId = authorId,
                     isPrivate = req.isPrivate,
-                    noticeType = req.noticeType.name
+                    noticeType = noticeTypeName
                 )
             }
-        }
+        }.chunked(BATCH_SIZE).forEach { batch ->
+            try {
+                transactionTemplate.execute {
+                    batch.forEach { result ->
+                        result.fold(
+                            onSuccess = { data ->
+                                logger.info("Processing PostBatchData: title=${data.title}, noticeType=${data.noticeType}")
+                                try {
+                                    // noticeType 유효성 검사
+                                    if (data.noticeType.isBlank()) {
+                                        logger.error("noticeType이 비어 있습니다")
+                                        throw PostError.InvalidInput("noticeType", "공지 유형은 비어 있을 수 없습니다")
+                                    }
+                                    val validNoticeTypes = NoticeType.entries.map { it.name }
+                                    if (data.noticeType !in validNoticeTypes) {
+                                        logger.error("유효하지 않은 noticeType: ${data.noticeType}")
+                                        throw PostError.InvalidInput("noticeType", "유효하지 않은 공지 유형: ${data.noticeType}. 허용 값: $validNoticeTypes")
+                                    }
 
-        // 네이티브 SQL로 벌크 삽입
-        val responses = mutableListOf<Result<PostResponse>>()
-        posts.chunked(BATCH_SIZE).forEach { batch ->
-            transactionTemplate.execute {
-                batch.forEach { result ->
-                    result.fold(
-                        onSuccess = { data ->
-                            try {
-                                postRepository.bulkInsert(
-                                    title = data.title,
-                                    content = data.content,
-                                    authorId = data.authorId,
-                                    isPrivate = data.isPrivate,
-                                    noticeType = data.noticeType
-                                )
-                                responses.add(Result.success(PostResponse(0, data.title, data.content, "user${data.authorId}", data.authorId, data.isPrivate, NoticeType.valueOf(data.noticeType))))
-                            } catch (e: Exception) {
-                                responses.add(Result.failure(e))
-                            }
-                        },
-                        onFailure = { responses.add(Result.failure(it)) }
-                    )
+                                    // NoticeType.valueOf 호출
+                                    val noticeTypeEnum = try {
+                                        NoticeType.valueOf(data.noticeType)
+                                    } catch (e: IllegalArgumentException) {
+                                        logger.error("NoticeType.valueOf 실패: ${data.noticeType}")
+                                        throw PostError.InvalidInput("noticeType", "유효하지 않은 공지 유형: ${data.noticeType}. 허용 값: $validNoticeTypes")
+                                    }
+
+                                    logger.debug("Calling bulkInsert with noticeType: ${data.noticeType}")
+                                    val rowsAffected = postRepository.bulkInsert(
+                                        title = data.title,
+                                        content = data.content,
+                                        authorId = data.authorId,
+                                        isPrivate = data.isPrivate,
+                                        noticeType = data.noticeType
+                                    )
+                                    if (rowsAffected > 0) {
+                                        logger.info("Successfully inserted post with noticeType: ${data.noticeType}")
+                                        responses.add(Result.success(PostResponse(0, data.title, data.content, "user${data.authorId}", data.authorId, data.isPrivate, noticeTypeEnum)))
+                                    } else {
+                                        logger.error("Failed to insert post with noticeType: ${data.noticeType}")
+                                        responses.add(Result.failure(Exception("삽입 실패")))
+                                    }
+                                } catch (e: Exception) {
+                                    logger.error("게시글 삽입 실패: ${e.message}", e)
+                                    responses.add(Result.failure(e))
+                                }
+                            },
+                            onFailure = { responses.add(Result.failure(it)) }
+                        )
+                    }
+                    entityManager.flush()
+                    entityManager.clear()
+                    true // 트랜잭션 커밋
                 }
-                entityManager.flush()
-                entityManager.clear()
+            } catch (e: Exception) {
+                logger.error("배치 처리 중 오류 발생: ${e.message}", e)
             }
         }
 

@@ -3,6 +3,7 @@ package com.komroonga.domain.post.repository
 import com.komroonga.domain.post.entity.NoticeType
 import com.komroonga.domain.post.entity.Post
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.util.Optional
@@ -24,6 +25,7 @@ interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
     fun findPublicPostsByNoticeType(@Param("noticeType") noticeType: NoticeType): List<Post>
 
     // 네이티브 SQL 벌크 삽입 메서드 추가
+    @Modifying
     @Query(
         value = "INSERT INTO post (title, content, author_id, is_private, notice_type, created_at, updated_at) " +
                 "VALUES (:title, :content, :authorId, :isPrivate, :noticeType, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
@@ -35,5 +37,5 @@ interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
         @Param("authorId") authorId: Long,
         @Param("isPrivate") isPrivate: Boolean,
         @Param("noticeType") noticeType: String
-    )
+    ): Int
 }
