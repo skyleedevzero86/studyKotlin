@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.komroonga.domain.member.dto.*
 import com.komroonga.global.error.types.MemberError
 import com.komroonga.global.utils.CacheService
+import com.komroonga.global.utils.withLogging
 import com.komroonga.member.entity.Member
 import com.komroonga.member.repository.MemberRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -29,154 +31,144 @@ class MemberServiceImpl(
     @Qualifier("redisObjectMapper") private val objectMapper: ObjectMapper
 ) : MemberService {
 
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val logger: Logger = LoggerFactory.getLogger(this::class.java)
     private val cacheTtl = Duration.ofMinutes(30)
     private val memberDispatcher = Dispatchers.IO.limitedParallelism(10)
 
     /**
      * 회원 등록
+     * @param request 회원 요청 객체
+     * @return 등록된 회원 정보
      */
     override suspend fun register(request: MemberRequest): MemberResult<MemberResponse> =
-        runCatching {
-            logger.info("사용자 등록: ${request.username}")
-            validateRequest(request)
-            memberRepository.findByUsername(request.username)?.let {
-                logger.warn("사용자 이름 ${request.username} 이미 존재")
-                throw MemberError.AlreadyExists(request.username)
+        validateRequest(request)
+            .map { req ->
+                memberRepository.findByUsername(req.username)
+                    ?.let { throw MemberError.AlreadyExists(req.username) }
+                Member(
+                    username = req.username,
+                    password = passwordEncoder.encode(req.password),
+                    name = req.name,
+                    email = req.email,
+                    role = req.role
+                )
             }
-            val member = Member(
-                username = request.username,
-                password = passwordEncoder.encode(request.password),
-                name = request.name,
-                email = request.email,
-                role = request.role
-            )
-            val saved = memberRepository.save(member)
-            logger.info("사용자 저장 완료: ${saved.username}")
-
-            if (cacheService.enableCaching) {
-                cacheService.putInCache("member:dto:${saved.id}", MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role), cacheTtl)
+            .map { memberRepository.save(it) }
+            .map { saved ->
+                if (cacheService.enableCaching) {
+                    cacheService.putInCache(
+                        "member:dto:${saved.id}",
+                        MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role),
+                        cacheTtl
+                    )
+                }
+                MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role)
             }
-            MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role)
-        }.onFailure {
-            logger.error("회원 등록 실패: ${request.username}, 오류: ${it.message}", it)
-        }
+            .withLogging(logger, "회원 등록")
 
     /**
      * 배치 회원 등록
+     * @param requests 회원 요청 객체 리스트
+     * @return 등록된 회원 정보 리스트
      */
     @Transactional
-    override suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse> {
-        val members = requests.map { request ->
-            validateRequest(request)
-            Member(
-                username = request.username,
-                password = passwordEncoder.encode(request.password),
-                name = request.name.ifBlank { "" },
-                email = request.email.ifBlank { "" },
-                role = request.role
-            )
-        }
-        val savedMembers = memberRepository.saveAll(members)
-        val responses = savedMembers.map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
-
-        if (cacheService.enableCaching) {
-            val cacheItems = responses.associate { it.id.toString() to it }
-            cacheService.putBulkInCache(cacheItems, "member:dto", cacheTtl)
-        }
-        return responses
-    }
+    override suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse> =
+        requests.map { validateRequest(it).getOrThrow() }
+            .map { req ->
+                Member(
+                    username = req.username,
+                    password = passwordEncoder.encode(req.password),
+                    name = req.name.ifBlank { "" },
+                    email = req.email.ifBlank { "" },
+                    role = req.role
+                )
+            }
+            .let { memberRepository.saveAll(it) }
+            .map { saved ->
+                MemberResponse(saved.id!!, saved.username, saved.name, saved.email, saved.role)
+            }
+            .also { responses ->
+                if (cacheService.enableCaching) {
+                    cacheService.putBulkInCache(responses.associate { it.id.toString() to it }, "member:dto", cacheTtl)
+                }
+            }
 
     /**
      * 사용자 이름으로 회원 조회
+     * @param username 사용자 이름
+     * @return 회원 정보
      */
     override suspend fun findByUsername(username: String): MemberResult<MemberResponse> =
-        runCatching {
-            cacheService.getCachedOrCompute(
-                key = "member:username:$username",
-                ttl = cacheTtl
-            ) {
-                val member = memberRepository.findByUsername(username)
-                    ?: throw MemberError.NotFound(username)
-                MemberResponse(member.id!!, member.username, member.name, member.email, member.role)
-            }.getOrThrow()
-        }.onFailure { logger.error("회원 조회 실패: ${it.message}", it) }
+        cacheService.getCachedOrCompute("member:username:$username", cacheTtl) {
+            memberRepository.findByUsername(username)
+                ?.let { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
+                ?: throw MemberError.NotFound(username)
+        }.withLogging(logger, "사용자 이름으로 회원 조회")
 
     /**
      * 모든 회원 조회
+     * @return 회원 정보 스트림
      */
     override suspend fun findAll(): Flow<MemberResponse> = flow {
         memberRepository.findAll()
             .map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
-            .onEach { logger.info("전체 회원 조회 완료") }
             .forEach { emit(it) }
     }
 
     /**
      * 회원 수 조회
+     * @return 회원 수
      */
     override suspend fun count(): MemberResult<Long> =
-        runCatching {
-            memberRepository.count()
-        }.onFailure { logger.error("회원 수 조회 실패: ${it.message}", it) }
+        runCatching { memberRepository.count() }
+            .withLogging(logger, "회원 수 조회")
 
     /**
      * 사용자 이름으로 회원 엔티티 조회
+     * @param username 사용자 이름
+     * @return 회원 엔티티
      */
     override suspend fun findMemberEntityByUsername(username: String): Result<Member> =
         runCatching {
-            val member = memberRepository.findByUsername(username)
-                ?: throw MemberError.NotFound(username)
-            member
-        }.onFailure { logger.error("회원 엔티티 조회 실패: ${it.message}", it) }
+            memberRepository.findByUsername(username) ?: throw MemberError.NotFound(username)
+        }.withLogging(logger, "사용자 이름으로 회원 엔티티 조회")
 
     /**
      * ID로 회원 엔티티 조회
-     * 수정: Member 엔티티 대신 ID만 캐싱하여 ClassCastException 방지
+     * @param id 회원 ID
+     * @return 회원 엔티티
      */
     override suspend fun findMemberEntityById(id: Long): Result<Member> =
         runCatching {
-            // 엔티티 자체가 아닌 ID만 캐시에 저장하고, 해당 ID로 항상 DB 조회
-            // 캐시 키를 통해 해당 ID의 회원이 존재하는지만 확인
             if (cacheService.enableCaching && cacheService.exists("member:id:$id")) {
-                // 캐시에 ID가 존재하면 바로 DB 조회
-                memberRepository.findById(id)
-                    .orElseThrow { MemberError.NotFound("ID: $id") }
+                memberRepository.findById(id).orElseThrow { MemberError.NotFound("ID: $id") }
             } else {
-                // 캐시에 ID가 없으면 DB 조회 후 ID 정보만 캐시에 저장
-                val member = memberRepository.findById(id)
-                    .orElseThrow { MemberError.NotFound("ID: $id") }
-
-                if (cacheService.enableCaching) {
-                    // ID 정보만 캐시에 저장 (값은 단순히 true로 저장)
-                    cacheService.putInCache("member:id:$id", true, cacheTtl)
-                }
-                member
+                memberRepository.findById(id).orElseThrow { MemberError.NotFound("ID: $id") }
+                    .also { if (cacheService.enableCaching) cacheService.putInCache("member:id:$id", true, cacheTtl) }
             }
-        }.onFailure {
-            logger.error("회원 엔티티 조회 실패 (ID: $id): ${it.message}", it)
-        }
+        }.withLogging(logger, "ID로 회원 엔티티 조회")
 
     /**
      * 회원 요청 유효성 검사
+     * @param request 회원 요청 객체
+     * @return 유효성 검사 결과
      */
-    private fun validateRequest(request: MemberRequest) {
-        if (request.username.isBlank()) {
-            throw MemberError.InvalidInput("username", "사용자 이름은 비어 있을 수 없습니다")
-        }
-        if (request.password.length < 6) {
-            throw MemberError.InvalidInput("password", "비밀번호는 6자 이상이어야 합니다")
-        }
+    private fun validateRequest(request: MemberRequest): Result<MemberRequest> = when {
+        request.username.isBlank() -> Result.failure(MemberError.InvalidInput("username", "사용자 이름은 비어 있을 수 없습니다"))
+        request.password.length < 6 -> Result.failure(MemberError.InvalidInput("password", "비밀번호는 6자 이상이어야 합니다"))
+        else -> Result.success(request)
     }
 
     /**
      * 키워드로 회원 검색
+     * @param keyword 검색 키워드
+     * @return 검색된 회원 정보 리스트
      */
     override suspend fun searchByKeyword(keyword: String): MemberResult<List<MemberResponse>> =
-        runCatching {
-            withContext(memberDispatcher) {
-                val members = memberRepository.searchByKeyword(keyword)
-                members.map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
+        withContext(memberDispatcher) {
+            runCatching {
+                memberRepository.searchByKeyword(keyword)
+                    .map { MemberResponse(it.id!!, it.username, it.name, it.email, it.role) }
             }
-        }.onFailure { logger.error("회원 검색 실패: ${it.message}", it) }
+        }.withLogging(logger, "키워드로 회원 검색")
 }

@@ -23,9 +23,3 @@ interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
     @Query("SELECT p FROM Post p WHERE p.noticeType = :noticeType AND p.isPrivate = false")
     fun findPublicPostsByNoticeType(@Param("noticeType") noticeType: NoticeType): List<Post>
 }
-
-interface PostRepositoryCustom {
-    fun search(searchType: String, keyword: String): List<Post>
-    fun findVisiblePosts(userId: Long?): List<Post>
-    fun findVisiblePostsByNoticeType(noticeType: NoticeType, userId: Long?): List<Post>
-}
