@@ -5,13 +5,13 @@ import com.komroonga.domain.post.dto.PostRequest
 import com.komroonga.domain.post.entity.NoticeType
 import com.komroonga.domain.post.service.PostService
 import com.komroonga.domain.post.service.PostServiceImpl
-import com.komroonga.global.utils.*
+import com.komroonga.global.utils.PerformanceMetrics
 import com.komroonga.member.entity.Role
 import com.komroonga.member.service.MemberService
 import com.komroonga.member.service.MemberServiceImpl
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
-import kotlinx.coroutines.*
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
@@ -19,30 +19,26 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
+import kotlin.random.Random
 import kotlin.system.measureTimeMillis
 
 /**
  * 데이터 초기화를 위한 설정 클래스
- * 사용자와 게시글 데이터를 함수형 프로그래밍으로 효율적으로 생성 및 저장
+ * JPA를 사용하여  4500 명의? 사용자와 30만? 개의 게시글을 효율적으로 삽입
  */
 @Configuration
 class InitData(
     private val memberService: MemberService,
     private val postService: PostService,
-    private val cacheService: CacheService,
     @PersistenceContext private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
-        private const val MEMBER_COUNT = 100_000 // 사용자 수
-        private const val POSTS_PER_MEMBER = 1 // 사용자당 게시글 수
+        private const val MEMBER_COUNT = 4_500 // 사용자 수
+        private const val POSTS_PER_MEMBER = 67 // 사용자당 게시글 수
         private const val BATCH_SIZE = 2_000 // 배치 크기
-        private const val PARALLEL_BATCHES = 4 // 병렬 배치 수
-
-        // 코루틴 디스패처 (I/O 최적화)
-        private val optimizedDispatcher = Dispatchers.IO.limitedParallelism(PARALLEL_BATCHES)
     }
 
     private val sampleTitles = listOf(
@@ -65,7 +61,7 @@ class InitData(
     )
 
     /**
-     * 사용자 요청 생성 (순수 함수)
+     * 사용자 요청 생성
      */
     private fun generateMemberRequest(index: Int): MemberRequest = MemberRequest(
         username = "user$index",
@@ -76,7 +72,7 @@ class InitData(
     )
 
     /**
-     * 사용자 배치 생성 (순수 함수)
+     * 사용자 배치 생성
      */
     private fun generateMemberBatches(): List<List<MemberRequest>> =
         (1..MEMBER_COUNT).chunked(BATCH_SIZE).map { range ->
@@ -84,24 +80,23 @@ class InitData(
         }
 
     /**
-     * 게시글 요청 생성 (순수 함수)
+     * 게시글 요청 생성
      */
-    private fun generatePostRequest(memberId: Long, random: java.util.Random): PostRequest {
+    private fun generatePostRequest(memberId: Long): PostRequest {
         val uniqueId = UUID.randomUUID().toString().substring(0, 8)
         return PostRequest(
             title = "${sampleTitles.random()} #$uniqueId",
             content = "${sampleContents.random()} (작성자: user$memberId)",
             authorId = memberId,
-            isPrivate = random.nextInt(10) < 2,
+            isPrivate = Random.nextInt(10) < 2,
             noticeType = NoticeType.NONE
         )
     }
 
     /**
-     * 게시글 배치 생성 (순수 함수)
+     * 게시글 배치 생성
      */
     private fun generatePostBatches(memberCount: Int, adminIds: List<Long>): List<List<PostRequest>> {
-        val random = java.util.Random()
         val batches = mutableListOf<List<PostRequest>>()
 
         // 관리자 공지사항
@@ -130,7 +125,7 @@ class InitData(
         (0 until totalPosts).chunked(BATCH_SIZE).forEach { range ->
             val batch = range.map { i ->
                 val memberId = (i % memberCount) + 1
-                generatePostRequest(memberId.toLong(), random)
+                generatePostRequest(memberId.toLong())
             }
             batches.add(batch)
         }
@@ -138,28 +133,11 @@ class InitData(
     }
 
     /**
-     * 배치 저장 (함수형 스타일)
-     */
-    private suspend fun <T, R> saveBatch(
-        batch: List<T>,
-        saveOperation: suspend (List<T>) -> List<R>,
-        operationName: String
-    ): Result<Unit> = withContext(optimizedDispatcher) {
-        runCatching {
-            saveOperation(batch)
-            entityManager.flush()
-            entityManager.clear()
-        }.withLogging(logger, operationName)
-    }
-
-
-    /**
      * 사용자 초기화
      */
     @Transactional
-    suspend fun initializeMembers(): Triple<Long, InitializationResult, List<Long>> = withContext(optimizedDispatcher) {
+    fun initializeMembers(): Triple<Long, Result<Unit>, List<Long>> {
         logger.info("사용자 생성 시작: 총 $MEMBER_COUNT 명, 배치 크기: $BATCH_SIZE")
-        cacheService.enableCaching = false // 캐싱 비활성화
         val adminIds = mutableListOf<Long>()
 
         val time = measureTimeMillis {
@@ -177,48 +155,47 @@ class InitData(
 
             // 일반 사용자 삽입
             val memberBatches = generateMemberBatches()
-            memberBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                val results = batchChunk.map { batch ->
-                    async {
-                        transactionTemplate.execute {
-                            runBlocking {
-                                saveBatch(batch, { (memberService as MemberServiceImpl).registerBatch(it) }, "사용자 배치 저장")
-                            }
+            memberBatches.forEachIndexed { index, batch ->
+                transactionTemplate.execute {
+                    runBlocking {
+                        try {
+                            (memberService as MemberServiceImpl).registerBatch(batch)
+                            entityManager.flush()
+                            entityManager.clear()
+                        } catch (e: Exception) {
+                            logger.error("사용자 배치 처리 실패: ${e.message}", e)
+                            throw e
                         }
                     }
-                }.awaitAll()
-
-                results.forEach { it?.onFailure { e -> logger.error("사용자 배치 처리 실패: ${e.message}", e) } }
+                }
                 System.gc()
-
-                val progress = ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / memberBatches.size
+                val progress = ((index + 1) * 100) / memberBatches.size
                 logger.info("사용자 생성 진행률: $progress%")
             }
         }
 
         logger.info("사용자 생성 완료: 소요 시간 ${time / 1000}초")
-        Triple(time, Result.success(Unit), adminIds)
+        return Triple(time, Result.success(Unit), adminIds)
     }
 
     /**
      * 게시글 초기화
      */
     @Transactional
-    suspend fun initializePosts(adminIds: List<Long>): Pair<Long, InitializationResult> = withContext(optimizedDispatcher) {
+    suspend fun initializePosts(adminIds: List<Long>): Pair<Long, Result<Unit>> {
         val currentCount = postService.count()
         if (currentCount > 0) {
             logger.info("게시글 존재: $currentCount 개, 초기화 건너뜀")
-            return@withContext 0L to Result.success(Unit)
+            return 0L to Result.success(Unit)
         }
 
         val memberCount = memberService.count().getOrDefault(0L)
         if (memberCount <= 0) {
             logger.warn("사용자 없음, 게시글 초기화 건너뜀")
-            return@withContext 0L to Result.failure(IllegalStateException("사용자 없음"))
+            return 0L to Result.failure(IllegalStateException("사용자 없음"))
         }
 
         logger.info("게시글 생성 시작: 총 ${memberCount * POSTS_PER_MEMBER} 개")
-        cacheService.enableCaching = false // 캐싱 비활성화
         val postServiceImpl = postService as? PostServiceImpl ?: throw IllegalStateException("PostService는 PostServiceImpl이어야 함")
 
         val regularUserCount = memberCount - adminIds.size
@@ -226,28 +203,28 @@ class InitData(
 
         val time = measureTimeMillis {
             val postBatches = generatePostBatches(regularUserCount.toInt(), adminIds)
-            postBatches.chunked(PARALLEL_BATCHES).forEachIndexed { chunkIndex, batchChunk ->
-                val results = batchChunk.map { batch ->
-                    async {
-                        transactionTemplate.execute {
-                            runBlocking {
-                                saveBatch(batch, { postServiceImpl.createBatch(it) }, "게시글 배치 저장")
-                            }
+            postBatches.forEachIndexed { index, batch ->
+                transactionTemplate.execute {
+                    runBlocking {
+                        try {
+                            postServiceImpl.createBatch(batch)
+                            entityManager.flush()
+                            entityManager.clear()
+                        } catch (e: Exception) {
+                            logger.error("게시글 배치 처리 실패: ${e.message}", e)
+                            throw e
                         }
                     }
-                }.awaitAll()
-
-                results.forEach { it?.onFailure { e -> logger.error("게시글 배치 처리 실패: ${e.message}", e) } }
+                }
                 System.gc()
-
-                val progress = ((chunkIndex + 1) * PARALLEL_BATCHES * 100) / postBatches.size
+                val progress = ((index + 1) * 100) / postBatches.size
                 logger.info("게시글 생성 진행률: $progress%")
             }
         }
 
         postServiceImpl.clearMemberCache()
         logger.info("게시글 생성 완료: 소요 시간 ${time / 1000}초")
-        time to Result.success(Unit)
+        return time to Result.success(Unit)
     }
 
     /**
@@ -256,40 +233,38 @@ class InitData(
     @Bean
     fun initDataApplicationRunner(): ApplicationRunner = ApplicationRunner {
         runBlocking {
-            withContext(Dispatchers.IO) {
-                System.gc()
-                val beforeMemory = getUsedMemoryMB()
-                logger.info("데이터 초기화 시작")
+            System.gc()
+            val beforeMemory = getUsedMemoryMB()
+            logger.info("데이터 초기화 시작")
 
-                var memberTimeActual = 0L
-                var postTimeActual = 0L
+            var memberTimeActual = 0L
+            var postTimeActual = 0L
 
-                val totalTime = measureTimeMillis {
-                    initializeMembers()
-                        .also { (time, result, adminIds) ->
-                            memberTimeActual = time
-                            result.onSuccess {
-                                logger.info("사용자 초기화 성공")
-                                initializePosts(adminIds).also { (time, postResult) ->
-                                    postTimeActual = time
-                                    postResult.onFailure { e -> logger.error("게시글 초기화 오류: ${e.message}", e) }
-                                }
-                            }.onFailure { e -> logger.error("사용자 초기화 오류: ${e.message}", e) }
-                        }
-                    (postService as? PostServiceImpl)?.clearMemberCache()
-                }
-
-                System.gc()
-                val afterMemory = getUsedMemoryMB()
-
-                PerformanceMetrics(
-                    totalTimeMs = totalTime,
-                    memberTimeMs = memberTimeActual,
-                    postTimeMs = postTimeActual,
-                    beforeMemoryMB = beforeMemory,
-                    afterMemoryMB = afterMemory
-                ).generateReport().let { logger.info(it) }
+            val totalTime = measureTimeMillis {
+                initializeMembers()
+                    .also { (time, result, adminIds) ->
+                        memberTimeActual = time
+                        result.onSuccess {
+                            logger.info("사용자 초기화 성공")
+                            initializePosts(adminIds).also { (time, postResult) ->
+                                postTimeActual = time
+                                postResult.onFailure { e -> logger.error("게시글 초기화 오류: ${e.message}", e) }
+                            }
+                        }.onFailure { e -> logger.error("사용자 초기화 오류: ${e.message}", e) }
+                    }
+                (postService as? PostServiceImpl)?.clearMemberCache()
             }
+
+            System.gc()
+            val afterMemory = getUsedMemoryMB()
+
+            PerformanceMetrics(
+                totalTimeMs = totalTime,
+                memberTimeMs = memberTimeActual,
+                postTimeMs = postTimeActual,
+                beforeMemoryMB = beforeMemory,
+                afterMemoryMB = afterMemory
+            ).generateReport().let { logger.info(it) }
         }
     }
 
