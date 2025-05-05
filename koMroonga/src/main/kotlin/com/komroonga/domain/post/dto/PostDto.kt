@@ -1,7 +1,6 @@
 package com.komroonga.domain.post.dto
 
-import com.komroonga.domain.post.entity.Post
-
+import Post
 
 data class PostDto(
     val id: Long?,

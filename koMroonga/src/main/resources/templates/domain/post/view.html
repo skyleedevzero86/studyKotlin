@@ -19,7 +19,7 @@
             <div>
                 <a th:href="@{/posts}" class="btn btn-outline-secondary">목록으로</a>
                 <a sec:authorize="isAuthenticated()" th:href="@{/posts/create}" class="btn btn-primary">글쓰기</a>
-                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post" class="d-inline">
+                <form sec:authorize="isAuthenticated()" th:action="@{/templates/domain/auth/logout}" method="post" class="d-inline">
                     <button type="submit" class="btn btn-outline-danger">로그아웃</button>
                 </form>
             </div>

@@ -3,36 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>게시글 목록</title>
+    <title>검색 결과</title>
     <link rel="stylesheet" href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css">
 </head>
 <body>
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>게시글 목록</h1>
+            <h1>검색 결과</h1>
             <div>
                 <a sec:authorize="isAuthenticated()" th:href="@{/posts/create}" class="btn btn-primary">글쓰기</a>
-                <a sec:authorize="!isAuthenticated()" th:href="@{/auth/login}" class="btn btn-outline-primary">로그인</a>
-                <form sec:authorize="isAuthenticated()" th:action="@{/auth/logout}" method="post" class="d-inline">
+                <a sec:authorize="!isAuthenticated()" th:href="@{/templates/domain/auth/login}" class="btn btn-outline-primary">로그인</a>
+                <form sec:authorize="isAuthenticated()" th:action="@{/templates/domain/auth/logout}" method="post" class="d-inline">
                     <button type="submit" class="btn btn-outline-danger">로그아웃</button>
                 </form>
             </div>
         </div>
-
+        
+        <!-- 검색 정보 -->
+        <div class="alert alert-info mb-4">
+            <span th:text="${searchType == 'all' ? '전체' : (searchType == 'title' ? '제목' : (searchType == 'content' ? '내용' : '작성자'))}">검색 유형</span>에서 
+            "<span th:text="${keyword}">검색어</span>"에 대한 검색 결과입니다.
+        </div>
+        
         <!-- 검색 폼 -->
         <div class="card mb-4">
             <div class="card-body">
                 <form th:action="@{/posts/search}" method="get" class="row g-3">
                     <div class="col-md-3">
-                        <select name="searchType" class="form-select">
-                            <option value="all">전체</option>
-                            <option value="title">제목</option>
-                            <option value="content">내용</option>
-                            <option value="author">작성자</option>
+                        <select name="searchType" class="form-select" th:value="${searchType}">
+                            <option value="all" th:selected="${searchType == 'all'}">전체</option>
+                            <option value="title" th:selected="${searchType == 'title'}">제목</option>
+                            <option value="content" th:selected="${searchType == 'content'}">내용</option>
+                            <option value="author" th:selected="${searchType == 'author'}">작성자</option>
                         </select>
                     </div>
                     <div class="col-md-7">
-                        <input type="text" name="keyword" class="form-control" placeholder="검색어를 입력하세요">
+                        <input type="text" name="keyword" class="form-control" placeholder="검색어를 입력하세요" th:value="${keyword}">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary w-100">검색</button>
@@ -40,18 +46,11 @@
                 </form>
             </div>
         </div>
-
-        <!-- 공지 필터 -->
-        <div class="mb-3">
-            <a th:href="@{/posts}" class="btn btn-sm btn-outline-secondary me-2">전체 게시글</a>
-            <a th:href="@{/posts/notices/all}" class="btn btn-sm btn-outline-primary me-2">전체 공지</a>
-            <a sec:authorize="isAuthenticated()" th:href="@{/posts/notices/member}" class="btn btn-sm btn-outline-info">회원 공지</a>
-        </div>
-
+        
         <!-- 알림 메시지 -->
         <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
         <div th:if="${success}" class="alert alert-success" role="alert" th:text="${success}"></div>
-
+        
         <!-- 게시글 목록 -->
         <div class="card">
             <div class="card-body">
@@ -67,7 +66,7 @@
                     </thead>
                     <tbody>
                         <tr th:if="${#lists.isEmpty(posts)}">
-                            <td colspan="5" class="text-center">게시글이 없습니다.</td>
+                            <td colspan="5" class="text-center">검색 결과가 없습니다.</td>
                         </tr>
                         <tr th:each="post : ${posts}" th:classappend="${post.noticeType != T(com.komroonga.domain.post.entity.NoticeType).NONE ? 'table-primary' : ''}">
                             <td th:text="${post.id}"></td>
@@ -91,8 +90,13 @@
                 </table>
             </div>
         </div>
+        
+        <!-- 목록으로 돌아가기 -->
+        <div class="mt-3">
+            <a th:href="@{/posts}" class="btn btn-secondary">목록으로</a>
+        </div>
     </div>
-
+    
     <script src="/webjars/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

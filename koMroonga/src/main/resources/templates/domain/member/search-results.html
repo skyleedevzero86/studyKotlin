@@ -13,7 +13,7 @@
                 <h2>회원 검색 결과</h2>
                 <div sec:authorize="isAuthenticated()">
                     <span th:text="'안녕하세요, ' + ${#authentication.name} + '님'"></span>
-                    <form th:action="@{/auth/logout}" method="post" class="d-inline ms-2">
+                    <form th:action="@{/templates/domain/auth/logout}" method="post" class="d-inline ms-2">
                         <button type="submit" class="btn btn-sm btn-outline-danger">로그아웃</button>
                     </form>
                 </div>

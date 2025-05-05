@@ -1,8 +1,7 @@
-package com.komroonga.domain.post.entity
-
 import jakarta.persistence.*
 import com.komroonga.member.entity.Member
 import org.hibernate.annotations.Index
+import java.time.LocalDateTime
 
 /**
  * 게시글 공지 유형
@@ -42,5 +41,11 @@ data class Post(
 
     @Column(name = "notice_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    val noticeType: NoticeType = NoticeType.NONE
+    val noticeType: NoticeType = NoticeType.NONE,
+
+    @Column(name = "created_at", nullable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    val updatedAt: LocalDateTime = LocalDateTime.now()
 )

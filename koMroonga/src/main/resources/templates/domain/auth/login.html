@@ -18,7 +18,7 @@
                         <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
                         <div th:if="${message}" class="alert alert-success" role="alert" th:text="${message}"></div>
                         
-                        <form th:action="@{/auth/login}" method="post" th:object="${loginRequest}">
+                        <form th:action="@{/templates/domain/auth/login}" method="post" th:object="${loginRequest}">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}" />
                             <div class="mb-3">
                                 <label for="username" class="form-label">사용자 이름</label>

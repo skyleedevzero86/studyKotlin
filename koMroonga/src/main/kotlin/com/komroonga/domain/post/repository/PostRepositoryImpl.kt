@@ -1,7 +1,7 @@
 package com.komroonga.domain.post.repository
 
-import com.komroonga.domain.post.entity.NoticeType
-import com.komroonga.domain.post.entity.Post
+import NoticeType
+import Post
 import com.komroonga.member.entity.Role
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
