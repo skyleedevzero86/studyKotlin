@@ -22,6 +22,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -34,6 +35,7 @@ class PostServiceImpl(
     private val postRepository: PostRepository,
     private val cacheService: CacheService,
     private val memberService: MemberService,
+    private val transactionTemplate: TransactionTemplate, // TransactionTemplate 주입 추가
     @PersistenceContext private val entityManager: EntityManager
 ) : PostService {
 
@@ -44,10 +46,49 @@ class PostServiceImpl(
         .expireAfterWrite(30, TimeUnit.MINUTES)
         .maximumSize(10_000)
         .build<Long, Member>()
+    private var cachingEnabled = true // 캐싱 상태 관리
+
+    companion object {
+        private const val BATCH_SIZE = 2_000 // 배치 크기 정의
+    }
+
+    /**
+     * 배치 데이터 구조를 위한 데이터 클래스
+     */
+    data class PostBatchData(
+        val title: String,
+        val content: String,
+        val authorId: Long,
+        val isPrivate: Boolean,
+        val noticeType: String
+    )
+
+    /**
+     * 캐싱 상태 조회
+     */
+    fun getCachingState(): Boolean = cachingEnabled
+
+    /**
+     * 캐싱 상태 설정
+     */
+    fun setCachingState(enabled: Boolean) {
+        cachingEnabled = enabled
+        cacheService.enableCaching = enabled
+    }
+
+    /**
+     * 초기화 완료 후 캐시 채우기
+     */
+    suspend fun populateCacheAfterInitialization() {
+        logger.info("게시글 캐시 채우기 시작")
+        val posts = postRepository.findAll()
+        val cacheItems = posts.associate { it.id!! to postToResponse(it) }
+        cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
+        logger.info("게시글 캐시 채우기 완료: ${cacheItems.size}개")
+    }
 
     /**
      * 게시글 수 조회
-     * @return 게시글 수
      */
     override suspend fun count(): Long =
         runCatching { postRepository.count() }
@@ -55,8 +96,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 생성
-     * @param request 게시글 요청 객체
-     * @return 생성된 게시글 정보
      */
     override suspend fun create(request: PostRequest): Result<PostResponse> = withContext(postDispatcher) {
         validateRequest(request)
@@ -76,44 +115,58 @@ class PostServiceImpl(
 
     /**
      * 배치 게시글 생성
-     * @param requests 게시글 요청 객체 리스트
-     * @return 생성된 게시글 정보 리스트
      */
     @Transactional
-    suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> =
-        requests.map { request ->
+    suspend fun createBatch(requests: List<PostRequest>): List<Result<PostResponse>> {
+        val posts = requests.map { request ->
             validateRequest(request).map { req ->
                 val authorId = req.authorId ?: throw PostError.InvalidInput("authorId", "작성자 ID는 필수입니다")
                 val author = memberCache.getIfPresent(authorId) ?: memberService.findMemberEntityById(authorId)
                     .getOrThrow()
                     .also { memberCache.put(authorId, it) }
-                Post(
+                PostBatchData(
                     title = req.title,
                     content = req.content,
-                    author = author,
+                    authorId = authorId,
                     isPrivate = req.isPrivate,
-                    noticeType = req.noticeType
+                    noticeType = req.noticeType.name
                 )
             }
-        }.let { posts ->
-            postRepository.saveAll(posts.map { it.getOrThrow() })
-                .map { Result.success(postToResponse(it)) }
-                .also { responses ->
-                    if (cacheService.enableCaching) {
-                        val cacheItems = responses.filter { it.isSuccess }
-                            .associate { res -> res.getOrThrow().id to res.getOrThrow() }
-                        cacheService.putBulkInCache(cacheItems, "post", cacheTtl)
-                    }
-                    entityManager.flush()
-                    entityManager.clear()
-                }
         }
+
+        // 네이티브 SQL로 벌크 삽입
+        val responses = mutableListOf<Result<PostResponse>>()
+        posts.chunked(BATCH_SIZE).forEach { batch ->
+            transactionTemplate.execute {
+                batch.forEach { result ->
+                    result.fold(
+                        onSuccess = { data ->
+                            try {
+                                postRepository.bulkInsert(
+                                    title = data.title,
+                                    content = data.content,
+                                    authorId = data.authorId,
+                                    isPrivate = data.isPrivate,
+                                    noticeType = data.noticeType
+                                )
+                                responses.add(Result.success(PostResponse(0, data.title, data.content, "user${data.authorId}", data.authorId, data.isPrivate, NoticeType.valueOf(data.noticeType))))
+                            } catch (e: Exception) {
+                                responses.add(Result.failure(e))
+                            }
+                        },
+                        onFailure = { responses.add(Result.failure(it)) }
+                    )
+                }
+                entityManager.flush()
+                entityManager.clear()
+            }
+        }
+
+        return responses
+    }
 
     /**
      * 게시글 생성 로직
-     * @param request 게시글 요청 객체
-     * @param author 작성자 엔티티
-     * @return 생성된 게시글
      */
     private fun createPost(request: PostRequest, author: Member): Result<Post> = runCatching {
         postRepository.save(
@@ -129,8 +182,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 요청 유효성 검사
-     * @param request 게시글 요청 객체
-     * @return 유효성 검사 결과
      */
     private fun validateRequest(request: PostRequest): Result<PostRequest> = when {
         request.title.isBlank() -> Result.failure(PostError.InvalidInput("title", "제목은 비어 있을 수 없습니다"))
@@ -141,8 +192,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 엔티티를 응답 객체로 변환
-     * @param post 게시글 엔티티
-     * @return 게시글 응답 객체
      */
     private fun postToResponse(post: Post): PostResponse =
         PostResponse(
@@ -157,9 +206,6 @@ class PostServiceImpl(
 
     /**
      * ID로 게시글 조회
-     * @param id 게시글 ID
-     * @param currentUser 현재 사용자
-     * @return 게시글 정보
      */
     override suspend fun findById(id: Long, currentUser: MemberResponse?): Result<PostResponse> =
         withContext(postDispatcher) {
@@ -170,9 +216,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 조회 로직
-     * @param id 게시글 ID
-     * @param currentUser 현재 사용자
-     * @return 게시글 정보
      */
     private suspend fun fetchPostById(id: Long, currentUser: MemberResponse?): Result<PostResponse> = runCatching {
         val post = postRepository.findById(id).orElseThrow { PostError.NotFound(id) }
@@ -187,8 +230,6 @@ class PostServiceImpl(
 
     /**
      * 모든 게시글 조회
-     * @param currentUser 현재 사용자
-     * @return 게시글 정보 스트림
      */
     override suspend fun findAll(currentUser: MemberResponse?): Flow<PostResponse> = flow {
         postRepository.findVisiblePosts(currentUser?.id)
@@ -198,13 +239,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 수정
-     * @param postId 게시글 ID
-     * @param memberResponse 사용자 정보
-     * @param title 제목
-     * @param content 내용
-     * @param isPrivate 비공개 여부
-     * @param noticeType 공지 유형
-     * @return 수정된 게시글 정보
      */
     override suspend fun edit(
         postId: Long,
@@ -244,10 +278,6 @@ class PostServiceImpl(
 
     /**
      * 게시글 검색
-     * @param searchType 검색 유형
-     * @param keyword 검색어
-     * @param currentUser 현재 사용자
-     * @return 검색된 게시글 정보 스트림
      */
     override suspend fun search(
         searchType: String,
@@ -266,9 +296,6 @@ class PostServiceImpl(
 
     /**
      * 공지 유형별 게시글 조회
-     * @param noticeType 공지 유형
-     * @param currentUser 현재 사용자
-     * @return 게시글 정보 스트림
      */
     override suspend fun findByNoticeType(
         noticeType: NoticeType,
@@ -288,12 +315,11 @@ class PostServiceImpl(
 
     /**
      * 회원 캐시 프리로딩
-     * @param memberIds 회원 ID 리스트
      */
     suspend fun preloadMemberCache(memberIds: List<Long>) {
-        memberIds.chunked(1000).forEach { chunk ->
-            chunk.map { id -> memberService.findMemberEntityById(id).getOrThrow() }
-                .forEach { member -> memberCache.put(member.id!!, member) }
-        }
+        // 단일 쿼리로 모든 회원 로드
+        val members = memberService.findAllByIds(memberIds)
+        members.forEach { member -> memberCache.put(member.id!!, member) }
+        logger.info("회원 캐시 프리로딩 완료: ${members.size}명")
     }
 }

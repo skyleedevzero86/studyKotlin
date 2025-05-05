@@ -22,4 +22,18 @@ interface PostRepository : JpaRepository<Post, Long>, PostRepositoryCustom {
 
     @Query("SELECT p FROM Post p WHERE p.noticeType = :noticeType AND p.isPrivate = false")
     fun findPublicPostsByNoticeType(@Param("noticeType") noticeType: NoticeType): List<Post>
+
+    // 네이티브 SQL 벌크 삽입 메서드 추가
+    @Query(
+        value = "INSERT INTO post (title, content, author_id, is_private, notice_type, created_at, updated_at) " +
+                "VALUES (:title, :content, :authorId, :isPrivate, :noticeType, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        nativeQuery = true
+    )
+    fun bulkInsert(
+        @Param("title") title: String,
+        @Param("content") content: String,
+        @Param("authorId") authorId: Long,
+        @Param("isPrivate") isPrivate: Boolean,
+        @Param("noticeType") noticeType: String
+    )
 }

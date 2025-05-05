@@ -20,4 +20,6 @@ interface MemberService {
     suspend fun findMemberEntityById(id: Long): Result<Member>
     suspend fun searchByKeyword(keyword: String): MemberResult<List<MemberResponse>>
     suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse>
+    // 단일 쿼리로 여러 ID 조회 추가
+    suspend fun findAllByIds(ids: List<Long>): List<Member>
 }

@@ -24,7 +24,7 @@ import kotlin.system.measureTimeMillis
 
 /**
  * 데이터 초기화를 위한 설정 클래스
- * JPA를 사용하여  4500 명의? 사용자와 30만? 개의 게시글을 효율적으로 삽입
+ * JPA를 사용하여 4500명의 사용자와 30만 개의 게시글을 효율적으로 삽입
  */
 @Configuration
 class InitData(
@@ -198,11 +198,12 @@ class InitData(
         logger.info("게시글 생성 시작: 총 ${memberCount * POSTS_PER_MEMBER} 개")
         val postServiceImpl = postService as? PostServiceImpl ?: throw IllegalStateException("PostService는 PostServiceImpl이어야 함")
 
-        val regularUserCount = memberCount - adminIds.size
-        postServiceImpl.preloadMemberCache((1..regularUserCount).map { it.toLong() } + adminIds)
+        // Redis 캐싱 비활성화
+        val originalCachingState = postServiceImpl.getCachingState()
+        postServiceImpl.setCachingState(false)
 
         val time = measureTimeMillis {
-            val postBatches = generatePostBatches(regularUserCount.toInt(), adminIds)
+            val postBatches = generatePostBatches(memberCount.toInt() - adminIds.size, adminIds)
             postBatches.forEachIndexed { index, batch ->
                 transactionTemplate.execute {
                     runBlocking {
@@ -220,6 +221,10 @@ class InitData(
                 val progress = ((index + 1) * 100) / postBatches.size
                 logger.info("게시글 생성 진행률: $progress%")
             }
+
+            // 초기화 완료 후 캐시 채우기
+            postServiceImpl.setCachingState(originalCachingState)
+            postServiceImpl.populateCacheAfterInitialization()
         }
 
         postServiceImpl.clearMemberCache()

@@ -37,8 +37,6 @@ class MemberServiceImpl(
 
     /**
      * 회원 등록
-     * @param request 회원 요청 객체
-     * @return 등록된 회원 정보
      */
     override suspend fun register(request: MemberRequest): MemberResult<MemberResponse> =
         validateRequest(request)
@@ -68,8 +66,6 @@ class MemberServiceImpl(
 
     /**
      * 배치 회원 등록
-     * @param requests 회원 요청 객체 리스트
-     * @return 등록된 회원 정보 리스트
      */
     @Transactional
     override suspend fun registerBatch(requests: List<MemberRequest>): List<MemberResponse> =
@@ -95,8 +91,6 @@ class MemberServiceImpl(
 
     /**
      * 사용자 이름으로 회원 조회
-     * @param username 사용자 이름
-     * @return 회원 정보
      */
     override suspend fun findByUsername(username: String): MemberResult<MemberResponse> =
         cacheService.getCachedOrCompute("member:username:$username", cacheTtl) {
@@ -107,7 +101,6 @@ class MemberServiceImpl(
 
     /**
      * 모든 회원 조회
-     * @return 회원 정보 스트림
      */
     override suspend fun findAll(): Flow<MemberResponse> = flow {
         memberRepository.findAll()
@@ -117,7 +110,6 @@ class MemberServiceImpl(
 
     /**
      * 회원 수 조회
-     * @return 회원 수
      */
     override suspend fun count(): MemberResult<Long> =
         runCatching { memberRepository.count() }
@@ -125,8 +117,6 @@ class MemberServiceImpl(
 
     /**
      * 사용자 이름으로 회원 엔티티 조회
-     * @param username 사용자 이름
-     * @return 회원 엔티티
      */
     override suspend fun findMemberEntityByUsername(username: String): Result<Member> =
         runCatching {
@@ -135,8 +125,6 @@ class MemberServiceImpl(
 
     /**
      * ID로 회원 엔티티 조회
-     * @param id 회원 ID
-     * @return 회원 엔티티
      */
     override suspend fun findMemberEntityById(id: Long): Result<Member> =
         runCatching {
@@ -149,9 +137,15 @@ class MemberServiceImpl(
         }.withLogging(logger, "ID로 회원 엔티티 조회")
 
     /**
+     * 여러 ID로 회원 조회
+     */
+    override suspend fun findAllByIds(ids: List<Long>): List<Member> =
+        withContext(memberDispatcher) {
+            memberRepository.findAllById(ids).toList()
+        }
+
+    /**
      * 회원 요청 유효성 검사
-     * @param request 회원 요청 객체
-     * @return 유효성 검사 결과
      */
     private fun validateRequest(request: MemberRequest): Result<MemberRequest> = when {
         request.username.isBlank() -> Result.failure(MemberError.InvalidInput("username", "사용자 이름은 비어 있을 수 없습니다"))
@@ -161,8 +155,6 @@ class MemberServiceImpl(
 
     /**
      * 키워드로 회원 검색
-     * @param keyword 검색 키워드
-     * @return 검색된 회원 정보 리스트
      */
     override suspend fun searchByKeyword(keyword: String): MemberResult<List<MemberResponse>> =
         withContext(memberDispatcher) {
