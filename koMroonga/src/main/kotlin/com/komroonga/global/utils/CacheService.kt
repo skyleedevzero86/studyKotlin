@@ -22,7 +22,7 @@ class CacheService(
 
     var enableCaching = true // 캐시 활성화 여부
 
-    private val redisCacheDispatcher = Dispatchers.IO.limitedParallelism(8)
+    private val redisCacheDispatcher = Dispatchers.IO.limitedParallelism(16)
 
     /**
      * 캐시에 키가 존재하는지 확인

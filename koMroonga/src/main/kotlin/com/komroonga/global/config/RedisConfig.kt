@@ -60,7 +60,7 @@ class RedisConfig {
     fun lettuceConnectionFactory(): LettuceConnectionFactory {
         val redisStandaloneConfiguration = RedisStandaloneConfiguration("localhost", 6379)
         val clientConfig = LettuceClientConfiguration.builder()
-            .commandTimeout(Duration.ofMillis(500))
+            .commandTimeout(Duration.ofMillis(1000))
             .shutdownTimeout(Duration.ZERO)
             .build()
         return LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig)
@@ -73,7 +73,7 @@ class RedisConfig {
     @Bean
     fun cacheManager(connectionFactory: RedisConnectionFactory, objectMapper: ObjectMapper): RedisCacheManager {
         val defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-            .entryTtl(Duration.ofMinutes(10))
+            .entryTtl(Duration.ofMinutes(30))
             .serializeValuesWith(
                 RedisSerializationContext.SerializationPair.fromSerializer(
                     GenericJackson2JsonRedisSerializer(objectMapper)
