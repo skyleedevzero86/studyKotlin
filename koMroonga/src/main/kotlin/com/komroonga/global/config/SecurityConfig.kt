@@ -29,7 +29,10 @@ class SecurityConfig(
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         // URL 패턴 정의
-        val publicUrls = arrayOf("/","/login", "/auth/**", "/css/**", "/js/**", "/images/**", "/webjars/**")
+        val publicUrls = arrayOf("/","/login", "/auth/**", "/css/**", "/js/**",
+            "/images/**","/gen/images/**","/*.jpg", "/*.png", "/*.jpeg","/db/status",
+            "/*.css","/*.js", "/*.gif","/*.svg","/*.woff","/*.woff2","/*.ttf",
+            "/images/**", "/webjars/**")
         val publicPostUrls = arrayOf("/posts", "/posts/search", "/posts/{id}", "/posts/notices/all")
         val authenticatedUrls = arrayOf("/posts/notices/member", "/posts/create", "/posts/{id}/edit")
         val adminUrls = arrayOf("/members/**")

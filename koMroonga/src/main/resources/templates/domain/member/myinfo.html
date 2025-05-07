@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title th:text="'내 정보'">내 정보</title>
+</head>
+<body>
+<div th:fragment="content">
+    <h2>내 정보</h2>
+    <!-- 로그인한 사용자 정보 표시 -->
+    <div sec:authorize="isAuthenticated()">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">사용자 정보</h5>
+                <p><strong>사용자 이름:</strong> <span th:text="${currentUser.username}"></span></p>
+                <p><strong>이름:</strong> <span th:text="${currentUser.name} ?: '미설정'"></span></p>
+                <p><strong>이메일:</strong> <span th:text="${currentUser.email} ?: '미설정'"></span></p>
+                <p><strong>역할:</strong> <span th:text="${currentUser.role}"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 로그인한 사용자의 게시글 목록 -->
+    <h3 class="mt-4">내가 작성한 게시글</h3>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>제목</th>
+            <th>공지 유형</th>
+            <th>작성일</th>
+            <th>상태</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="post : ${posts}" th:if="${currentUser != null} and ${post.authorId == currentUser.id}">
+            <td>
+                <a th:href="@{/posts/{id}(id=${post.id})}" th:text="${post.title}"></a>
+            </td>
+            <td th:text="${post.noticeType}"></td>
+            <td th:text="${#temporals.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+            <td>
+                <span th:if="${post.isPrivate}" class="badge bg-secondary">비공개</span>
+                <span th:unless="${post.isPrivate}" class="badge bg-success">공개</span>
+            </td>
+        </tr>
+        <tr th:if="${posts.isEmpty} or ${posts.stream().noneMatch(post -> post.authorId == currentUser.id)}">
+            <td colspan="4" class="text-center">작성한 게시글이 없습니다.</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.*
 
 @Controller
 @RequestMapping("/input")
-class InputController(private val service: InputService) {
+class InputController(private val service: InputService) { //채팅페이지
 
+    //채팅으로 보여줌
     @GetMapping
     fun showInputPage(model: Model): String {
         model.addAttribute("inputs", service.getAllInputs())
@@ -25,4 +26,5 @@ class InputController(private val service: InputService) {
     @GetMapping("/data/{id}")
     @ResponseBody
     fun getData(@PathVariable id: Long): InputEntity? = service.getInputById(id)
+
 }

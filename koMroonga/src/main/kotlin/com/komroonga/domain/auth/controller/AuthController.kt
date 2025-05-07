@@ -63,7 +63,7 @@ class AuthController(
             return if (roles.contains("ROLE_ADMIN")) {
                 "redirect:/members/search"
             } else {
-                "redirect:/members"
+                "redirect:/members/myinfo"
             }
         } catch (e: Exception) {
             redirectAttributes.addFlashAttribute("error", "로그인에 실패했습니다. 사용자 이름과 비밀번호를 확인해주세요.")

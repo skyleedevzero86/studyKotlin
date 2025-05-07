@@ -36,8 +36,8 @@ class InitData(
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     companion object {
-        private const val MEMBER_COUNT = 4_500 // 사용자 수
-        private const val POSTS_PER_MEMBER = 67 // 사용자당 게시글 수
+        private const val MEMBER_COUNT = 100//4_500 // 사용자 수
+        private const val POSTS_PER_MEMBER = 5//67 // 사용자당 게시글 수
         private const val BATCH_SIZE = 2_000 // 배치 크기
     }
 

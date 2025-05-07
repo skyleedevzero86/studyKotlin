@@ -2,11 +2,15 @@ package com.komroonga.domain.member.controller
 
 import com.komroonga.domain.auth.dto.LoginRequest
 import com.komroonga.domain.member.dto.MemberRequest
+import com.komroonga.domain.member.dto.MemberResponse
 import com.komroonga.global.error.types.MemberError
+import com.komroonga.member.entity.Member
 import com.komroonga.member.service.MemberService
+import com.komroonga.domain.post.service.PostService
 import kotlinx.coroutines.flow.toList
 import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.*
@@ -14,19 +18,16 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
 @Controller
 class MemberController(
-    private val memberService: MemberService
+    private val memberService: MemberService,
+    private val postService: PostService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    /**
-     * 로그인 페이지 렌더링
-     */
     @GetMapping("/login")
     fun loginPage(model: Model): String {
         model.addAttribute("loginRequest", LoginRequest())
         return "auth/login"
     }
-
 
     @GetMapping
     suspend fun list(model: Model): String {
@@ -102,5 +103,25 @@ class MemberController(
                 "member/search"
             }
         )
+    }
+
+    //나의정보
+    @GetMapping("/myinfo")
+    suspend fun myInfo(
+        @AuthenticationPrincipal principal: org.springframework.security.core.userdetails.UserDetails,
+        model: Model
+    ): String {
+        val currentUser = principal as Member
+        val memberResponse = MemberResponse(
+            currentUser.id!!,
+            currentUser.username,
+            currentUser.name,
+            currentUser.email,
+            currentUser.role
+        )
+        val posts = postService.findAll(memberResponse).toList()
+        model.addAttribute("currentUser", memberResponse)
+        model.addAttribute("posts", posts)
+        return "member/myinfo"
     }
 }
