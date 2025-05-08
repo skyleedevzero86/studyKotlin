@@ -1,10 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
+<html layout:decorate="~{global/userLayout}">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+    <title>대기열 상세보기</title>
+    <style type="text/css">
+    </style>
+    <script>
+    </script>
+    <body>
+        <div layout:fragment="content" class="container mt-5">
 
-</body>
+            <img th:src="@{/notphoto.jpg}" alt="Idol Image">
+
+            <!-- 콘텐츠 영역 -->
+            <div class="container mt-4">
+                <div th:replace="~{${content} :: content}"></div>
+            </div>
+
+            <!-- 로그아웃 폼 -->
+            <form id="logoutForm" th:action="@{/logout}" method="post" style="display: none;">
+                <input type="hidden" name="_csrf" th:value="${_csrf.token}"/>
+            </form>
+
+        </div>
+        <script th:inline="javascript">
+            function logout() {
+                document.getElementById('logoutForm').submit();
+            }
+        </script>
+    </body>
 </html>

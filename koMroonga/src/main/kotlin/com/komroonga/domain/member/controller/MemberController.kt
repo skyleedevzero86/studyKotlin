@@ -26,7 +26,7 @@ class MemberController(
     @GetMapping("/login")
     fun loginPage(model: Model): String {
         model.addAttribute("loginRequest", LoginRequest())
-        return "auth/login"
+        return "domain/auth/login"
     }
 
     @GetMapping
@@ -34,14 +34,14 @@ class MemberController(
         logger.info("회원 목록 페이지 요청")
         val members = memberService.findAll().toList()
         model.addAttribute("members", members)
-        return "member/list"
+        return "domain/member/list"
     }
 
     @GetMapping("/members/register")
     fun registerForm(model: Model): String {
         logger.info("회원 등록 페이지 요청")
         model.addAttribute("memberRequest", MemberRequest("", ""))
-        return "member/register"
+        return "domain/member/register"
     }
 
     @PostMapping("/members/register")
@@ -60,7 +60,7 @@ class MemberController(
                 when (error) {
                     is MemberError.InvalidInput -> {
                         redirectAttributes.addFlashAttribute("error", error.message)
-                        "redirect:/members/register"
+                        "redirect:members/register"
                     }
                     is MemberError.AlreadyExists -> {
                         redirectAttributes.addFlashAttribute("error", error.message)
@@ -80,7 +80,7 @@ class MemberController(
     suspend fun searchForm(model: Model): String {
         logger.info("회원 검색 페이지 요청")
         model.addAttribute("keyword", "")
-        return "member/search"
+        return "domain/member/search"
     }
 
     @PostMapping("/members/search")
@@ -94,13 +94,13 @@ class MemberController(
             onSuccess = { members ->
                 model.addAttribute("members", members)
                 model.addAttribute("keyword", keyword)
-                "member/search-results"
+                "domain/member/search-results"
             },
             onFailure = { error ->
                 logger.error("회원 검색 실패: ${error.message}", error)
                 model.addAttribute("error", "검색 중 오류가 발생했습니다: ${error.message}")
                 model.addAttribute("keyword", keyword)
-                "member/search"
+                "domain/member/search"
             }
         )
     }
@@ -122,6 +122,6 @@ class MemberController(
         val posts = postService.findAll(memberResponse).toList()
         model.addAttribute("currentUser", memberResponse)
         model.addAttribute("posts", posts)
-        return "member/myinfo"
+        return "domain/member/myinfo"
     }
 }

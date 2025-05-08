@@ -1,30 +1,64 @@
-<html layout:decorate="~{global/userLayout}">
+<html layout:decorate="~{global/layout}">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-    <style type="text/css">
-
-    </style>
-    <script>
-
-    </script>
+    <title layout:title-pattern="$CONTENT_TITLE - $LAYOUT_TITLE" th:text="${@appConfig.siteName}"></title>
 </head>
-    <body>
-        <div layout:fragment="content" class="container mt-5">
 
+<body>
+
+<header layout:fragment="header">
+
+    <h1 th:text="|${@appConfig.siteName}|"></h1>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" th:href="@{/}">Komroonga</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/posts}">게시판</a>
+                    </li>
+                    <!-- 로그인 후에만 보이는 메뉴 -->
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <a class="nav-link" th:href="@{/posts/create}">글쓰기</a>
+                    </li>
+                    <!-- 회원 전용 메뉴 -->
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <a class="nav-link" th:href="@{/posts/notices/member}">회원 공지</a>
+                    </li>
+                    <!-- 관리자 전용 메뉴 -->
+                    <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                        <a class="nav-link" th:href="@{/members/search}">회원 관리</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <!-- 로그인하지 않은 경우 -->
+                    <li class="nav-item" sec:authorize="!isAuthenticated()">
+                        <a class="nav-link" th:href="@{/login}">로그인</a>
+                    </li>
+                    <li class="nav-item" sec:authorize="!isAuthenticated()">
+                        <a class="nav-link" th:href="@{/members/register}">회원가입</a>
+                    </li>
+                    <!-- 로그인한 경우 -->
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <span class="nav-link" th:with="user=${#authentication.principal}">
+                            환영합니다, <span th:text="${user.name}"></span>님
+                        </span>
+                    </li>
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <a class="nav-link" th:href="@{/members/myinfo}">내 정보</a>
+                    </li>
+                    <li class="nav-item" sec:authorize="isAuthenticated()">
+                        <a class="nav-link" href="#" onclick="logout()">로그아웃</a>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </body>
+    </nav>
+
+</header>
+
+</body>
 </html>
-
-//공통
-/홈
-/나의 정보
-
-//사용자
-/게시글
-/Input Visualization
-/게시글 전쳬검색
-
-//관리자
-/사용자검색
-/사용자등록
