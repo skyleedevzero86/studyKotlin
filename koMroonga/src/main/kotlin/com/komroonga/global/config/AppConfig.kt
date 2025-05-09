@@ -63,11 +63,9 @@ class AppConfig : WebMvcConfigurer {
     }
 
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
-        registry.addResourceHandler("/images/**")
+        registry.addResourceHandler("/gen/images/**")
             .addResourceLocations("classpath:/static/gen/images/")
-
-        registry.addResourceHandler("/*.jpg", "/*.png", "/*.jpeg")
-            .addResourceLocations("classpath:/static/gen/images/")
+            .setCachePeriod(0)
 
         registry.addResourceHandler("/webjars/**")
             .addResourceLocations("classpath:/META-INF/resources/webjars/")
