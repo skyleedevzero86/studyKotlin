@@ -12,9 +12,12 @@ object EmailSender {
             Outcome.Success(Unit)
         }
     }
+
+    fun sendEmail(fileName: String): Outcome<EmailError, Unit> =
+        FileReader.readFile(fileName)
+            .transformFailure { EmailError("파일 읽기 오류: ${it.msg}") }
+            .fold(
+                success = { content -> sendTextByEmail(content) },
+                failure = { error -> Outcome.Failure(error) }
+            )
 }
-fun sendEmail(fileName: String): Outcome<EmailError, Unit> =
-    FileReader.readFile(fileName)
-        .transformFailure { EmailError("파일 읽기 오류: ${it.msg}") }
-        .onFailure { return Outcome.Failure(it) }
-        .let { EmailSender.sendTextByEmail(it) }

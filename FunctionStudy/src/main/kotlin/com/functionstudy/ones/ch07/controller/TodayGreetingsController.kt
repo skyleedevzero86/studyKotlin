@@ -1,8 +1,8 @@
 package com.functionstudy.ones.ch07.controller
 
-import com.functionstudy.ones.ch07.domain.recover
-import com.functionstudy.ones.ch07.domain.tryAndCatch
 import java.time.LocalDate
+import com.functionstudy.ones.ch07.domain.fold
+import com.functionstudy.ones.ch07.domain.tryAndCatch
 
 class TodayGreetingsController {
     fun execute() {
@@ -16,8 +16,10 @@ class TodayGreetingsController {
 
     fun todayGreetings(dateString: String): String =
         tryAndCatch { LocalDate.parse(dateString) }
-            .transform { "Today is $it" }
-            .recover { "날짜 형식이 올바르지 않습니다: ${it.msg}" }
+            .fold(
+                success = { parsedDate -> "Today is $parsedDate" },
+                failure = { error -> "날짜 형식이 올바르지 않습니다: ${error.msg}" }
+            )
 }
 
 fun main() {

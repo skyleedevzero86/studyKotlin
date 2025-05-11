@@ -3,7 +3,7 @@ package com.functionstudy.onestest.ch07
 import com.functionstudy.ones.ch07.controller.identity
 import com.functionstudy.ones.ch07.controller.randomOutcome
 import com.functionstudy.ones.ch07.controller.randomString
-import com.functionstudy.ones.ch07.domain.Success
+import com.functionstudy.ones.ch07.domain.Outcome
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
@@ -35,8 +35,8 @@ class OutcomeFunctorTest {
             val g = { len: Int -> len * 2 }
             val fThenG = { s: String -> g(f(s)) }
 
-            val outcome1 = Success(str).transform(f).transform(g)
-            val outcome2 = Success(str).transform(fThenG)
+            val outcome1 = Outcome.Success(str).transform(f).transform(g)
+            val outcome2 = Outcome.Success(str).transform(fThenG)
 
             println("Outcome1: $outcome1, Outcome2: $outcome2")
 
