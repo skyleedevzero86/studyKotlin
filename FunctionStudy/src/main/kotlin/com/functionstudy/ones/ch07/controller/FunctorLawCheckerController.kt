@@ -1,7 +1,6 @@
 package com.functionstudy.ones.ch07.controller
 
 import com.functionstudy.ones.ch07.domain.Outcome
-import com.functionstudy.ones.ch07.domain.Success
 import com.functionstudy.ones.ch07.inter.OutcomeError
 import java.time.Instant
 import java.util.*
@@ -38,10 +37,10 @@ fun randomString(): String {
 
 inline fun <reified T> randomOutcome(): Outcome<OutcomeError, T> {
     return when (T::class) {
-        Int::class -> Success(random.nextInt()) as Outcome<OutcomeError, T>
-        String::class -> Success(randomString()) as Outcome<OutcomeError, T>
-        Instant::class -> Success(randomInstant()) as Outcome<OutcomeError, T>
-        Boolean::class -> Success(random.nextBoolean()) as Outcome<OutcomeError, T>
+        Int::class -> Outcome.Success(random.nextInt()) as Outcome<OutcomeError, T>
+        String::class -> Outcome.Success(randomString()) as Outcome<OutcomeError, T>
+        Instant::class -> Outcome.Success(randomInstant()) as Outcome<OutcomeError, T>
+        Boolean::class -> Outcome.Success(random.nextBoolean()) as Outcome<OutcomeError, T>
         else -> throw IllegalArgumentException("Unsupported type")
     }
 }
@@ -58,8 +57,8 @@ fun <A, B, C> verifyCompositionLaw(
     g: (B) -> C
 ): Boolean {
     val fThenG = { a: A -> g(f(a)) }
-    val outcome1 = Success(value).transform(f).transform(g)
-    val outcome2 = Success(value).transform(fThenG)
+    val outcome1 = Outcome.Success(value).transform(f).transform(g)
+    val outcome2 = Outcome.Success(value).transform(fThenG)
     return outcome1 == outcome2
 }
 

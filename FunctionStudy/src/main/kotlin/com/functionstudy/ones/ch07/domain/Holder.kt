@@ -9,5 +9,5 @@ data class Holder<T>(val value: T) {
         transform { v -> f(v, other.value) }
 }
 
-fun <T> T.asSuccess(): Outcome<Nothing, T> = Success(this)
-fun <E : OutcomeError> E.asFailure(): Outcome<E, Nothing> = Failure(this)
+fun <T> T.asSuccess(): Outcome<Nothing, T> = Outcome.Success(this)
+fun <E : OutcomeError> E.asFailure(): Outcome<E, Nothing> = Outcome.Failure(this)
