@@ -39,6 +39,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
     testImplementation("org.junit.platform:junit-platform-commons:1.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    implementation("io.arrow-kt:arrow-core:1.1.3")
 
 }
 

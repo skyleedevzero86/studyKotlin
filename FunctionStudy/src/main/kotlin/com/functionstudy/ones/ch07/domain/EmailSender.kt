@@ -17,7 +17,7 @@ object EmailSender {
         FileReader.readFile(fileName)
             .transformFailure { EmailError("파일 읽기 오류: ${it.msg}") }
             .fold(
-                success = { content -> sendTextByEmail(content) },
-                failure = { error -> Outcome.Failure(error) }
+                success = { content -> EmailSender.sendTextByEmail(content) },
+                failure = { error -> Outcome.Failure<EmailError>(error) }
             )
 }

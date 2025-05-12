@@ -1,10 +1,6 @@
 package com.functionstudy.ones.ch07.domain
 
-import com.functionstudy.ones.ch07.failure.EmailError
-import com.functionstudy.ones.ch07.failure.FileReader
-import com.functionstudy.ones.ch07.inter.GenericOutcomeError
-import com.functionstudy.ones.ch07.inter.OutcomeError
-import com.functionstudy.ones.ch07.inter.SimpleOutcomeError
+import com.functionstudy.ones.ch07.inter.*
 
 sealed class Outcome<out E : OutcomeError, out T> {
 
@@ -24,6 +20,8 @@ sealed class Outcome<out E : OutcomeError, out T> {
         }
 }
 
+// 함수 확장
+
 fun <E : OutcomeError, T, R> Outcome<E, T>.bind(f: (T) -> Outcome<E, R>): Outcome<E, R> =
     when (this) {
         is Outcome.Success -> f(this.value)
@@ -32,7 +30,6 @@ fun <E : OutcomeError, T, R> Outcome<E, T>.bind(f: (T) -> Outcome<E, R>): Outcom
 
 fun <T> List<Outcome<*, T>>.reduceSuccess(operation: (T, T) -> T): Outcome<*, T> {
     var accumulator: T? = null
-
     for (outcome in this) {
         when (outcome) {
             is Outcome.Success -> {
@@ -42,12 +39,11 @@ fun <T> List<Outcome<*, T>>.reduceSuccess(operation: (T, T) -> T): Outcome<*, T>
                     operation(accumulator, outcome.value)
                 }
             }
-            is Outcome.Failure -> return outcome  // 실패가 있으면 바로 그 실패를 반환
+            is Outcome.Failure -> return outcome
         }
     }
-
-    return if (accumulator != null) Outcome.Success(accumulator)
-    else Outcome.Failure(SimpleOutcomeError("No success values"))
+    return accumulator?.let { Outcome.Success(it) }
+        ?: Outcome.Failure(SimpleOutcomeError("No success values"))
 }
 
 fun <E : OutcomeError, T, R> Outcome<E, T>.fold(success: (T) -> R, failure: (E) -> R): R =
@@ -68,11 +64,3 @@ fun <T> tryAndCatch(block: () -> T): Outcome<GenericOutcomeError, T> =
     } catch (e: Throwable) {
         GenericOutcomeError(e).asFailure()
     }
-
-fun sendEmail(fileName: String): Outcome<EmailError, Unit> =
-    FileReader.readFile(fileName)
-        .transformFailure { EmailError("파일 읽기 오류: ${it.msg}") }
-        .fold(
-            success = { content -> EmailSender.sendTextByEmail(content) },
-            failure = { error -> Outcome.Failure(error) }
-        )

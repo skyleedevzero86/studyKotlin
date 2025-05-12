@@ -1,6 +1,7 @@
 package com.functionstudy.ones.ch07.controller
 
-import com.functionstudy.ones.ch07.domain.sendEmail
+import com.functionstudy.ones.ch07.domain.EmailSender.sendEmail
+
 
 class EmailController {
     fun execute() {
