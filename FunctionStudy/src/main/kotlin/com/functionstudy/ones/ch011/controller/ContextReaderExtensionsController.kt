@@ -12,14 +12,14 @@ class ContextReaderExtensionsController {
         val readY = ContextReader<MyContext, Int> { it.y }
         val readZ = ContextReader<MyContext, Int> { it.z }
 
+        val curriedSum3: ContextReader<MyContext, (Int) -> (Int) -> (Int) -> Int> =
+            ContextReader { ctx -> sum3.curried() }
+
         val resultReader: ContextReader<MyContext, Int> =
-            ContextReader<MyContext, (Int) -> (Int) -> (Int) -> Int> { sum3.curried() }
-                .times(readX)
-                .times(readY)
-                .times(readZ)
+            curriedSum3 * readX * readY * readZ
 
         val result = resultReader.runWith(MyContext(10, 20, 30))
-        println("Result: $result")  // Result: 60
+        println("Result: $result")  // Expected output: Result: 60
     }
 }
 

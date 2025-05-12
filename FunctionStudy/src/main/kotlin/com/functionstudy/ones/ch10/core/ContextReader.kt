@@ -10,9 +10,16 @@ data class ContextReader<CTX, out T>(val runWith: (CTX) -> T) {
             val result = runWith(ctx)
             f(result).runWith(ctx)
         }
+
+    fun <U> mapList(f: (T) -> List<U>): ContextReader<CTX, List<U>> =
+        ContextReader { ctx -> f(runWith(ctx)) }
+
+    fun <K, V> mapMap(f: (T) -> Map<K, V>): ContextReader<CTX, Map<K, V>> =
+        ContextReader { ctx -> f(runWith(ctx)) }
 }
 
-infix fun <CTX, A, B> ContextReader<CTX, (A) -> B>.times(
+
+operator infix fun <CTX, A, B> ContextReader<CTX, (A) -> B>.times(
     reader: ContextReader<CTX, A>
 ): ContextReader<CTX, B> = this.flatMap { f -> reader.map(f) }
 
