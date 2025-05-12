@@ -28,6 +28,6 @@ class ProductController {
 }
 
 fun main() {
-    val controller = com.functionstudy.ones.ch01.controller.ProductController()
+    val controller = ProductController()
     controller.execute()
 }
