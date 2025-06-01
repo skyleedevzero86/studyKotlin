@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>파일 업로드</title>
+</head>
+<body>
+<h1>MinIO 파일 업로드</h1>
+<form method="post" enctype="multipart/form-data" action="/upload">
+    <input type="file" name="file"/>
+    <button type="submit">업로드</button>
+</form>
+
+<div th:if="${fileUrl}">
+    <p>업로드 성공!</p>
+    <a th:href="${fileUrl}" th:text="${fileUrl}" target="_blank"></a>
+</div>
+</body>
+</html>
