@@ -150,7 +150,8 @@
             <tr th:each="file : ${files}">
                 <td th:text="${file.name}"></td>
                 <td class="file-size" th:text="${#numbers.formatDecimal(file.size / 1024.0, 1, 2)} + ' KB'"></td>
-                <td th:text="${#temporals.format(#temporals.createFromUTC(file.lastModified), 'yyyy-MM-dd HH:mm:ss')}"></td>
+                <!-- 수정된 부분: 문자열로 받은 날짜를 그대로 표시하거나 필요시 파싱 -->
+                <td th:text="${file.lastModified}"></td>
                 <td class="file-actions">
                     <a th:href="@{'/download/' + ${file.name}}" class="btn btn-success">다운로드</a>
                     <form th:action="@{'/delete/' + ${file.name}}" method="post" style="display: inline;"
