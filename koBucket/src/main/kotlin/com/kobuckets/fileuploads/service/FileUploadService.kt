@@ -25,18 +25,28 @@ class FileUploadService(
     fun upload(file: MultipartFile): String {
         val bucket = properties.bucket
 
-        // 버킷이 없다면 생성
         if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build())) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build())
         }
 
         val filename = UUID.randomUUID().toString() + "_" + file.originalFilename
+        val inputStream = file.inputStream
+
+        println("===== 파일 업로드 정보 =====")
+        println("원본 파일명: ${file.originalFilename}")
+        println("저장 파일명: $filename")
+        println("Content Type: ${file.contentType}")
+        println("파일 크기: ${file.size} bytes")
+        println("MinIO 버킷 이름: $bucket")
+        println("MinIO 내 저장 경로: $bucket/$filename")
+        println("접근 가능한 URL: ${properties.url}/$bucket/$filename")
+        println("=================================")
 
         minioClient.putObject(
             PutObjectArgs.builder()
                 .bucket(bucket)
                 .`object`(filename)
-                .stream(file.inputStream, file.size, -1)
+                .stream(inputStream, file.size, -1)
                 .contentType(file.contentType)
                 .build()
         )
@@ -44,7 +54,6 @@ class FileUploadService(
         return "${properties.url}/${bucket}/${filename}"
     }
 
-    // 파일 다운로드 - 한글 파일명 인코딩 문제 해결
     fun downloadFile(filename: String): ResponseEntity<InputStreamResource> {
         val bucket = properties.bucket
 
@@ -65,20 +74,35 @@ class FileUploadService(
 
             val headers = HttpHeaders()
 
-            // 한글 파일명 처리를 위한 RFC 5987 방식 사용
-            val encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8.toString())
-                .replace("+", "%20") // 공백 처리
+            // 원본 파일명 추출
+            val originalFilename = if (filename.contains("_")) {
+                filename.substring(filename.indexOf("_") + 1)
+            } else {
+                filename
+            }
 
-            // 브라우저 호환성을 위해 두 가지 방식으로 헤더 설정
-            val contentDisposition = "attachment; filename=\"${filename.replace("\"", "\\\"")}\"; filename*=UTF-8''$encodedFilename"
+            // RFC 5987 완전 준수 방식으로 한글 파일명 처리
+            val encodedFilename = URLEncoder.encode(originalFilename, StandardCharsets.UTF_8.toString())
+                .replace("+", "%20") // 공백을 %20으로 변경
+                .replace("*", "%2A") // * 문자 인코딩
+                .replace("'", "%27") // ' 문자 인코딩
+
+            // ASCII 안전 파일명 생성 (fallback용)
+            val asciiSafeFilename = originalFilename.replace(Regex("[^\\x00-\\x7F]"), "_")
+
+            // Content-Disposition 헤더를 RFC 5987 표준에 맞게 설정
+            val contentDisposition = "attachment; filename=\"$asciiSafeFilename\"; filename*=UTF-8''$encodedFilename"
 
             headers.add(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-            headers.add(HttpHeaders.CONTENT_TYPE, stat.contentType() ?: MediaType.APPLICATION_OCTET_STREAM_VALUE)
 
-            // 추가 헤더 설정
+            // Content-Type을 강제로 application/octet-stream으로 설정하여 다운로드 유도
+            headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
+
+            // 추가 보안 및 캐시 제어 헤더
             headers.add("Cache-Control", "no-cache, no-store, must-revalidate")
             headers.add("Pragma", "no-cache")
             headers.add("Expires", "0")
+            headers.add("X-Content-Type-Options", "nosniff") // MIME 타입 스니핑 방지
 
             return ResponseEntity.ok()
                 .headers(headers)
@@ -90,7 +114,7 @@ class FileUploadService(
         }
     }
 
-    // 파일 리스트 조회 (날짜 포맷팅 개선)
+    // 파일 리스트 조회
     fun listFiles(): List<FileInfo> {
         val bucket = properties.bucket
         val fileList = mutableListOf<FileInfo>()
