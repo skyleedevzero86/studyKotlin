@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 분석 결과</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .result {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #007bff;
+            margin: 20px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #dc3545;
+            margin: 20px 0;
+        }
+        .back-btn {
+            display: inline-block;
+            background-color: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .back-btn:hover {
+            background-color: #545b62;
+            text-decoration: none;
+            color: white;
+        }
+        .result-text {
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🔍 이미지 분석 결과</h1>
+
+    <!-- 성공적인 분석 결과 -->
+    <div th:if="${analysisResult != null and !#strings.isEmpty(analysisResult)}" class="result">
+        <h3>🤖 AI 분석 결과:</h3>
+        <div class="result-text" th:text="${analysisResult}"></div>
+    </div>
+
+    <!-- 오류 메시지 -->
+    <div th:if="${error != null and !#strings.isEmpty(error)}" class="error">
+        <h3>❌ 오류 발생:</h3>
+        <p th:text="${error}"></p>
+    </div>
+
+    <!-- 결과가 없는 경우 -->
+    <div th:if="${(analysisResult == null or #strings.isEmpty(analysisResult)) and (error == null or #strings.isEmpty(error))}" class="result">
+        <h3>⚠️ 알림:</h3>
+        <p>분석 결과를 가져올 수 없습니다. 다시 시도해주세요.</p>
+    </div>
+
+    <a href="/" class="back-btn">🔙 다시 분석하기</a>
+</div>
+</body>
+</html>

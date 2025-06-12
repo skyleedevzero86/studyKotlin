@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 분석</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-form {
+            border: 2px dashed #ddd;
+            padding: 40px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .upload-form:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 400px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🖼️ AI 이미지 분석</h1>
+
+    <form id="uploadForm" action="/analyze" method="post" enctype="multipart/form-data">
+        <div class="upload-form">
+            <h3>📁 이미지를 선택하세요</h3>
+            <p>JPG, PNG, GIF 파일을 업로드할 수 있습니다 (최대 10MB)</p>
+
+            <input type="file"
+                   id="imageFile"
+                   name="image"
+                   accept="image/*"
+                   required>
+
+            <div class="preview" id="preview" style="display: none;">
+                <img id="previewImg" src="" alt="미리보기">
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+
+            <button type="submit" id="submitBtn" disabled>
+                🔍 이미지 분석하기
+            </button>
+        </div>
+    </form>
+
+    <div id="loading" style="display: none; text-align: center; margin-top: 20px;">
+        <p>🤖 AI가 이미지를 분석하고 있습니다...</p>
+        <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    </div>
+</div>
+
+<style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+    const fileInput = document.getElementById('imageFile');
+    const submitBtn = document.getElementById('submitBtn');
+    const preview = document.getElementById('preview');
+    const previewImg = document.getElementById('previewImg');
+    const fileInfo = document.getElementById('fileInfo');
+    const form = document.getElementById('uploadForm');
+    const loading = document.getElementById('loading');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // 파일 크기 체크 (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('파일 크기가 10MB를 초과합니다.');
+                fileInput.value = '';
+                submitBtn.disabled = true;
+                preview.style.display = 'none';
+                return;
+            }
+
+            // 이미지 타입 체크
+            if (!file.type.startsWith('image/')) {
+                alert('이미지 파일만 업로드할 수 있습니다.');
+                fileInput.value = '';
+                submitBtn.disabled = true;
+                preview.style.display = 'none';
+                return;
+            }
+
+            // 미리보기 표시
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+
+                // 파일 정보 표시
+                const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                fileInfo.textContent = `파일명: ${file.name} | 크기: ${fileSize}MB | 타입: ${file.type}`;
+
+                submitBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.style.display = 'none';
+            submitBtn.disabled = true;
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        loading.style.display = 'block';
+        submitBtn.disabled = true;
+        submitBtn.textContent = '분석 중...';
+    });
+</script>
+</body>
+</html>
