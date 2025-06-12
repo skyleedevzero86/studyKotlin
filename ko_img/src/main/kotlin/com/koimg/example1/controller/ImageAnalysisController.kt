@@ -31,7 +31,7 @@ class ImageAnalysisController(
 
     @GetMapping("/")
     fun index(): String {
-        return "imgMain"
+        return "imgWriter/imgMain"
     }
 
     @PostMapping("/analyze", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
@@ -124,6 +124,6 @@ class ImageAnalysisController(
             e.printStackTrace()
         }
 
-        return "imgs"
+        return "imgWriter/imgs"
     }
 }

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>분석 결과</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .result-container { max-width: 800px; margin: 0 auto; }
+    .error { color: red; background: #ffeaea; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .success { color: green; background: #eafaea; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .confidence { font-weight: bold; color: #2196F3; }
+    .raw-response {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      display: inline-block;
+      margin: 20px 0;
+    }
+    .btn:hover { background-color: #45a049; }
+  </style>
+</head>
+<body>
+<div class="result-container">
+  <h1>분석 결과</h1>
+
+  <!-- 에러 메시지 표시 -->
+  <div th:if="${error}" th:text="${error}" class="error"></div>
+
+  <!-- 성공적으로 분석된 경우 -->
+  <div th:if="${labels != null and not #lists.isEmpty(labels)}" class="success">
+    <h2>객체 신뢰도(%)</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>Label</th>
+        <th>Confidence</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="label : ${labels}">
+        <td th:text="${label.first}"></td>
+        <td class="confidence" th:text="${label.second + '%'}"></td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 원본 응답 표시 (디버깅용) -->
+  <div th:if="${rawResponse}">
+    <h3>원본 API 응답:</h3>
+    <div class="raw-response" th:text="${rawResponse}"></div>
+  </div>
+
+  <!-- 분석 결과가 없는 경우 -->
+  <div th:if="${labels == null or #lists.isEmpty(labels)}" class="error">
+    분석된 객체가 없습니다.
+  </div>
+
+  <a href="/ConfidenceMain" class="btn">다시 하기</a>
+</div>
+</body>
+</html>

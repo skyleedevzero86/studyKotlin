@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><title>Image Labeler</title></head>
+<body>
+<h1>이미지 업로드</h1>
+<form method="post" enctype="multipart/form-data" action="/imgUpload">
+  <input type="file" name="image" accept="image/*" required/>
+  <button type="submit">분석하기</button>
+</form>
+</body>
+</html>
