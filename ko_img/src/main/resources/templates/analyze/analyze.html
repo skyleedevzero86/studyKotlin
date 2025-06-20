@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 이미지 분석 스튜디오</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 0;
+        }
+        .analysis-form {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .recent-analysis {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-robot me-2"></i>AI 이미지 분석 스튜디오
+        </a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link active" href="/">
+                <i class="fas fa-home me-1"></i>홈
+            </a>
+            <a class="nav-link" href="/history">
+                <i class="fas fa-history me-1"></i>분석 기록
+            </a>
+            <a class="nav-link" href="/api-test">
+                <i class="fas fa-code me-1"></i>API 테스트
+            </a>
+        </div>
+    </div>
+</nav>
+
+<section class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold mb-3">
+            <i class="fas fa-robot me-3"></i>AI 이미지 분석 스튜디오
+        </h1>
+        <p class="lead mb-4">이미지를 업로드하고 AI를 통해 나이 추정, 감정 분석, 패션 분석 등을 경험해보세요!</p>
+    </div>
+</section>
+
+<div class="container py-5">
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i>
+        <span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <div class="analysis-form">
+        <h2 class="mb-4 text-center">AI 이미지 분석</h2>
+        <form th:action="@{/analyze}" method="post">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label for="imageUrl" class="form-label">이미지 URL</label>
+                        <input type="url" class="form-control" id="imageUrl" name="imageUrl"
+                               placeholder="https://example.com/image.jpg" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="analysisType" class="form-label">분석 유형</label>
+                        <select class="form-select" id="analysisType" name="analysisType" required>
+                            <option value="">선택하세요</option>
+                            <option th:each="type : ${analysisTypes}" th:value="${type.name}"
+                                    th:text="${type.displayName}"></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-search me-2"></i>분석 시작
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div th:if="${not #lists.isEmpty(recentAnalyses)}" class="mt-5">
+        <h3 class="mb-4">최근 분석 기록</h3>
+        <div th:each="analysis : ${recentAnalyses}" class="recent-analysis">
+            <div class="row">
+                <div class="col-3">
+                    <img th:src="${analysis.imageUrl}" alt="분석 이미지" class="img-fluid rounded">
+                </div>
+                <div class="col-9">
+                    <h5 th:text="${analysis.analysisType}"></h5>
+                    <p class="text-muted" th:text="${#strings.abbreviate(analysis.result, 100)}"></p>
+                    <a th:href="@{/result(id=${analysis.id})}" class="btn btn-outline-primary btn-sm">
+                        자세히 보기
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

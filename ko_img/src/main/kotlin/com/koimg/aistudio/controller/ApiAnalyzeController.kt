@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api")
-class ApiController(private val imageAnalysisService: ImageAnalysisService) {
+class ApiAnalyzeController(private val imageAnalysisService: ImageAnalysisService) {
 
     @PostMapping("/analyze")
     fun analyzeImage(@RequestBody request: AnalysisRequest): ResponseEntity<AnalysisResult> {

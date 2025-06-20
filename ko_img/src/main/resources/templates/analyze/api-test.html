@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 테스트 - AI 이미지 분석 스튜디오</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <style>
+        .api-section {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .api-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+        }
+        .test-form {
+            padding: 20px;
+        }
+        .response-area {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+        }
+        .loading {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/analyzeMain">
+            <i class="fas fa-robot me-2"></i>AI 이미지 분석 스튜디오
+        </a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link" href="/analyzeMain">
+                <i class="fas fa-home me-1"></i>홈
+            </a>
+            <a class="nav-link" href="/history">
+                <i class="fas fa-history me-1"></i>분석 기록
+            </a>
+            <a class="nav-link active" href="/api-test">
+                <i class="fas fa-code me-1"></i>API 테스트
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-5">
+    <h1 class="mb-4">
+        <i class="fas fa-code me-3"></i>REST API 테스트
+    </h1>
+
+
+    <div class="api-section">
+        <div class="api-header">
+            <h3><i class="fas fa-book me-2"></i>API 문서</h3>
+        </div>
+        <div class="test-form">
+            <h5>1. 이미지 분석 API</h5>
+            <p><code>POST /api/analyze</code></p>
+            <pre><code class="language-json">{
+  "imageUrl": "https://example.com/image.jpg",
+  "analysisType": "AGE_ESTIMATION"
+}</code></pre>
+
+            <h5 class="mt-4">2. 분석 기록 조회 API</h5>
+            <p><code>GET /api/history</code></p>
+
+            <h5 class="mt-4">3. 특정 결과 조회 API</h5>
+            <p><code>GET /api/result/{id}</code></p>
+
+            <h5 class="mt-4">분석 유형</h5>
+            <ul>
+                <li><code>AGE_ESTIMATION</code> - 나이 추정</li>
+                <li><code>EMOTION_ANALYSIS</code> - 감정 분석</li>
+                <li><code>FASHION_ANALYSIS</code> - 패션 분석</li>
+                <li><code>SCENE_DESCRIPTION</code> - 장면 설명</li>
+                <li><code>STORY_GENERATION</code> - 이야기 생성</li>
+                <li><code>RECIPE_SUGGESTION</code> - 레시피 추천</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="api-section">
+        <div class="api-header">
+            <h3><i class="fas fa-flask me-2"></i>이미지 분석 API 테스트</h3>
+        </div>
+        <div class="test-form">
+            <form id="apiTestForm">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="testImageUrl" class="form-label">이미지 URL</label>
+                            <input type="url" class="form-control" id="testImageUrl"
+                                   placeholder="https://example.com/image.jpg" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="testAnalysisType" class="form-label">분석 유형</label>
+                            <select class="form-select" id="testAnalysisType" required>
+                                <option value="">선택하세요</option>
+                                <option value="AGE_ESTIMATION">나이 추정</option>
+                                <option value="EMOTION_ANALYSIS">감정 분석</option>
+                                <option value="FASHION_ANALYSIS">패션 분석</option>
+                                <option value="SCENE_DESCRIPTION">장면 설명</option>
+                                <option value="STORY_GENERATION">이야기 생성</option>
+                                <option value="RECIPE_SUGGESTION">레시피 추천</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i>API 호출하기
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" onclick="getHistory()">
+                    <i class="fas fa-list me-2"></i>기록 조회하기
+                </button>
+
+                <div class="loading mt-3">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        <span>분석 중입니다... 잠시만 기다려주세요.</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="api-section">
+        <div class="api-header">
+            <h3><i class="fas fa-terminal me-2"></i>API 응답</h3>
+        </div>
+        <div class="test-form">
+            <div id="apiResponse" class="response-area">
+                API 호출 결과가 여기에 표시됩니다.
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="copyResponse()">
+                <i class="fas fa-copy me-1"></i>응답 복사
+            </button>
+        </div>
+    </div>
+
+    <div class="api-section">
+        <div class="api-header">
+            <h3><i class="fas fa-images me-2"></i>테스트용 샘플 이미지</h3>
+        </div>
+        <div class="test-form">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face"
+                             class="card-img-top" alt="Sample 1" style="height: 200px; object-fit: cover;">
+                        <div class="card-body text-center">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    onclick="useImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face')">
+                                이미지 사용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <img src="https://images.unsplash.com/photo-1494790108755-2616b612b5bc?w=300&h=300&fit=crop&crop=face"
+                             class="card-img-top" alt="Sample 2" style="height: 200px; object-fit: cover;">
+                        <div class="card-body text-center">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    onclick="useImage('https://images.unsplash.com/photo-1494790108755-2616b612b5bc?w=400&h=400&fit=crop&crop=face')">
+                                이미지 사용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <img src="https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=300&h=300&fit=crop"
+                             class="card-img-top" alt="Sample 3" style="height: 200px; object-fit: cover;">
+                        <div class="card-body text-center">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    onclick="useImage('https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=400&fit=crop')">
+                                이미지 사용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+    document.getElementById('apiTestForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const imageUrl = document.getElementById('testImageUrl').value;
+        const analysisType = document.getElementById('testAnalysisType').value;
+        const responseArea = document.getElementById('apiResponse');
+        const loading = document.querySelector('.loading');
+
+        loading.style.display = 'block';
+        responseArea.textContent = '분석 중...';
+
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageUrl: imageUrl,
+                    analysisType: analysisType
+                })
+            });
+
+            const result = await response.json();
+            responseArea.textContent = JSON.stringify(result, null, 2);
+
+        } catch (error) {
+            responseArea.textContent = 'Error: ' + error.message;
+        } finally {
+            loading.style.display = 'none';
+        }
+    });
+
+    async function getHistory() {
+        const responseArea = document.getElementById('apiResponse');
+        const loading = document.querySelector('.loading');
+
+        loading.style.display = 'block';
+        responseArea.textContent = '기록 조회 중...';
+
+        try {
+            const response = await fetch('/api/history');
+            const result = await response.json();
+            responseArea.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+            responseArea.textContent = 'Error: ' + error.message;
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    function useImage(imageUrl) {
+        document.getElementById('testImageUrl').value = imageUrl;
+    }
+
+    function copyResponse() {
+        const responseText = document.getElementById('apiResponse').textContent;
+        navigator.clipboard.writeText(responseText);
+    }
+</script>
+</body>
+</html>
