@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LuxeStay Hotel 챗봇</title>
+    <title>궁금하면 500원 Hotel 챗봇</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .message {
@@ -112,21 +112,19 @@
         try {
             const response = await fetch(`/question?question=${encodeURIComponent(userMessage)}`, {
                 headers: {
-                    'Accept': 'text/event-stream' // SSE를 우선 요청
+                    'Accept': 'text/event-stream'
                 }
             });
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
 
-            // 스트림 여부 체크
             if (response.body && response.headers.get('Content-Type')?.includes('text/event-stream')) {
                 const reader = response.body.getReader();
                 let botMessageElement = appendMessage('챗봇', '');
                 let contentElement = botMessageElement.querySelector('.content');
                 await processStream(reader, contentElement);
             } else {
-                // 스트림이 아닌 경우 (예: JSON 또는 텍스트)
                 const text = await response.text();
                 let botMessageElement = appendMessage('챗봇', '');
                 let contentElement = botMessageElement.querySelector('.content');
@@ -152,49 +150,61 @@
 
     async function processStream(reader, contentElement) {
         const decoder = new TextDecoder('utf-8');
-        const messageLines = []; // 각 줄을 저장할 배열
+        let fullContent = ''; // 전체 내용을 저장할 변수
+        let buffer = ''; // 불완전한 데이터를 저장할 버퍼
+
         try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
+
                 const chunk = decoder.decode(value, { stream: true });
-                console.log('Received chunk:', chunk); // 디버깅 로그
-                // SSE 이벤트를 개별적으로 처리
-                const events = chunk.split('\n\n'); // 이벤트 구분자
-                for (const event of events) {
-                    const lines = event.split('\n');
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine.startsWith('data:')) {
-                            // 강화된 data: 제거 (정규 표현식 사용)
-                            const data = trimmedLine.replace(/^data:[\s\S]*?(?=\n|$)/, '').trim();
-                            if (data && data.length > 0) {
-                                messageLines.push(data); // 유효한 데이터만 추가
-                            }
-                        }
-                    }
+                console.log('Received raw chunk:', chunk);
+
+                // 이전 버퍼와 새 청크를 합침
+                buffer += chunk;
+
+                // 전체 텍스트에서 모든 data: 접두사를 제거
+                // 정규식을 사용하여 'data:' 뒤의 내용만 추출
+                const cleanedContent = buffer.replace(/data:\s*/g, '');
+
+                // [DONE]이나 기타 제어 신호 제거
+                const finalContent = cleanedContent
+                    .replace(/\[DONE\]/g, '')
+                    .replace(/event:\s*\w+/g, '')
+                    .replace(/id:\s*\w+/g, '')
+                    .trim();
+
+                console.log('Processed content:', finalContent);
+
+                // 실제 콘텐츠만 있는 경우에만 업데이트
+                if (finalContent && finalContent !== fullContent) {
+                    fullContent = finalContent;
+                    contentElement.textContent = fullContent;
+                    chatBox.scrollTop = chatBox.scrollHeight;
                 }
-            }
-            // 모든 줄을 줄바꿈으로 결합하여 렌더링
-            if (messageLines.length > 0) {
-                contentElement.textContent = messageLines.join('\n').trim();
-            } else {
-                contentElement.textContent = '응답이 없습니다.';
             }
         } catch (error) {
             console.error('Error processing stream:', error);
             contentElement.innerHTML += '<br><span class="text-danger">[스트리밍 오류]</span>';
         }
-        chatBox.scrollTop = chatBox.scrollHeight; // 스크롤 조정
     }
 
-    // data:를 포함한 텍스트를 정리하는 헬퍼 함수
+    // data:를 포함한 텍스트를 정리하는 헬퍼 함수 (일반 응답용)
     function cleanData(text) {
-        return text
-            .split('\n')
-            .map(line => line.trim().replace(/^data:[\s\S]*?(?=\n|$)/, '').trim())
-            .filter(line => line.length > 0)
-            .join('\n');
+        console.log('Raw text to clean:', text);
+
+        // 정규식을 사용하여 모든 data: 접두사를 제거
+        const cleaned = text
+            .replace(/data:\s*/g, '') // 모든 'data:' 접두사 제거
+            .replace(/\[DONE\]/g, '') // [DONE] 신호 제거
+            .replace(/event:\s*\w+/g, '') // event: 라인 제거
+            .replace(/id:\s*\w+/g, '') // id: 라인 제거
+            .replace(/\n\s*\n/g, '\n') // 빈 줄 정리
+            .trim();
+
+        console.log('Cleaned text:', cleaned);
+        return cleaned;
     }
 </script>
 <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>

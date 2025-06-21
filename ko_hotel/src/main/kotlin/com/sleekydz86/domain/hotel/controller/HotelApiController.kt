@@ -34,7 +34,7 @@ class HotelApiController(
         println("호텔 컨텍스트: $context")
 
         val systemPrompt = """
-            당신은 LuxeStay Hotel의 친절하고 전문적인 직원입니다.
+            당신은 궁금하면500원 Hotel의 친절하고 전문적인 직원입니다.
             고객의 질문에 정중하고 도움이 되는 답변을 제공해주세요.
             
             답변 시 다음 사항을 준수해주세요:
@@ -85,7 +85,7 @@ class HotelApiController(
     @GetMapping("/hotel-info")
     fun getHotelInfo(): Map<String, Any> {
         return mapOf(
-            "hotelName" to "LuxeStay Hotel",
+            "hotelName" to "궁금하면500 Hotel",
             "checkIn" to "오후 3시",
             "checkOut" to "오전 11시",
             "roomService" to "오전 7시 - 오후 11시",
@@ -137,7 +137,7 @@ class HotelApiController(
 
     private fun getLuxeStayHotelContext(): String {
         return """
-            LuxeStay Hotel 종합 안내:
+            궁금하면500 Hotel 종합 안내:
             
             환영 인사: 친절한 미소와 개인화된 인사말로 고객을 맞이합니다.
             
