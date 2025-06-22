@@ -6,7 +6,35 @@
 
 프로젝트의 아키텍처와 데이터 흐름은 아래 다이어그램과 같습니다.
 
-![Ko-Hotel Architecture](https://user-images.githubusercontent.com/12185848/289091593-3be45615-5658-412f-98f6-3c06d2a715f0.png)
+```mermaid
+graph TD
+    User["👤 사용자"] --> FE["🌐 프론트엔드 <br> (Thymeleaf, JS)"]
+    FE -- "1. 질문 전송 (HTTP/SSE)" --> API["💬 HotelApiController <br> (/question)"]
+    API -- "2. 관련 정보 검색" --> VS["📚 VectorStore <br> (인-메모리)"]
+    VS -- "유사도 계산에 사용" --> EM["✨ EmbeddingModel <br> (On-premise)"]
+    API -- "3. 프롬프트 생성" --> CC["🤖 ChatClient <br> (Spring AI)"]
+    CC -- "4. 답변 요청" --> LLM["🧠 외부 LLM <br> (e.g., OpenAI)"]
+    LLM -- "5. 답변 스트리밍" --> CC
+    CC -- "6. 답변 스트리밍" --> API
+    API -- "7. 답변 스트리밍 (SSE)" --> FE
+    FE -- "8. 답변 표시" --> User
+
+    subgraph "Ko-Hotel 애플리케이션 (Spring Boot)"
+      direction LR
+      API
+      VS
+      EM
+      CC
+    end
+
+    style User fill:#D5E8D4,stroke:#82B366,stroke-width:2px,color:#000000
+    style FE fill:#DAE8FC,stroke:#6C8EBF,stroke-width:2px,color:#000000
+    style LLM fill:#F8CECC,stroke:#B85450,stroke-width:2px,color:#000000
+    style API color:#000000
+    style VS color:#000000
+    style EM color:#000000
+    style CC color:#000000
+```
 
 1.  **사용자 질문**: 사용자가 웹 UI(Thymeleaf, JavaScript)를 통해 질문을 입력합니다.
 2.  **API 요청**: 프론트엔드는 백엔드의 `HotelApiController`로 질문을 담아 SSE(Server-Sent Events) 연결을 요청합니다.
