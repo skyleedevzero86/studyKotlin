@@ -1,0 +1,62 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\begin{document}
+\title{Health Report for 김민수}
+\author{}
+\date{2025-06-22}
+\maketitle
+\section{Summary}
+Name: 김민수 \\
+User ID: user123 \\
+Period: weekly \\
+\textbf{Summary:} \\
+- Average Sleep: 6.5 hours \\
+- Average Steps: 8000 steps \\
+- Average Stress Level: 5.0 \\
+- Average Heart Rate: 75.0 bpm \\
+\section{Health Data Chart}
+\begin{tikzpicture}
+\begin{axis}[
+    title={Health Metrics Over Time},
+    xlabel={Date},
+    ylabel={Value},
+    legend style={at={(0.5,-0.2)}, anchor=north, legend columns=-1},
+    date coordinates in=x,
+    xticklabel={\year-\month-\day},
+    x tick label style={rotate=45, anchor=north east}
+]
+\addplot table [x=log_date, y=sleep_hours] {
+    log_date sleep_hours
+    2025-06-15 6.5
+    2025-06-16 7.0
+    ...
+};
+\addlegendentry{Sleep Hours}
+\addplot table [x=log_date, y=steps] {
+    log_date steps
+    2025-06-15 8000
+    2025-06-16 8500
+    ...
+};
+\addlegendentry{Steps}
+\addplot table [x=log_date, y=stress_level] {
+    log_date stress_level
+    2025-06-15 5.0
+    2025-06-16 4.8
+    ...
+};
+\addlegendentry{Stress Level}
+\end{axis}
+\end{tikzpicture}
+\section{Recommendations}
+\begin{itemize}
+    \item Maintain 7-8 hours of sleep for optimal health.
+    \item Aim for 10,000 steps daily to improve fitness.
+    \item Manage stress through relaxation techniques if stress level exceeds 7.
+\end{itemize}
+\end{document}

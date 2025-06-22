@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Health Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        label {
+            width: 150px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 200px;
+            box-sizing: border-box;
+        }
+        input[type="number"] {
+            width: 100px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #chartContainer {
+            max-width: 800px;
+            margin-top: 20px;
+        }
+        .guideline {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-left: 150px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Enter Health Data</h2>
+    <p>아래 정보를 입력해 주세요. 모든 필수 항목을 채워야 저장됩니다. 가이드라인을 참고하세요!</p>
+    <div class="form-group">
+        <label for="userId">User ID <span style="color:red;">*</span>:</label>
+        <input type="text" id="userId" placeholder="예: user123" required>
+    </div>
+    <div class="form-group">
+        <label for="userNm">Name <span style="color:red;">*</span>:</label>
+        <input type="text" id="userNm" placeholder="예: 홍길동" required>
+    </div>
+    <div class="form-group">
+        <label for="height">Height (cm):</label>
+        <input type="number" id="height" placeholder="예: 175" min="100" max="250">
+        <div class="guideline">100~250cm 사이 입력 (선택)</div>
+    </div>
+    <div class="form-group">
+        <label for="weight">Weight (kg):</label>
+        <input type="number" id="weight" placeholder="예: 70" min="30" max="200">
+        <div class="guideline">30~200kg 사이 입력 (선택)</div>
+    </div>
+    <div class="form-group">
+        <label for="gender">Gender:</label>
+        <select id="gender">
+            <option value="">선택하세요</option>
+            <option value="Male">남성</option>
+            <option value="Female">여성</option>
+            <option value="Other">기타</option>
+        </select>
+        <div class="guideline">성별을 선택하세요 (선택)</div>
+    </div>
+    <div class="form-group">
+        <label for="bloodType">Blood Type:</label>
+        <select id="bloodType">
+            <option value="">선택하세요</option>
+            <option value="A">A형</option>
+            <option value="B">B형</option>
+            <option value="AB">AB형</option>
+            <option value="O">O형</option>
+        </select>
+        <div class="guideline">혈액형을 선택하세요 (선택)</div>
+    </div>
+    <div class="form-group">
+        <label for="sleepHours">Sleep Hours <span style="color:red;">*</span>:</label>
+        <input type="number" id="sleepHours" placeholder="예: 7.5" step="0.5" min="0" max="24" required>
+        <div class="guideline">0~24시간 사이, 0.5단위 (예: 6.0, 7.5)</div>
+    </div>
+    <div class="form-group">
+        <label for="steps">Steps <span style="color:red;">*</span>:</label>
+        <input type="number" id="steps" placeholder="예: 5000" min="0" max="50000" required>
+        <div class="guideline">0~50,000걸음 사이</div>
+    </div>
+    <div class="form-group">
+        <label for="stressLevel">Stress Level <span style="color:red;">*</span>:</label>
+        <input type="range" id="stressLevel" min="0" max="10" step="0.5" value="5">
+        <span id="stressLevelValue">5</span>
+        <div class="guideline">0(낮음)~10(높음) 슬라이더로 조정</div>
+    </div>
+    <div class="form-group">
+        <label for="heartRate">Heart Rate <span style="color:red;">*</span>:</label>
+        <input type="number" id="heartRate" placeholder="예: 75" min="30" max="200" required>
+        <div class="guideline">30~200bpm 사이</div>
+    </div>
+    <button onclick="submitHealthData()">Submit</button>
+
+    <h2>Generate Report</h2>
+    <p>사용자 ID와 기간을 선택해 리포트를 생성하세요.</p>
+    <div class="form-group">
+        <label for="reportUserId">User ID <span style="color:red;">*</span>:</label>
+        <input type="text" id="reportUserId" placeholder="예: user123" required>
+    </div>
+    <div class="form-group">
+        <label for="period">Period <span style="color:red;">*</span>:</label>
+        <select id="period">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="maxDays">Max Days (Weekly):</label>
+        <input type="number" id="maxDays" min="1" value="7" disabled>
+        <div class="guideline">Weekly 선택 시 활성화 (1~31)</div>
+    </div>
+    <button onclick="generateReport()">Generate Report</button>
+
+    <div id="chartContainer">
+        <canvas id="healthChart"></canvas>
+    </div>
+</div>
+
+<script>
+    let myChart = null;
+
+    document.getElementById('stressLevel').addEventListener('input', function() {
+        document.getElementById('stressLevelValue').textContent = this.value;
+    });
+
+    async function submitHealthData() {
+        const userId = document.getElementById('userId').value;
+        const userNm = document.getElementById('userNm').value;
+        const height = document.getElementById('height').value || null;
+        const weight = document.getElementById('weight').value || null;
+        const gender = document.getElementById('gender').value || null;
+        const bloodType = document.getElementById('bloodType').value || null;
+        const sleepHours = parseFloat(document.getElementById('sleepHours').value);
+        const steps = parseInt(document.getElementById('steps').value);
+        const stressLevel = parseFloat(document.getElementById('stressLevel').value);
+        const heartRate = parseFloat(document.getElementById('heartRate').value);
+
+        if (!userId || !userNm || isNaN(sleepHours) || isNaN(steps) || isNaN(stressLevel) || isNaN(heartRate)) {
+            alert('모든 필수 항목을 올바르게 입력하세요!');
+            return;
+        }
+
+        const userResponse = await fetch('/health/user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, userNm, height, weight, gender, bloodType })
+        });
+
+        if (!userResponse.ok) {
+            const error = await userResponse.json();
+            alert(error.message || '사용자 저장에 실패했습니다');
+            return;
+        }
+
+        const logResponse = await fetch('/health/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, sleepHours, steps, stressLevel, heartRate })
+        });
+
+        const result = await logResponse.json();
+        if (result.warning) {
+            console.log(`이상 징후 감지: ${result.messages.join(', ')}`);
+            alert(`이상 징후 감지: ${result.messages.join(', ')}`);
+        } else {
+            alert('건강 데이터가 성공적으로 저장되었습니다');
+        }
+    }
+
+    async function generateReport() {
+        const userId = document.getElementById('reportUserId').value;
+        const period = document.getElementById('period').value;
+        const maxDays = period === 'weekly' ? parseInt(document.getElementById('maxDays').value) : null;
+
+        if (!userId || !period) {
+            alert('User ID와 Period는 필수입니다!');
+            return;
+        }
+
+        document.getElementById('maxDays').disabled = period !== 'weekly';
+
+        const response = await fetch(`/health/report?userId=${userId}&period=${period}${maxDays ? '&maxDays=' + maxDays : ''}`);
+        const data = await response.json();
+
+        if (data.message === '사용 가능한 데이터가 없습니다') {
+            alert('사용 가능한 데이터가 없습니다');
+            return;
+        }
+
+        if (myChart) myChart.destroy();
+        const ctx = document.getElementById('healthChart').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: '수면 시간',
+                        data: data.healthLogs.map(log => ({ x: log.logDate, y: log.sleepHours })),
+                        borderColor: 'blue',
+                        fill: false
+                    },
+                    {
+                        label: '걸음 수',
+                        data: data.healthLogs.map(log => ({ x: log.logDate, y: log.steps })),
+                        borderColor: 'green',
+                        fill: false
+                    },
+                    {
+                        label: '스트레스 수치',
+                        data: data.healthLogs.map(log => ({ x: log.logDate, y: log.stressLevel })),
+                        borderColor: 'red',
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day'
+                        },
+                        title: { display: true, text: '날짜' }
+                    },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const pdfBase64 = data.reportContent;
+        const byteCharacters = atob(pdfBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const pdfBlob = new Blob([byteArray], { type: 'application/pdf' });
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = data.reportFileName;
+        a.click();
+        URL.revokeObjectURL(pdfUrl);
+    }
+
+    document.getElementById('period').addEventListener('change', function() {
+        document.getElementById('maxDays').disabled = this.value !== 'weekly';
+    });
+</script>
+</body>
+</html>
