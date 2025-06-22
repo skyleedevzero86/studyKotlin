@@ -1,3 +1,6 @@
+![image](https://github.com/user-attachments/assets/2d1dc9a9-a94e-4e4e-8ca1-d32e2ecf821f)
+
+
 # 미니 건강 관리 프로젝트 (Ko-Mini-Health)
 
 이 프로젝트는 사용자의 건강 데이터를 수집, 분석하고 리포트를 생성하는 간단한 웹 애플리케이션입니다. Spring Boot와 Kotlin을 사용하여 개발되었습니다.
