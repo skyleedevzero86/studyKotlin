@@ -21,5 +21,6 @@ data class HealthLog(
     var stressLevel: Float = 0f,
     var heartRate: Float = 0f,
     var logDate: LocalDateTime = LocalDateTime.now(),
-    var warning: Boolean = false
+    var warning: Boolean = false,
+    var memo: String? = null
 )

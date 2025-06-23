@@ -71,7 +71,8 @@ class HealthController(
             steps = healthLogDto.steps,
             stressLevel = healthLogDto.stressLevel,
             heartRate = healthLogDto.heartRate,
-            logDate = healthLogDto.logDate
+            logDate = healthLogDto.logDate,
+            memo = healthLogDto.memo // 메모 추가
         )
 
         val anomalyResult = anomalyService.detectAnomaly(healthLog)
@@ -120,7 +121,8 @@ class HealthController(
                     stressLevel = log.stressLevel,
                     heartRate = log.heartRate,
                     logDate = log.logDate,
-                    warning = log.warning
+                    warning = log.warning,
+                    memo = log.memo
                 )
             })
         }
