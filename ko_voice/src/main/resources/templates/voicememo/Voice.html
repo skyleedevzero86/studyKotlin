@@ -181,11 +181,9 @@
 <body>
 <h1>🎤 Voice Memo</h1>
 
-<!-- 성공/에러 메시지 -->
 <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
 <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
-<!-- 음성 녹음 및 텍스트 변환 -->
 <div class="container">
     <h2>🎙️ 음성 녹음 및 텍스트 변환</h2>
 
@@ -227,7 +225,6 @@
     </div>
 </div>
 
-<!-- 텍스트를 음성으로 변환 -->
 <div class="container">
     <h2>🔊 텍스트를 음성으로 변환</h2>
 
@@ -243,22 +240,16 @@
             <div class="form-group">
                 <label for="voice">음성 선택:</label>
                 <select name="voice" id="voice">
-                    <optgroup label="일반 TTS 음성 (권장)">
-                        <option value="alloy" th:selected="${selectedVoice == 'alloy'}">Alloy (중성적)</option>
-                        <option value="echo" th:selected="${selectedVoice == 'echo'}">Echo (남성적)</option>
-                        <option value="fable" th:selected="${selectedVoice == 'fable'}">Fable (영국 억양)</option>
-                        <option value="onyx" th:selected="${selectedVoice == 'onyx'}">Onyx (깊은 목소리)</option>
-                        <option value="nova" th:selected="${selectedVoice == 'nova'}">Nova (여성적)</option>
-                        <option value="shimmer" th:selected="${selectedVoice == 'shimmer'}">Shimmer (부드러운)</option>
-                    </optgroup>
-                    <optgroup label="PlayAI 음성 (약관 동의 필요)">
-                        <option value="Fritz-PlayAI" th:selected="${selectedVoice == 'Fritz-PlayAI'}">Fritz-PlayAI</option>
-                        <option value="Celeste-PlayAI" th:selected="${selectedVoice == 'Celeste-PlayAI'}">Celeste-PlayAI</option>
-                        <option value="Quinn-PlayAI" th:selected="${selectedVoice == 'Quinn-PlayAI'}">Quinn-PlayAI</option>
+                    <optgroup label="Groq PlayAI 음성">
+                        <option th:each="voice : ${voices}"
+                                th:value="${voice}"
+                                th:text="${voice}"
+                                th:selected="${selectedVoice == voice}">
+                        </option>
                     </optgroup>
                 </select>
                 <div class="voice-info">
-                    PlayAI 음성 사용 시 Groq 콘솔에서 약관 동의가 필요합니다.
+                    Groq PlayAI 음성을 사용합니다.
                 </div>
             </div>
         </div>
@@ -269,7 +260,6 @@
     </form>
 </div>
 
-<!-- 생성된 음성 재생 -->
 <div th:if="${audioFile}" class="container">
     <div class="audio-player">
         <h3>🎧 생성된 음성</h3>
@@ -334,18 +324,11 @@
         }
     });
 
-    // 음성 선택 시 정보 업데이트
+    // 음성 선택 시 정보 업데이트 (현재는 PlayAI 음성만 있으므로 간소화)
     document.getElementById('voice').addEventListener('change', function() {
         const voiceInfo = this.parentElement.querySelector('.voice-info');
-        const selectedVoice = this.value;
-
-        if (selectedVoice.includes('PlayAI')) {
-            voiceInfo.textContent = 'PlayAI 음성 사용 시 Groq 콘솔에서 약관 동의가 필요합니다.';
-            voiceInfo.style.color = '#e74c3c';
-        } else {
-            voiceInfo.textContent = '일반 TTS 음성으로 약관 동의 없이 사용 가능합니다.';
-            voiceInfo.style.color = '#27ae60';
-        }
+        voiceInfo.textContent = 'Groq PlayAI 음성을 사용합니다.';
+        voiceInfo.style.color = '#7f8c8d'; // 기본 색상 유지
     });
 </script>
 </body>

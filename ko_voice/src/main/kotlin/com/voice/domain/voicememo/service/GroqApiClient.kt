@@ -57,7 +57,7 @@ class GroqApiClient(
 
                 val result = httpClient.execute(httpPost) { response ->
                     val status = response.code
-                    val responseBody = EntityUtils.toString(response.entity)
+                    val responseBody = EntityUtils.toString(response.entity) // STT는 항상 JSON 응답이므로 OK
 
                     println("STT API Response - Status: $status")
 
@@ -138,6 +138,7 @@ class GroqApiClient(
 
                     when (status) {
                         HttpStatus.SC_OK -> {
+                            // 성공 시에는 에러 바디를 읽지 않고 바로 오디오 데이터를 읽습니다.
                             val data = EntityUtils.toByteArray(response.entity)
                             println("TTS response data size: ${data.size} bytes")
 
@@ -147,40 +148,24 @@ class GroqApiClient(
 
                             data
                         }
-                        HttpStatus.SC_BAD_REQUEST -> {
+                        else -> {
+                            // 에러 응답일 경우에만 바디를 String으로 읽습니다.
                             val errorBody = EntityUtils.toString(response.entity)
                             val errorMessage = parseErrorMessage(errorBody)
 
-
+                            // PlayAI 모델 약관 동의 필요 메시지 처리
                             if (errorBody.contains("model_terms_required")) {
                                 throw IllegalStateException("PlayAI 모델 사용을 위해 약관 동의가 필요합니다. Groq 콘솔에서 약관에 동의하거나 다른 음성을 선택해주세요.")
-                            } else if (errorBody.contains("invalid_model") && request.model == "playai-tts") {
-
-                                println("PlayAI model failed, falling back to tts-1")
-                                val fallbackRequest = request.copy(model = "playai-tts", voice = "alloy")
-                                return@execute generateSpeech(fallbackRequest) // 재귀 호출로 대체 모델 처리
+                            }
+                            // 잘못된 모델 또는 음성 처리
+                            else if (errorBody.contains("voice must be one of the following voices")) {
+                                throw IllegalArgumentException("잘못된 요청: " + errorMessage)
+                            }
+                            else if (errorBody.contains("invalid_model")) {
+                                throw IllegalArgumentException("잘못된 요청: ${request.model}은(는) 유효하지 않은 모델입니다. Groq API 문서를 확인하세요.")
                             }
 
-                            throw IllegalArgumentException("잘못된 요청: $errorMessage")
-                        }
-                        HttpStatus.SC_UNAUTHORIZED -> {
-                            throw IllegalStateException("API 키가 유효하지 않습니다")
-                        }
-                        HttpStatus.SC_TOO_MANY_REQUESTS -> {
-                            throw IllegalStateException("요청 한도 초과. 잠시 후 다시 시도해주세요")
-                        }
-                        HttpStatus.SC_INTERNAL_SERVER_ERROR -> {
-                            if (attempt < MAX_RETRIES - 1) {
-                                println("Server error, retrying... (attempt ${attempt + 1})")
-                                Thread.sleep(RETRY_DELAY_MS * (attempt + 1))
-                                null // 재시도를 위해 null 반환
-                            } else {
-                                throw IllegalStateException("서버 오류가 발생했습니다")
-                            }
-                        }
-                        else -> {
-                            val errorBody = EntityUtils.toString(response.entity)
-                            throw IllegalStateException("TTS API failed with status $status: $errorBody")
+                            throw IllegalStateException("TTS API failed with status $status: $errorMessage")
                         }
                     }
                 }
@@ -219,12 +204,12 @@ class GroqApiClient(
             "response_format" to "wav"
         )
 
-        // 모델별 추가 파라미터
         when (request.model) {
             "playai-tts" -> {
-                requestMap["speed"] = 1.0
-                requestMap["quality"] = "standard"
+                requestMap["speed"] = 1.0 // speed는 유효한 파라미터
+
             }
+
         }
 
         return mapper.writeValueAsString(requestMap)

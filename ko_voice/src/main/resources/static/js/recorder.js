@@ -13,33 +13,27 @@ async function startRecording() {
             stream.getTracks().forEach(track => track.stop());
         }
 
-        // 마이크 권한 요청 및 스트림 획득
         stream = await navigator.mediaDevices.getUserMedia({
             audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-                sampleRate: 44100
+                echoCancellation: true, // 에코 제거
+                noiseSuppression: true, // 노이즈 억제
+                autoGainControl: true,  // 자동 게인 조절
+                sampleRate: 44100       // 샘플 레이트 (일반적으로 호환성 좋음)
             }
         });
 
-        // MediaRecorder 설정
-        const options = {
-            mimeType: 'audio/webm;codecs=opus',
-            audioBitsPerSecond: 128000
-        };
+        let mimeType = 'audio/webm;codecs=opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'audio/webm';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
 
-        // 브라우저 호환성 체크
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options.mimeType = 'audio/webm';
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'audio/mp4';
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    delete options.mimeType;
-                }
+                console.warn('Opus 및 WebM 코덱이 지원되지 않습니다. 다른 기본값으로 시도합니다.');
+
+                mimeType = undefined; // MediaRecorder가 자체적으로 지원하는 가장 좋은 타입을 선택
             }
         }
 
+        const options = mimeType ? { mimeType: mimeType, audioBitsPerSecond: 128000 } : { audioBitsPerSecond: 128000 };
         mediaRecorder = new MediaRecorder(stream, options);
         const chunks = [];
 
@@ -57,40 +51,29 @@ async function startRecording() {
             if (chunks.length === 0) {
                 console.error('No audio data recorded');
                 alert('녹음된 데이터가 없습니다. 다시 시도해주세요.');
+                updateRecordingUI(false); // UI 상태 복원
                 return;
             }
 
-            // 오디오 블롭 생성
-            const mimeType = mediaRecorder.mimeType || 'audio/webm';
-            audioBlob = new Blob(chunks, { type: mimeType });
+            const recordedMimeType = mediaRecorder.mimeType;
+            audioBlob = new Blob(chunks, { type: recordedMimeType });
 
             console.log('Audio blob created:', {
                 size: audioBlob.size,
-                type: mimeType
+                type: recordedMimeType
             });
 
-            // WAV 형식으로 변환 (가능한 경우)
-            try {
-                const wavBlob = await convertToWav(audioBlob);
-                audioBlob = wavBlob;
-                console.log('Converted to WAV:', audioBlob.size, 'bytes');
-            } catch (e) {
-                console.warn('WAV conversion failed, using original format:', e);
-            }
-
-            // 파일 입력 요소에 설정
-            const audioInput = document.getElementById('audioInput');
-            const fileName = `recording_${Date.now()}.wav`;
-            const file = new File([audioBlob], fileName, { type: 'audio/wav' });
+            const fileName = `recording_${Date.now()}.wav`; // 확장자만 WAV로 설정
+            const file = new File([audioBlob], fileName, { type: audioBlob.type }); // Blob의 실제 타입을 File에 전달
 
             const dataTransfer = new DataTransfer();
             dataTransfer.items.add(file);
-            audioInput.files = dataTransfer.files;
+            document.getElementById('audioInput').files = dataTransfer.files;
 
             console.log('Audio file ready:', {
                 name: fileName,
                 size: file.size,
-                type: file.type
+                type: file.type // 실제 Blob 타입이 여기에 들어감
             });
 
             // UI 업데이트
@@ -102,13 +85,13 @@ async function startRecording() {
 
         mediaRecorder.onerror = event => {
             console.error('MediaRecorder error:', event.error);
-            alert('녹음 중 오류가 발생했습니다: ' + event.error.message);
+            alert('녹음 중 오류가 발생했습니다: ' + event.error.name + ' - ' + event.error.message);
             updateRecordingUI(false);
         };
 
         // 녹음 시작
         mediaRecorder.start(1000); // 1초마다 데이터 수집
-        console.log('Recording started with format:', mediaRecorder.mimeType);
+        console.log('Recording started with MIME type:', mediaRecorder.mimeType);
 
         // UI 업데이트
         updateRecordingUI(true);
@@ -132,6 +115,10 @@ async function startRecording() {
             errorMessage += '마이크를 찾을 수 없습니다. 마이크가 연결되어 있는지 확인해주세요.';
         } else if (err.name === 'NotSupportedError') {
             errorMessage += '이 브라우저에서는 녹음 기능을 지원하지 않습니다.';
+        } else if (err.name === 'SecurityError') {
+            errorMessage += '보안상의 이유로 마이크 접근이 거부되었습니다. 웹사이트가 HTTPS로 제공되는지 확인해주세요.';
+        } else if (err.name === 'AbortError') {
+            errorMessage += '기기 문제로 마이크 접근이 중단되었습니다.';
         } else {
             errorMessage += err.message;
         }
@@ -211,38 +198,26 @@ function showRecordingComplete(fileSize) {
     }
 }
 
-// WebM을 WAV로 변환하는 함수 (간단한 구현)
-async function convertToWav(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function() {
-            // 실제 변환 로직은 복잡하므로, 여기서는 단순히 이름만 변경
-            // 실제 프로덕션에서는 Web Audio API를 사용한 완전한 변환이 필요
-            const wavBlob = new Blob([blob], { type: 'audio/wav' });
-            resolve(wavBlob);
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(blob);
-    });
-}
-
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
-    // 브라우저 지원 체크
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('이 브라우저에서는 녹음 기능을 지원하지 않습니다. 최신 브라우저를 사용해주세요.');
-        document.getElementById('startRecord').disabled = true;
-        return;
-    }
+    // MediaDevices 및 MediaRecorder API 지원 여부 확인
+    const isMediaDevicesSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    const isMediaRecorderSupported = !!window.MediaRecorder;
 
-    // MediaRecorder 지원 체크
-    if (!window.MediaRecorder) {
-        alert('이 브라우저에서는 MediaRecorder를 지원하지 않습니다.');
+    if (!isMediaDevicesSupported) {
+        alert('이 브라우저는 마이크 접근을 지원하지 않습니다. 최신 브라우저를 사용해주세요 (예: Chrome, Firefox, Safari).');
         document.getElementById('startRecord').disabled = true;
-        return;
+    } else if (!isMediaRecorderSupported) {
+        alert('이 브라우저는 음성 녹음 기능을 지원하지 않습니다. 최신 브라우저를 사용해주세요.');
+        document.getElementById('startRecord').disabled = true;
+    } else {
+        console.log('Audio recording initialized successfully. MediaDevices and MediaRecorder are supported.');
+        // HTTPS 여부 확인 (개발 환경에서는 localhost가 HTTP여도 허용될 수 있음)
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            alert('마이크 접근은 보안 연결(HTTPS)이 필요합니다. 현재 연결은 안전하지 않습니다.');
+            document.getElementById('startRecord').disabled = true;
+        }
     }
-
-    console.log('Audio recording initialized successfully');
 });
 
 // 페이지 언로드 시 정리
@@ -256,6 +231,5 @@ window.addEventListener('beforeunload', function() {
 document.addEventListener('visibilitychange', function() {
     if (document.hidden && mediaRecorder && mediaRecorder.state === 'recording') {
         console.log('Tab hidden, continuing recording...');
-        // 필요에 따라 녹음을 중지하거나 계속할 수 있음
     }
 });

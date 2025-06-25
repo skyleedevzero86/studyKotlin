@@ -84,8 +84,8 @@ class VoiceService(
             throw IllegalArgumentException("텍스트가 비어있습니다.")
         }
 
-        // 음성 모델 결정
-        val model = determineModel(voice)
+        val model = "playai-tts" // voice 값에 관계없이 PlayAI TTS 모델로 고정
+
         val request = SpeechRequest(model = model, text = text, voice = voice)
 
         return try {
@@ -119,16 +119,6 @@ class VoiceService(
         }
     }
 
-    /**
-     * 음성에 따라 적절한 모델 결정
-     */
-    private fun determineModel(voice: String): String {
-        return when {
-            voice.contains("PlayAI", ignoreCase = true) -> "playai-tts"
-            voice in listOf("alloy", "echo", "fable", "onyx", "nova", "shimmer") -> "playai-tts"
-            else -> "playai-tts" // 기본값
-        }
-    }
 
     /**
      * 업로드 디렉토리의 오래된 파일들을 정리

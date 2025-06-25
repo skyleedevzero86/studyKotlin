@@ -17,10 +17,15 @@ class VoiceController(
     private val voiceService: VoiceService,
     private val uploadDir: File
 ) {
-    // Supported voices (OpenAI and PlayAI voices)
+
     private val supportedVoices = listOf(
-        "alloy", "echo", "fable", "onyx", "nova", "shimmer",
-        "Fritz-PlayAI", "Celeste-PlayAI", "Quinn-PlayAI"
+        "Aaliyah-PlayAI", "Adelaide-PlayAI", "Angelo-PlayAI", "Arista-PlayAI",
+        "Atlas-PlayAI", "Basil-PlayAI", "Briggs-PlayAI", "Calum-PlayAI",
+        "Celeste-PlayAI", "Cheyenne-PlayAI", "Chip-PlayAI", "Cillian-PlayAI",
+        "Deedee-PlayAI", "Eleanor-PlayAI", "Fritz-PlayAI", "Gail-PlayAI",
+        "Indigo-PlayAI", "Jennifer-PlayAI", "Judy-PlayAI", "Mamaw-PlayAI",
+        "Mason-PlayAI", "Mikail-PlayAI", "Mitch-PlayAI", "Nia-PlayAI",
+        "Quinn-PlayAI", "Ruby-PlayAI", "Thunder-PlayAI"
     )
 
     @GetMapping("/voice")
@@ -74,6 +79,8 @@ class VoiceController(
         try {
             if (text.isBlank()) {
                 model.addAttribute("error", "텍스트를 입력해주세요.")
+            } else if (voice !in supportedVoices) { // 선택된 목소리가 지원 목록에 있는지 확인
+                model.addAttribute("error", "선택하신 음성(${voice})은 PlayAI 모델에서 지원하지 않습니다. 목록에서 선택해주세요.")
             } else {
                 val audioFileName = voiceService.processTextToSpeech(text, voice)
                 model.addAttribute("audioFile", "/audio/$audioFileName")
@@ -86,19 +93,21 @@ class VoiceController(
             println("TTS error: ${e.message}")
             e.printStackTrace()
 
-            // Specific error messages
+
             val errorMessage = when {
                 e.message?.contains("model_terms_required") == true ->
-                    "PlayAI 모델 사용을 위해 약관 동의가 필요합니다. 일반 TTS 음성(alloy, echo, fable 등)을 사용해보세요."
+                    "PlayAI 모델 사용을 위해 약관 동의가 필요합니다. Groq 콘솔에서 약관에 동의하거나 다른 PlayAI 음성을 선택해주세요."
                 e.message?.contains("insufficient_quota") == true ->
                     "API 할당량이 부족합니다. 나중에 다시 시도해주세요."
                 e.message?.contains("invalid_api_key") == true ->
                     "API 키가 유효하지 않습니다. 설정을 확인해주세요."
+                e.message?.contains("voice must be one of the following voices") == true ->
+                    "선택하신 음성은 PlayAI 모델에서 지원하지 않습니다. 다른 PlayAI 음성을 선택해주세요."
                 else -> "음성 생성 중 오류 발생: ${e.message}"
             }
             model.addAttribute("error", errorMessage)
         }
-        // Always add attributes to model before returning the view
+
         model.addAttribute("voices", supportedVoices)
         model.addAttribute("languages", listOf(
             "ko" to "한국어",
