@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Memo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select, textarea, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .record-button {
+            background: #e74c3c;
+        }
+
+        .record-button:hover {
+            background: #c0392b;
+        }
+
+        .record-button.recording {
+            background: #27ae60;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .result-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .audio-player {
+            background: #ecf0f1;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        .recording-indicator {
+            display: none;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .recording-indicator.active {
+            display: block;
+        }
+
+        .voice-info {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+    </style>
+    <script src="/js/recorder.js"></script>
+</head>
+<body>
+<h1>🎤 Voice Memo</h1>
+
+<!-- 성공/에러 메시지 -->
+<div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+<div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+
+<!-- 음성 녹음 및 텍스트 변환 -->
+<div class="container">
+    <h2>🎙️ 음성 녹음 및 텍스트 변환</h2>
+
+    <div class="button-group">
+        <button type="button" class="record-button" id="startRecord" onclick="startRecording()">
+            🔴 녹음 시작
+        </button>
+        <button type="button" class="record-button" id="stopRecord" onclick="stopRecording()" disabled>
+            ⏹️ 녹음 중지
+        </button>
+    </div>
+
+    <div class="recording-indicator" id="recordingIndicator">
+        🔴 녹음 중... 말씀해 주세요
+    </div>
+
+    <form id="transcribeForm" method="post" enctype="multipart/form-data" action="/transcribe">
+        <input type="file" name="audio" id="audioInput" accept="audio/*" style="display: none;">
+
+        <div class="form-group">
+            <label for="language">언어 선택:</label>
+            <select name="language" id="language">
+                <option th:each="lang : ${languages}"
+                        th:value="${lang.first}"
+                        th:text="${lang.second}"
+                        th:selected="${lang.first == 'ko'}">
+                </option>
+            </select>
+        </div>
+
+        <button type="submit" onclick="return validateTranscribeForm()">
+            📝 텍스트로 변환
+        </button>
+    </form>
+
+    <div th:if="${transcript}" class="result-box">
+        <strong>변환된 텍스트:</strong>
+        <p th:text="${transcript}"></p>
+    </div>
+</div>
+
+<!-- 텍스트를 음성으로 변환 -->
+<div class="container">
+    <h2>🔊 텍스트를 음성으로 변환</h2>
+
+    <form method="post" action="/generate">
+        <div class="form-group">
+            <label for="text">텍스트 입력:</label>
+            <textarea name="text" id="text" placeholder="음성으로 변환할 텍스트를 입력하세요..."
+                      th:text="${generatedText}"></textarea>
+            <div class="status">최대 4,096자까지 입력 가능합니다.</div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="voice">음성 선택:</label>
+                <select name="voice" id="voice">
+                    <optgroup label="일반 TTS 음성 (권장)">
+                        <option value="alloy" th:selected="${selectedVoice == 'alloy'}">Alloy (중성적)</option>
+                        <option value="echo" th:selected="${selectedVoice == 'echo'}">Echo (남성적)</option>
+                        <option value="fable" th:selected="${selectedVoice == 'fable'}">Fable (영국 억양)</option>
+                        <option value="onyx" th:selected="${selectedVoice == 'onyx'}">Onyx (깊은 목소리)</option>
+                        <option value="nova" th:selected="${selectedVoice == 'nova'}">Nova (여성적)</option>
+                        <option value="shimmer" th:selected="${selectedVoice == 'shimmer'}">Shimmer (부드러운)</option>
+                    </optgroup>
+                    <optgroup label="PlayAI 음성 (약관 동의 필요)">
+                        <option value="Fritz-PlayAI" th:selected="${selectedVoice == 'Fritz-PlayAI'}">Fritz-PlayAI</option>
+                        <option value="Celeste-PlayAI" th:selected="${selectedVoice == 'Celeste-PlayAI'}">Celeste-PlayAI</option>
+                        <option value="Quinn-PlayAI" th:selected="${selectedVoice == 'Quinn-PlayAI'}">Quinn-PlayAI</option>
+                    </optgroup>
+                </select>
+                <div class="voice-info">
+                    PlayAI 음성 사용 시 Groq 콘솔에서 약관 동의가 필요합니다.
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" onclick="return validateGenerateForm()">
+            🎵 음성 생성
+        </button>
+    </form>
+</div>
+
+<!-- 생성된 음성 재생 -->
+<div th:if="${audioFile}" class="container">
+    <div class="audio-player">
+        <h3>🎧 생성된 음성</h3>
+        <audio controls preload="metadata">
+            <source th:src="${audioFile}" type="audio/wav">
+            Your browser does not support the audio element.
+        </audio>
+        <div class="status">
+            음성: <span th:text="${selectedVoice}"></span> |
+            텍스트: <span th:text="${#strings.abbreviate(generatedText, 50)}"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 폼 검증 함수들
+    function validateTranscribeForm() {
+        const audioInput = document.getElementById('audioInput');
+        if (!audioInput.files || audioInput.files.length === 0) {
+            alert('먼저 음성을 녹음해주세요.');
+            return false;
+        }
+
+        // 파일 크기 체크 (25MB)
+        const file = audioInput.files[0];
+        if (file.size > 25 * 1024 * 1024) {
+            alert('음성 파일이 너무 큽니다. 25MB 이하의 파일을 사용해주세요.');
+            return false;
+        }
+
+        return true;
+    }
+
+    function validateGenerateForm() {
+        const text = document.getElementById('text').value.trim();
+        if (!text) {
+            alert('텍스트를 입력해주세요.');
+            return false;
+        }
+
+        if (text.length > 4096) {
+            alert('텍스트가 너무 깁니다. 4,096자 이하로 입력해주세요.');
+            return false;
+        }
+
+        return true;
+    }
+
+    // 텍스트 길이 카운터
+    document.getElementById('text').addEventListener('input', function() {
+        const text = this.value;
+        const remaining = 4096 - text.length;
+        const status = this.parentElement.querySelector('.status');
+        status.textContent = `${text.length}/4,096자 (${remaining}자 남음)`;
+
+        if (remaining < 0) {
+            status.style.color = '#e74c3c';
+        } else if (remaining < 100) {
+            status.style.color = '#f39c12';
+        } else {
+            status.style.color = '#7f8c8d';
+        }
+    });
+
+    // 음성 선택 시 정보 업데이트
+    document.getElementById('voice').addEventListener('change', function() {
+        const voiceInfo = this.parentElement.querySelector('.voice-info');
+        const selectedVoice = this.value;
+
+        if (selectedVoice.includes('PlayAI')) {
+            voiceInfo.textContent = 'PlayAI 음성 사용 시 Groq 콘솔에서 약관 동의가 필요합니다.';
+            voiceInfo.style.color = '#e74c3c';
+        } else {
+            voiceInfo.textContent = '일반 TTS 음성으로 약관 동의 없이 사용 가능합니다.';
+            voiceInfo.style.color = '#27ae60';
+        }
+    });
+</script>
+</body>
+</html>
