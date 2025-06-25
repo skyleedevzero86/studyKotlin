@@ -52,8 +52,10 @@ class SpeechController {
                 add("model", model)
                 add("language", language)
                 add("response_format", "verbose_json")
-                add("timestamp_granularities", "word")
-                add("timestamp_granularities", "segment")
+                // --- FIX IS HERE: Removed timestamp_granularities parameters ---
+                // add("timestamp_granularities", "word")
+                // add("timestamp_granularities", "segment")
+                // --- END FIX ---
             }
 
             val request = HttpEntity(body, headers)
@@ -84,7 +86,7 @@ class SpeechController {
     @PostMapping("/text-to-speech")
     @ResponseBody
     fun textToSpeech(
-        @RequestBody requestBodyMap: Map<String, Any> // JSON 요청 본문을 Map으로 받음
+        @RequestBody requestBodyMap: Map<String, Any>
     ): ResponseEntity<ByteArray> {
         return try {
             val headers = HttpHeaders().apply {
@@ -92,7 +94,6 @@ class SpeechController {
                 contentType = MediaType.APPLICATION_JSON
             }
 
-            // Map에서 값 추출
             val text = requestBodyMap["text"] as? String ?: ""
             val voice = requestBodyMap["voice"] as? String ?: "Fritz-PlayAI"
             val model = requestBodyMap["model"] as? String ?: "playai-tts"
@@ -106,7 +107,7 @@ class SpeechController {
 
             val request = HttpEntity(requestBody, headers)
             val response = restTemplate.postForEntity(
-                "$baseUrl/audio/speech", // Groq API 기준 endpoint
+                "$baseUrl/audio/speech",
                 request,
                 ByteArray::class.java
             )
