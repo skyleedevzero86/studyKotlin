@@ -1,3 +1,5 @@
+![img.png](img.png)
+
 # 설문조사 시스템 (Survey Management System)
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-blue.svg)](https://kotlinlang.org/)
