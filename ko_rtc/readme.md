@@ -1,5 +1,9 @@
 # WebRTC 1:1 화상통화 애플리케이션
 
+![image](https://github.com/user-attachments/assets/a904815f-d5cb-4619-a3b7-a45086c2b190)
+
+<br/>
+
 Spring WebFlux와 Thymeleaf를 기반으로 한 실시간 1:1 화상통화 애플리케이션입니다.
 
 ## 🚀 주요 기능
