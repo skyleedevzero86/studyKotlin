@@ -298,108 +298,6 @@ GET    /api/v1/surveys/{id}/statistics/stream    # 실시간 통계 스트림
 GET    /api/v1/surveys/{id}/export               # 결과 내보내기
 ```
 
-### ERD
-
-```mermaid
-erDiagram
-    %% 설문조사 시스템 ERD
-    
-    SURVEY {
-        bigint id PK "설문 ID"
-        varchar title "설문 제목"
-        text description "설문 설명"
-        date start_date "시작일"
-        date end_date "종료일"
-        varchar status "상태(DRAFT,ACTIVE,COMPLETED,CANCELLED)"
-        varchar target_age_groups "대상 연령대(JSON)"
-        varchar target_genders "대상 성별(JSON)"
-        varchar target_regions "대상 지역(JSON)"
-        timestamp created_at "생성일시"
-        timestamp updated_at "수정일시"
-        bigint created_by "생성자 ID"
-    }
-    
-    QUESTION {
-        bigint id PK "질문 ID"
-        bigint survey_id FK "설문 ID"
-        text question_text "질문 내용"
-        varchar question_type "질문 유형(SINGLE_CHOICE,MULTIPLE_CHOICE,TEXT,TEXTAREA)"
-        int question_order "질문 순서"
-        boolean is_required "필수 여부"
-        text conditional_logic "조건부 로직(JSON)"
-        timestamp created_at "생성일시"
-    }
-    
-    CHOICE {
-        bigint id PK "선택지 ID"
-        bigint question_id FK "질문 ID"
-        varchar choice_text "선택지 텍스트"
-        int choice_order "선택지 순서"
-        timestamp created_at "생성일시"
-    }
-    
-    PARTICIPANT {
-        bigint id PK "참여자 ID"
-        varchar name "이름"
-        varchar phone_number "전화번호"
-        varchar email "이메일"
-        varchar age_group "연령대(TEENS,TWENTIES,THIRTIES,FORTIES,FIFTIES_PLUS)"
-        varchar gender "성별(MALE,FEMALE,OTHER)"
-        varchar region "지역"
-        timestamp created_at "생성일시"
-        timestamp updated_at "수정일시"
-    }
-    
-    RESPONSE {
-        bigint id PK "응답 ID"
-        bigint survey_id FK "설문 ID"
-        bigint participant_id FK "참여자 ID"
-        varchar status "응답 상태(IN_PROGRESS,COMPLETED,EXPIRED)"
-        timestamp started_at "응답 시작일시"
-        timestamp submitted_at "제출일시"
-        double completion_rate "완료율"
-    }
-    
-    ANSWER {
-        bigint id PK "답변 ID"
-        bigint response_id FK "응답 ID"
-        bigint question_id FK "질문 ID"
-        text text_value "텍스트 답변"
-        text choice_ids "선택한 선택지 ID들(JSON)"
-        double numeric_value "숫자 답변"
-        timestamp created_at "생성일시"
-    }
-    
-    SURVEY_STATISTICS {
-        bigint id PK "통계 ID"
-        bigint survey_id FK "설문 ID"
-        int total_participants "총 참여자 수"
-        int completed_responses "완료된 응답 수"
-        double response_rate "응답률"
-        date statistics_date "통계 생성일"
-        text demographics_stats "인구통계 통계(JSON)"
-        timestamp created_at "생성일시"
-    }
-    
-    QUESTION_STATISTICS {
-        bigint id PK "질문별 통계 ID"
-        bigint survey_id FK "설문 ID"
-        bigint question_id FK "질문 ID"
-        text choice_statistics "선택지별 통계(JSON)"
-        text text_analysis "텍스트 분석 결과(JSON)"
-        timestamp created_at "생성일시"
-    }
-    
-    %% 관계 정의
-    SURVEY ||--o{ QUESTION : "has"
-    QUESTION ||--o{ CHOICE : "has"
-    SURVEY ||--o{ RESPONSE : "receives"
-    PARTICIPANT ||--o{ RESPONSE : "submits"
-    RESPONSE ||--o{ ANSWER : "contains"
-    QUESTION ||--o{ ANSWER : "answered_in"
-    SURVEY ||--o{ SURVEY_STATISTICS : "has"
-    SURVEY ||--o{ QUESTION_STATISTICS : "has"
-    QUESTION ||--o{ QUESTION_STATISTICS : "analyzed_in"
 
 
 ## 🧪 테스트 전략
@@ -445,7 +343,11 @@ erDiagram
 ### 성능 최적화
 - **반응형 스트림**: 백프레셀 기반 메모리 효율적 처리
 - **인덱스 최적화**: 쿼리 성능을 위한 복합 인덱스
-- **배치 처리**: 대량 통계 계산의 비동기 처리
+- **배치 처리**: 대량 통계 계산의 비동기 처리 
+ 
+## ERD
+![image](https://github.com/user-attachments/assets/0b22c6e0-3ac2-4ed9-a41d-9b7abc4bed93)
+
 
 ## 🤝 기여 가이드
 
@@ -469,6 +371,7 @@ test: 테스트 추가/수정
 
 
 ---
+
 
 ## 🎯 향후 로드맵
 
