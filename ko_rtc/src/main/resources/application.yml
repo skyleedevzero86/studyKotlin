@@ -16,21 +16,29 @@ spring:
   application:
     name: ko_rtc
 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
   r2dbc:
     url: r2dbc:h2:mem:///testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password: ""
 
-  h2:
-    console:
-      enabled: true
+  sql:
+    init:
+      mode: always
 
 logging:
   level:
-    com.example.videocall: DEBUG
-    org.springframework.web.reactive.socket: DEBUG
+    com.sleekydz86.videocall: DEBUG
+    org.springframework.web: DEBUG
+    reactor.netty: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
 info:
   app:

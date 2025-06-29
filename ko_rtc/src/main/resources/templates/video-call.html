@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${roomName} + ' - 화상통화'">화상통화</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📹</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f0f0f;
+            color: white;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        }
+
+        .main-video {
+            flex: 1;
+            position: relative;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .remote-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #1a1a1a;
+            transition: all 0.3s ease;
+        }
+
+        .local-video-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            height: 210px;
+            background: #333;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 3px solid #667eea;
+            z-index: 10;
+            transition: all 0.3s ease;
+            cursor: move;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .local-video-container:hover {
+            border-color: #5a6fd8;
+            transform: scale(1.02);
+        }
+
+        .local-video-container.minimized {
+            width: 150px;
+            height: 112px;
+            bottom: 120px;
+            right: 20px;
+            top: auto;
+        }
+
+        .local-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* 거울 효과 */
+        }
+
+        .video-controls-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 11;
+            display: flex;
+            gap: 5px;
+        }
+
+        .overlay-btn {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .minimize-btn {
+            background: rgba(255, 193, 7, 0.8);
+        }
+
+        .minimize-btn:hover {
+            background: rgba(255, 193, 7, 1);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 25px;
+            border-radius: 50px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .control-btn {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .control-btn:hover::before {
+            opacity: 1;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-video {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-audio {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-screen {
+            background: linear-gradient(135deg, #17a2b8 0%, #007bff 100%);
+            color: white;
+        }
+
+        .btn-settings {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+
+        .btn-end {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-video.off, .btn-audio.off, .btn-screen.off {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            opacity: 0.7;
+        }
+
+        .room-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.1);
+            min-width: 250px;
+        }
+
+        .room-info h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .info-label {
+            color: #ccc;
+        }
+
+        .info-value {
+            color: white;
+            font-weight: 500;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-connected {
+            background: rgba(40, 167, 69, 0.2);
+            color: #28a745;
+            border: 1px solid #28a745;
+        }
+
+        .status-connecting {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid #ffc107;
+        }
+
+        .status-disconnected {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+
+        .status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+            max-width: 500px;
+            padding: 30px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .status h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+            font-size: 1.8rem;
+        }
+
+        .status p {
+            margin-bottom: 0.8rem;
+            color: #ccc;
+            line-height: 1.5;
+        }
+
+        .room-id-display {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 1px solid #667eea;
+        }
+
+        .room-id-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: #667eea;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .spinner {
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .quality-indicator {
+            position: absolute;
+            top: 20px;
+            right: 320px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            z-index: 10;
+        }
+
+        .quality-bars {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            height: 20px;
+        }
+
+        .quality-bar {
+            width: 3px;
+            background: #666;
+            border-radius: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .quality-bar.active {
+            background: #28a745;
+        }
+
+        .quality-bar:nth-child(1) { height: 6px; }
+        .quality-bar:nth-child(2) { height: 10px; }
+        .quality-bar:nth-child(3) { height: 14px; }
+        .quality-bar:nth-child(4) { height: 18px; }
+        .quality-bar:nth-child(5) { height: 20px; }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .settings-panel {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            z-index: 15;
+            display: none;
+            min-width: 300px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .settings-panel.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .settings-item {
+            margin-bottom: 15px;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .settings-select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .settings-select option {
+            background: #333;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .local-video-container {
+                width: 150px;
+                height: 112px;
+                top: 10px;
+                right: 10px;
+            }
+
+            .room-info {
+                top: 10px;
+                left: 10px;
+                padding: 10px 15px;
+                min-width: 200px;
+            }
+
+            .controls {
+                gap: 15px;
+                padding: 10px 20px;
+            }
+
+            .control-btn {
+                width: 55px;
+                height: 55px;
+                font-size: 1.4rem;
+            }
+
+            .quality-indicator {
+                right: 170px;
+                top: 10px;
+            }
+
+            .settings-panel {
+                left: 10px;
+                right: 10px;
+                transform: none;
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="video-container">
+    <div class="room-info">
+        <h3 th:text="${roomName}">방 이름</h3>
+        <div class="info-item">
+            <span class="info-label">사용자:</span>
+            <span class="info-value" th:text="${userName}">사용자명</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">상태:</span>
+            <span id="connectionStatus" class="connection-status status-connecting">연결 중</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">참가자:</span>
+            <span id="participantCount" class="info-value">1/2</span>
+        </div>
+    </div>
+
+    <div class="quality-indicator">
+        <div style="margin-bottom: 5px; color: #ccc;">연결 품질</div>
+        <div class="quality-bars">
+            <div class="quality-bar"></div>
+            <div class="quality-bar"></div>
+            <div class="quality-bar"></div>
+            <div class="quality-bar"></div>
+            <div class="quality-bar"></div>
+        </div>
+    </div>
+
+    <div class="main-video">
+        <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+        <div class="status" id="statusMessage">
+            <div class="spinner"></div>
+            <h2>상대방을 기다리는 중...</h2>
+            <p>아래 방 ID를 친구에게 공유하여 초대하세요</p>
+            <div class="room-id-display">
+                <div class="room-id-text" th:text="${roomId}">방 ID</div>
+                <button class="copy-btn" onclick="copyRoomId()">📋 복사하기</button>
+            </div>
+            <p style="font-size: 0.9rem; color: #999;">
+                💡 상대방이 참가하면 자동으로 연결됩니다
+            </p>
+        </div>
+    </div>
+
+    <div class="local-video-container" id="localVideoContainer">
+        <div class="video-controls-overlay">
+            <button class="overlay-btn minimize-btn" onclick="toggleMinimize()" title="최소화">−</button>
+        </div>
+        <video id="localVideo" class="local-video" autoplay muted playsinline></video>
+    </div>
+
+    <div class="controls">
+        <button id="videoBtn" class="control-btn btn-video" title="비디오 토글">📹</button>
+        <button id="audioBtn" class="control-btn btn-audio" title="오디오 토글">🎤</button>
+        <button id="screenBtn" class="control-btn btn-screen" title="화면 공유">🖥️</button>
+        <button id="settingsBtn" class="control-btn btn-settings" title="설정">⚙️</button>
+        <button id="endBtn" class="control-btn btn-end" title="통화 종료">📞</button>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-item">
+            <label class="settings-label">카메라 선택</label>
+            <select class="settings-select" id="cameraSelect"></select>
+        </div>
+        <div class="settings-item">
+            <label class="settings-label">마이크 선택</label>
+            <select class="settings-select" id="microphoneSelect"></select>
+        </div>
+        <div class="settings-item">
+            <label class="settings-label">화질 설정</label>
+            <select class="settings-select" id="qualitySelect">
+                <option value="480p">480p (낮음)</option>
+                <option value="720p" selected>720p (보통)</option>
+                <option value="1080p">1080p (높음)</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script th:inline="javascript">
+    const roomId = /*[[${roomId}]]*/ '';
+    const userId = /*[[${userId}]]*/ '';
+    const userName = /*[[${userName}]]*/ '';
+
+    let localStream = null;
+    let remoteStream = null;
+    let peerConnection = null;
+    let websocket = null;
+    let isVideoEnabled = true;
+    let isAudioEnabled = true;
+    let isScreenSharing = false;
+    let originalVideoStream = null;
+
+    const configuration = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+    };
+
+    // DOM 요소들
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const videoBtn = document.getElementById('videoBtn');
+    const audioBtn = document.getElementById('audioBtn');
+    const screenBtn = document.getElementById('screenBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const endBtn = document.getElementById('endBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const participantCount = document.getElementById('participantCount');
+    const settingsPanel = document.getElementById('settingsPanel');
+
+    // 초기화
+    async function init() {
+        try {
+            // HTTPS/localhost 체크
+            if (!isSecureContext()) {
+                throw new Error('SECURITY_ERROR: 보안 연결이 필요합니다. HTTPS 또는 localhost를 사용해주세요.');
+            }
+
+            // 미디어 디바이스 지원 체크
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('UNSUPPORTED: 이 브라우저는 WebRTC를 지원하지 않습니다.');
+            }
+
+            // 권한 사전 체크
+            const permissions = await checkMediaPermissions();
+            if (!permissions.camera && !permissions.microphone) {
+                throw new Error('PERMISSION_DENIED: 카메라와 마이크 권한이 모두 거부되었습니다.');
+            }
+
+            showToast('카메라와 마이크에 접근하는 중...', 'info');
+
+            // 로컬 미디어 스트림 획득 (단계적 접근)
+            localStream = await getMediaStream();
+            localVideo.srcObject = localStream;
+
+            showToast('미디어 스트림 획득 성공!', 'success');
+
+            // WebSocket 연결
+            connectWebSocket();
+
+            // 컨트롤 버튼 이벤트 리스너
+            setupControlButtons();
+
+        } catch (error) {
+            console.error('초기화 실패:', error);
+            handleInitError(error);
+        }
+    }
+
+    function isSecureContext() {
+        return window.isSecureContext || location.protocol === 'https:' ||
+            location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+
+    // WebSocket 연결
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/signaling?roomId=${roomId}`;
+        websocket = new WebSocket(wsUrl);
+
+        websocket.onopen = () => {
+            console.log('WebSocket 연결됨');
+            updateConnectionStatus('connected');
+
+            // 방 참가 메시지 전송
+            sendMessage({
+                type: 'JOIN_ROOM',
+                roomId: roomId,
+                fromUserId: userId,
+                data: { userName: userName }
+            });
+        };
+
+        websocket.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+            await handleSignalingMessage(message);
+        };
+
+        websocket.onclose = () => {
+            console.log('WebSocket 연결 종료');
+            updateConnectionStatus('disconnected');
+            showToast('서버 연결이 끊어졌습니다', 'error');
+        };
+
+        websocket.onerror = (error) => {
+            console.error('WebSocket 오류:', error);
+            updateConnectionStatus('disconnected');
+            showToast('연결 오류가 발생했습니다', 'error');
+        };
+    }
+
+    // 시그널링 메시지 처리
+    async function handleSignalingMessage(message) {
+        console.log('시그널링 메시지 수신:', message);
+
+        switch (message.type) {
+            case 'USER_JOINED':
+                if (message.fromUserId !== userId) {
+                    participantCount.textContent = '2/2';
+                    statusMessage.innerHTML = `
+                            <div class="spinner"></div>
+                            <h2>🤝 ${message.data?.userName || '상대방'}님이 참가했습니다</h2>
+                            <p>연결을 설정하는 중...</p>
+                        `;
+                    showToast(`${message.data?.userName || '상대방'}님이 참가했습니다`, 'success');
+                    await createPeerConnection();
+                    await createOffer();
+                }
+                break;
+
+            case 'OFFER':
+                if (message.toUserId === userId || !message.toUserId) {
+                    await handleOffer(message.data);
+                }
+                break;
+
+            case 'ANSWER':
+                if (message.toUserId === userId || !message.toUserId) {
+                    await handleAnswer(message.data);
+                }
+                break;
+
+            case 'ICE_CANDIDATE':
+                if (message.toUserId === userId || !message.toUserId) {
+                    await handleIceCandidate(message.data);
+                }
+                break;
+
+            case 'USER_LEFT':
+                if (message.fromUserId !== userId) {
+                    handleUserLeft();
+                }
+                break;
+        }
+    }
+
+    // Peer Connection 생성
+    async function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(configuration);
+
+        // 로컬 스트림 추가
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+
+        // 원격 스트림 처리
+        peerConnection.ontrack = (event) => {
+            console.log('원격 스트림 수신');
+            remoteStream = event.streams[0];
+            remoteVideo.srcObject = remoteStream;
+            statusMessage.style.display = 'none';
+            showToast('연결 완료! 통화를 시작합니다', 'success');
+        };
+
+        // ICE 후보 처리
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendMessage({
+                    type: 'ICE_CANDIDATE',
+                    roomId: roomId,
+                    fromUserId: userId,
+                    data: event.candidate
+                });
+            }
+        };
+
+        // 연결 상태 모니터링
+        peerConnection.onconnectionstatechange = () => {
+            const state = peerConnection.connectionState;
+            console.log('연결 상태:', state);
+
+            switch (state) {
+                case 'connected':
+                    updateConnectionStatus('connected');
+                    statusMessage.style.display = 'none';
+                    break;
+                case 'connecting':
+                    updateConnectionStatus('connecting');
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    updateConnectionStatus('disconnected');
+                    handleUserLeft();
+                    break;
+            }
+        };
+
+        // 통계 수집 시작
+        startStatsCollection();
+    }
+
+    // Offer 생성
+    async function createOffer() {
+        try {
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            await peerConnection.setLocalDescription(offer);
+
+            sendMessage({
+                type: 'OFFER',
+                roomId: roomId,
+                fromUserId: userId,
+                data: offer
+            });
+        } catch (error) {
+            console.error('Offer 생성 실패:', error);
+            showToast('연결 설정 중 오류가 발생했습니다', 'error');
+        }
+    }
+
+    // Offer 처리
+    async function handleOffer(offer) {
+        try {
+            if (!peerConnection) {
+                await createPeerConnection();
+            }
+
+            await peerConnection.setRemoteDescription(offer);
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            sendMessage({
+                type: 'ANSWER',
+                roomId: roomId,
+                fromUserId: userId,
+                data: answer
+            });
+        } catch (error) {
+            console.error('Offer 처리 실패:', error);
+            showToast('연결 응답 중 오류가 발생했습니다', 'error');
+        }
+    }
+
+    // Answer 처리
+    async function handleAnswer(answer) {
+        try {
+            await peerConnection.setRemoteDescription(answer);
+        } catch (error) {
+            console.error('Answer 처리 실패:', error);
+        }
+    }
+
+    // ICE 후보 처리
+    async function handleIceCandidate(candidate) {
+        try {
+            if (peerConnection && peerConnection.remoteDescription) {
+                await peerConnection.addIceCandidate(candidate);
+            }
+        } catch (error) {
+            console.error('ICE 후보 추가 실패:', error);
+        }
+    }
+
+    // 사용자 퇴장 처리
+    function handleUserLeft() {
+        participantCount.textContent = '1/2';
+        statusMessage.style.display = 'block';
+        statusMessage.innerHTML = `
+                <div class="spinner"></div>
+                <h2>👋 상대방이 나갔습니다</h2>
+                <p>새로운 참가자를 기다리는 중...</p>
+                <div class="room-id-display">
+                    <div class="room-id-text">${roomId}</div>
+                    <button class="copy-btn" onclick="copyRoomId()">📋 복사하기</button>
+                </div>
+            `;
+
+        if (remoteVideo.srcObject) {
+            remoteVideo.srcObject = null;
+        }
+
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        showToast('상대방이 통화를 종료했습니다', 'info');
+    }
+
+    // 컨트롤 버튼 설정
+    function setupControlButtons() {
+        videoBtn.addEventListener('click', toggleVideo);
+        audioBtn.addEventListener('click', toggleAudio);
+        screenBtn.addEventListener('click', toggleScreenShare);
+        settingsBtn.addEventListener('click', toggleSettings);
+        endBtn.addEventListener('click', endCall);
+    }
+
+    // 비디오 토글
+    function toggleVideo() {
+        isVideoEnabled = !isVideoEnabled;
+        const videoTrack = localStream.getVideoTracks()[0];
+
+        if (videoTrack) {
+            videoTrack.enabled = isVideoEnabled;
+            videoBtn.classList.toggle('off', !isVideoEnabled);
+            videoBtn.textContent = isVideoEnabled ? '📹' : '📷';
+
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s =>
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    sender.replaceTrack(isVideoEnabled ? videoTrack : null);
+                }
+            }
+
+            showToast(isVideoEnabled ? '비디오가 켜졌습니다' : '비디오가 꺼졌습니다', 'info');
+        }
+    }
+
+    // 오디오 토글
+    function toggleAudio() {
+        isAudioEnabled = !isAudioEnabled;
+        const audioTrack = localStream.getAudioTracks()[0];
+
+        if (audioTrack) {
+            audioTrack.enabled = isAudioEnabled;
+            audioBtn.classList.toggle('off', !isAudioEnabled);
+            audioBtn.textContent = isAudioEnabled ? '🎤' : '🎙️';
+
+            showToast(isAudioEnabled ? '마이크가 켜졌습니다' : '마이크가 꺼졌습니다', 'info');
+        }
+    }
+
+    // 화면 공유 토글
+    async function toggleScreenShare() {
+        try {
+            if (!isScreenSharing) {
+                // 화면 공유 시작
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+
+                const videoTrack = screenStream.getVideoTracks()[0];
+
+                if (peerConnection) {
+                    const sender = peerConnection.getSenders().find(s =>
+                        s.track && s.track.kind === 'video'
+                    );
+                    if (sender) {
+                        await sender.replaceTrack(videoTrack);
+                    }
+                }
+
+                // 로컬 비디오도 화면 공유로 변경
+                localVideo.srcObject = screenStream;
+
+                // 화면 공유 종료 감지
+                videoTrack.addEventListener('ended', () => {
+                    stopScreenShare();
+                });
+
+                isScreenSharing = true;
+                screenBtn.classList.add('off');
+                screenBtn.textContent = '🛑';
+                showToast('화면 공유가 시작되었습니다', 'success');
+
+            } else {
+                // 화면 공유 중지
+                stopScreenShare();
+            }
+        } catch (error) {
+            console.error('화면 공유 오류:', error);
+            showToast('화면 공유에 실패했습니다', 'error');
+        }
+    }
+
+    // 화면 공유 중지
+    async function stopScreenShare() {
+        try {
+            const videoTrack = originalVideoStream.getVideoTracks()[0];
+
+            if (peerConnection && videoTrack) {
+                const sender = peerConnection.getSenders().find(s =>
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    await sender.replaceTrack(videoTrack);
+                }
+            }
+
+            // 로컬 비디오를 원래 카메라로 복원
+            localVideo.srcObject = originalVideoStream;
+
+            isScreenSharing = false;
+            screenBtn.classList.remove('off');
+            screenBtn.textContent = '🖥️';
+            showToast('화면 공유가 종료되었습니다', 'info');
+
+        } catch (error) {
+            console.error('화면 공유 중지 오류:', error);
+        }
+    }
+
+    // 설정 패널 토글
+    function toggleSettings() {
+        settingsPanel.classList.toggle('show');
+
+        // 패널이 열릴 때 디바이스 목록 새로고침
+        if (settingsPanel.classList.contains('show')) {
+            loadDevices();
+        }
+    }
+
+    // 통화 종료
+    function endCall() {
+        if (confirm('🔔 통화를 종료하시겠습니까?')) {
+            // 통화 종료 메시지 전송
+            sendMessage({
+                type: 'LEAVE_ROOM',
+                roomId: roomId,
+                fromUserId: userId
+            });
+
+            showToast('통화를 종료합니다...', 'info');
+
+            // 리소스 정리
+            cleanup();
+
+            // 메인 페이지로 이동
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        }
+    }
+
+    // 리소스 정리
+    function cleanup() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        if (websocket) {
+            websocket.close();
+            websocket = null;
+        }
+    }
+
+    // 메시지 전송
+    function sendMessage(message) {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            websocket.send(JSON.stringify(message));
+        }
+    }
+
+    // 연결 상태 업데이트
+    function updateConnectionStatus(status) {
+        const statusElement = connectionStatus;
+        statusElement.className = `connection-status status-${status}`;
+
+        switch (status) {
+            case 'connected':
+                statusElement.textContent = '연결됨';
+                break;
+            case 'connecting':
+                statusElement.textContent = '연결 중';
+                break;
+            case 'disconnected':
+                statusElement.textContent = '연결 끊김';
+                break;
+        }
+    }
+
+    // 디바이스 목록 로드
+    async function loadDevices() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+
+            const cameraSelect = document.getElementById('cameraSelect');
+            const microphoneSelect = document.getElementById('microphoneSelect');
+
+            // 기존 옵션 제거
+            cameraSelect.innerHTML = '';
+            microphoneSelect.innerHTML = '';
+
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.text = device.label || `${device.kind} ${device.deviceId.substring(0, 8)}`;
+
+                if (device.kind === 'videoinput') {
+                    cameraSelect.appendChild(option);
+                } else if (device.kind === 'audioinput') {
+                    microphoneSelect.appendChild(option);
+                }
+            });
+
+            // 디바이스 변경 이벤트 리스너
+            cameraSelect.addEventListener('change', changeCamera);
+            microphoneSelect.addEventListener('change', changeMicrophone);
+
+        } catch (error) {
+            console.error('디바이스 목록 로드 실패:', error);
+        }
+    }
+
+    // 카메라 변경
+    async function changeCamera() {
+        const cameraSelect = document.getElementById('cameraSelect');
+        const deviceId = cameraSelect.value;
+
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: deviceId } },
+                audio: false
+            });
+
+            const videoTrack = newStream.getVideoTracks()[0];
+            const oldVideoTrack = localStream.getVideoTracks()[0];
+
+            // 로컬 스트림 업데이트
+            localStream.removeTrack(oldVideoTrack);
+            localStream.addTrack(videoTrack);
+            localVideo.srcObject = localStream;
+
+            // Peer Connection 업데이트
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s =>
+                    s.track && s.track.kind === 'video'
+                );
+                if (sender) {
+                    await sender.replaceTrack(videoTrack);
+                }
+            }
+
+            // 기존 트랙 정리
+            oldVideoTrack.stop();
+
+            showToast('카메라가 변경되었습니다', 'success');
+
+        } catch (error) {
+            console.error('카메라 변경 실패:', error);
+            showToast('카메라 변경에 실패했습니다', 'error');
+        }
+    }
+
+    // 마이크 변경
+    async function changeMicrophone() {
+        const microphoneSelect = document.getElementById('microphoneSelect');
+        const deviceId = microphoneSelect.value;
+
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: { deviceId: { exact: deviceId } }
+            });
+
+            const audioTrack = newStream.getAudioTracks()[0];
+            const oldAudioTrack = localStream.getAudioTracks()[0];
+
+            // 로컬 스트림 업데이트
+            localStream.removeTrack(oldAudioTrack);
+            localStream.addTrack(audioTrack);
+
+            // Peer Connection 업데이트
+            if (peerConnection) {
+                const sender = peerConnection.getSenders().find(s =>
+                    s.track && s.track.kind === 'audio'
+                );
+                if (sender) {
+                    await sender.replaceTrack(audioTrack);
+                }
+            }
+
+            // 기존 트랙 정리
+            oldAudioTrack.stop();
+
+            showToast('마이크가 변경되었습니다', 'success');
+
+        } catch (error) {
+            console.error('마이크 변경 실패:', error);
+            showToast('마이크 변경에 실패했습니다', 'error');
+        }
+    }
+
+    // 방 ID 복사
+    function copyRoomId() {
+        navigator.clipboard.writeText(roomId).then(() => {
+            showToast('방 ID가 클립보드에 복사되었습니다! 📋', 'success');
+        }).catch(() => {
+            // 대체 방법
+            const textArea = document.createElement('textarea');
+            textArea.value = roomId;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            showToast('방 ID가 복사되었습니다! 📋', 'success');
+        });
+    }
+
+    // 로컬 비디오 최소화
+    function toggleMinimize() {
+        const container = document.getElementById('localVideoContainer');
+        container.classList.toggle('minimized');
+
+        const btn = container.querySelector('.minimize-btn');
+        btn.textContent = container.classList.contains('minimized') ? '+' : '−';
+    }
+
+    // 토스트 메시지 표시
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // 연결 품질 모니터링
+    function startQualityMonitoring() {
+        setInterval(() => {
+            updateQualityIndicator();
+        }, 2000);
+    }
+
+    // 품질 표시기 업데이트
+    function updateQualityIndicator() {
+        const bars = document.querySelectorAll('.quality-bar');
+
+        if (peerConnection && peerConnection.connectionState === 'connected') {
+            // 임시로 랜덤 품질 표시 (실제로는 통계 기반)
+            const quality = Math.floor(Math.random() * 5) + 1;
+
+            bars.forEach((bar, index) => {
+                bar.classList.toggle('active', index < quality);
+            });
+        } else {
+            bars.forEach(bar => bar.classList.remove('active'));
+        }
+    }
+
+    // 통계 수집 시작
+    function startStatsCollection() {
+        if (!peerConnection) return;
+
+        setInterval(async () => {
+            try {
+                const stats = await peerConnection.getStats();
+                // 통계 처리 (필요시 구현)
+            } catch (error) {
+                console.error('통계 수집 오류:', error);
+            }
+        }, 5000);
+    }
+
+    // 키보드 단축키
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+
+        switch (e.key.toLowerCase()) {
+            case 'v':
+                toggleVideo();
+                break;
+            case 'm':
+                toggleAudio();
+                break;
+            case 's':
+                toggleScreenShare();
+                break;
+            case 'escape':
+                settingsPanel.classList.remove('show');
+                break;
+        }
+    });
+
+    // 페이지 언로드 시 정리
+    window.addEventListener('beforeunload', (e) => {
+        cleanup();
+    });
+
+    // 설정 패널 외부 클릭 시 닫기
+    document.addEventListener('click', (e) => {
+        if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+            settingsPanel.classList.remove('show');
+        }
+    });
+
+    // 로컬 비디오 드래그 가능하게 만들기
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    const localVideoContainer = document.getElementById('localVideoContainer');
+
+    localVideoContainer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        const rect = localVideoContainer.getBoundingClientRect();
+        dragOffset.x = e.clientX - rect.left;
+        dragOffset.y = e.clientY - rect.top;
+        localVideoContainer.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const x = e.clientX - dragOffset.x;
+        const y = e.clientY - dragOffset.y;
+
+        localVideoContainer.style.left = Math.max(0, Math.min(x, window.innerWidth - localVideoContainer.offsetWidth)) + 'px';
+        localVideoContainer.style.top = Math.max(0, Math.min(y, window.innerHeight - localVideoContainer.offsetHeight)) + 'px';
+        localVideoContainer.style.right = 'auto';
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+        localVideoContainer.style.cursor = 'move';
+    });
+
+    // 페이지 로드 시 초기화
+    window.addEventListener('load', init);
+
+    // 화질 설정 변경
+    document.getElementById('qualitySelect').addEventListener('change', async (e) => {
+        const quality = e.target.value;
+        let constraints;
+
+        switch (quality) {
+            case '480p':
+                constraints = { width: 640, height: 480 };
+                break;
+            case '720p':
+                constraints = { width: 1280, height: 720 };
+                break;
+            case '1080p':
+                constraints = { width: 1920, height: 1080 };
+                break;
+        }
+
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: constraints,
+                audio: true
+            });
+
+            // 스트림 교체 로직 (필요시 구현)
+            showToast(`화질이 ${quality}로 변경되었습니다`, 'success');
+
+        } catch (error) {
+            console.error('화질 변경 실패:', error);
+            showToast('화질 변경에 실패했습니다', 'error');
+        }
+    });
+
+    async function checkMediaPermissions() {
+        const permissions = { camera: false, microphone: false };
+
+        try {
+            if ('permissions' in navigator) {
+                const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                const microphonePermission = await navigator.permissions.query({ name: 'microphone' });
+
+                permissions.camera = cameraPermission.state === 'granted';
+                permissions.microphone = microphonePermission.state === 'granted';
+            }
+        } catch (error) {
+            console.warn('권한 체크 실패:', error);
+            // 권한 API를 지원하지 않는 경우, 일단 true로 설정
+            permissions.camera = true;
+            permissions.microphone = true;
+        }
+
+        return permissions;
+    }
+
+    // 단계적 미디어 스트림 획득
+    async function getMediaStream() {
+        // 먼저 오디오만 시도
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('오디오 스트림 획득 성공');
+
+            try {
+                // 오디오 성공 후 비디오 추가 시도
+                const fullStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720 },
+                    audio: true
+                });
+                console.log('비디오+오디오 스트림 획득 성공');
+
+                // 기존 오디오 스트림 정리
+                audioStream.getTracks().forEach(track => track.stop());
+                return fullStream;
+
+            } catch (videoError) {
+                console.warn('비디오 획득 실패, 오디오만 사용:', videoError);
+                showToast('비디오를 사용할 수 없어 오디오만 활성화됩니다', 'warning');
+                return audioStream;
+            }
+
+        } catch (audioError) {
+            console.error('오디오 획득도 실패:', audioError);
+
+            // 최후의 수단: 비디오만 시도
+            try {
+                const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                console.log('비디오만 스트림 획득 성공');
+                showToast('마이크를 사용할 수 없어 비디오만 활성화됩니다', 'warning');
+                return videoOnlyStream;
+            } catch (finalError) {
+                throw new Error(`미디어 접근 실패: ${finalError.message}`);
+            }
+        }
+    }
+    // 초기화 오류 처리
+    function handleInitError(error) {
+        let errorMessage = '';
+        let solutions = [];
+
+        if (error.message.includes('SECURITY_ERROR')) {
+            errorMessage = '🔒 보안 오류';
+            solutions = [
+                'HTTPS 사이트에서 접속해주세요',
+                '또는 localhost로 접속해주세요',
+                'HTTP에서는 카메라/마이크 접근이 제한됩니다'
+            ];
+        } else if (error.message.includes('PERMISSION_DENIED') || error.name === 'NotAllowedError') {
+            errorMessage = '🚫 권한 거부';
+            solutions = [
+                '브라우저 주소창의 🔒 아이콘을 클릭하세요',
+                '카메라와 마이크 권한을 "허용"으로 설정하세요',
+                '페이지를 새로고침한 후 다시 시도하세요'
+            ];
+        } else if (error.message.includes('UNSUPPORTED') || error.name === 'NotSupportedError') {
+            errorMessage = '❌ 브라우저 미지원';
+            solutions = [
+                'Chrome, Firefox, Safari 등 최신 브라우저를 사용하세요',
+                'WebRTC를 지원하는 브라우저가 필요합니다'
+            ];
+        } else if (error.name === 'NotFoundError') {
+            errorMessage = '📷 디바이스 없음';
+            solutions = [
+                '카메라나 마이크가 연결되어 있는지 확인하세요',
+                '다른 앱에서 카메라/마이크를 사용 중인지 확인하세요'
+            ];
+        } else {
+            errorMessage = '⚠️ 알 수 없는 오류';
+            solutions = [
+                '페이지를 새로고침해보세요',
+                '브라우저를 재시작해보세요',
+                '다른 브라우저로 시도해보세요'
+            ];
+        }
+
+        const statusMessage = document.getElementById('statusMessage');
+        statusMessage.innerHTML = `
+        <h2>${errorMessage}</h2>
+        <p style="color: #dc3545; margin-bottom: 1.5rem;">${error.message}</p>
+        <div style="text-align: left; max-width: 400px; margin: 0 auto;">
+            <h3 style="color: #667eea; margin-bottom: 1rem;">해결 방법:</h3>
+            <ul style="padding-left: 1.5rem; line-height: 1.6;">
+                ${solutions.map(solution => `<li>${solution}</li>`).join('')}
+            </ul>
+        </div>
+        <div style="margin-top: 2rem;">
+            <button onclick="location.reload()" style="
+                padding: 12px 24px;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 25px;
+                cursor: pointer;
+                margin: 0 10px;
+                font-size: 1rem;
+            ">🔄 다시 시도</button>
+            <button onclick="location.href='/'" style="
+                padding: 12px 24px;
+                background: #6c757d;
+                color: white;
+                border: none;
+                border-radius: 25px;
+                cursor: pointer;
+                margin: 0 10px;
+                font-size: 1rem;
+            ">🏠 홈으로</button>
+        </div>
+    `;
+    }
+
+    // 토스트 메시지 함수
+    function showToast(message, type = 'info') {
+        const existingToast = document.querySelector('.toast');
+        if (existingToast) existingToast.remove();
+
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${getToastColor(type)};
+        color: white;
+        border-radius: 10px;
+        z-index: 1000;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        animation: slideIn 0.3s ease;
+    `;
+
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function getToastColor(type) {
+        switch (type) {
+            case 'success': return '#28a745';
+            case 'warning': return '#ffc107';
+            case 'error': return '#dc3545';
+            default: return '#17a2b8';
+        }
+    }
+
+    // CSS 애니메이션 추가
+    const style = document.createElement('style');
+    style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+    document.head.appendChild(style);
+
+
+</script>
+</body>
+</html>

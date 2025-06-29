@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="'오류 ' + ${status} + ' - 1:1 화상통화'">오류 - 1:1 화상통화</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❌</text></svg>">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: gradientShift 12s ease infinite;
+      overflow-x: hidden;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
+      25% { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+      50% { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); }
+      75% { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
+    }
+
+    .error-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(15px);
+      padding: 3rem;
+      border-radius: 30px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+      text-align: center;
+      max-width: 600px;
+      width: 90%;
+      transform: translateY(0);
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .error-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+      animation: shimmer 3s infinite;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+
+    .error-container:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 35px 70px rgba(0,0,0,0.25);
+    }
+
+    .error-animation {
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .error-500 .error-animation { animation: explode 3s infinite; }
+    .error-404 .error-animation { animation: bounce 2s infinite; }
+    .error-403 .error-animation { animation: shake 2s infinite; }
+    .error-default .error-animation { animation: pulse 2s infinite; }
+
+    @keyframes explode {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2) rotate(5deg); }
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-20px); }
+      60% { transform: translateY(-10px); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+      20%, 40%, 60%, 80% { transform: translateX(8px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .error-code {
+      font-size: 4rem;
+      font-weight: 900;
+      color: #333;
+      margin-bottom: 1rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      position: relative;
+      z-index: 1;
+    }
+
+    .error-title {
+      color: #333;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+    }
+
+    .error-subtitle {
+      color: #666;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+    }
+
+    .error-details {
+      background: rgba(0,0,0,0.05);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 2rem 0;
+      text-align: left;
+      position: relative;
+      z-index: 1;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      font-size: 0.9rem;
+    }
+
+    .detail-item:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      font-weight: 500;
+      color: #555;
+    }
+
+    .detail-value {
+      color: #333;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      max-width: 60%;
+      word-break: break-all;
+    }
+
+    .suggestions {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      margin: 2rem 0;
+      border-radius: 0 15px 15px 0;
+      text-align: left;
+      position: relative;
+      z-index: 1;
+    }
+
+    .suggestions-title {
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .suggestions-title::before {
+      content: '💡';
+      margin-right: 8px;
+      font-size: 1.2rem;
+    }
+
+    .suggestion-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .suggestion-list li {
+      margin: 12px 0;
+      padding-left: 25px;
+      position: relative;
+      color: #555;
+      line-height: 1.5;
+      transition: color 0.2s ease;
+    }
+
+    .suggestion-list li:hover {
+      color: #333;
+    }
+
+    .suggestion-list li::before {
+      content: '→';
+      color: #667eea;
+      font-weight: bold;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 2.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 25px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 25px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      min-width: 140px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    .btn:active {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .btn-success:hover {
+      background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    }
+
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, #5a6268 0%, #3d4142 100%);
+    }
+
+    .btn-warning {
+      background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+      color: #333;
+    }
+
+    .btn-warning:hover {
+      background: linear-gradient(135deg, #e0a800 0%, #c69500 100%);
+    }
+
+    .btn-icon {
+      margin-right: 8px;
+      font-size: 1.2rem;
+    }
+
+    .server-status {
+      margin-top: 2rem;
+      padding: 15px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      margin: 5px 10px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      animation: blink 2s infinite;
+    }
+
+    .status-online .status-dot {
+      background: #28a745;
+    }
+
+    .status-offline .status-dot {
+      background: #dc3545;
+    }
+
+    .status-warning .status-dot {
+      background: #ffc107;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+
+    .retry-section {
+      margin-top: 2rem;
+      padding: 20px;
+      background: rgba(255, 193, 7, 0.1);
+      border-radius: 15px;
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      position: relative;
+      z-index: 1;
+    }
+
+    .retry-timer {
+      font-weight: 500;
+      color: #e0a800;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 193, 7, 0.2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ffc107, #e0a800);
+      border-radius: 3px;
+      transition: width 1s linear;
+    }
+
+    .report-section {
+      margin-top: 2rem;
+      text-align: left;
+      position: relative;
+      z-index: 1;
+    }
+
+    .report-toggle {
+      background: none;
+      border: none;
+      color: #667eea;
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.9rem;
+      padding: 0;
+    }
+
+    .report-form {
+      display: none;
+      margin-top: 15px;
+      padding: 20px;
+      background: rgba(102, 126, 234, 0.05);
+      border-radius: 10px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
+    .report-form.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #333;
+      font-size: 0.9rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    @media (max-width: 768px) {
+      .error-container {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+      }
+
+      .error-code {
+        font-size: 3rem;
+      }
+
+      .error-title {
+        font-size: 1.5rem;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        margin: 5px 0;
+      }
+
+      .detail-item {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .detail-value {
+        max-width: 100%;
+      }
+    }
+
+    /* 다크모드 지원 */
+    @media (prefers-color-scheme: dark) {
+      .error-container {
+        background: rgba(33, 37, 41, 0.95);
+        color: #f8f9fa;
+      }
+
+      .error-title {
+        color: #f8f9fa;
+      }
+
+      .error-subtitle {
+        color: #adb5bd;
+      }
+
+      .detail-label {
+        color: #adb5bd;
+      }
+
+      .detail-value {
+        color: #f8f9fa;
+      }
+
+      .suggestion-list li {
+        color: #adb5bd;
+      }
+
+      .form-control {
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.2);
+        color: #f8f9fa;
+      }
+    }
+  </style>
+</head>
+<body th:class="${'error-' + (status ?: 'default')}">
+<div class="error-container">
+  <!-- 에러 아이콘 -->
+  <div class="error-animation" th:switch="${status}">
+    <span th:case="404">🔍</span>
+    <span th:case="500">💥</span>
+    <span th:case="403">🚫</span>
+    <span th:case="401">🔐</span>
+    <span th:case="408">⏰</span>
+    <span th:case="503">🔧</span>
+    <span th:case="*">❌</span>
+  </div>
+
+  <!-- 에러 코드 -->
+  <div class="error-code" th:text="${status ?: '오류'}">ERROR</div>
+
+  <!-- 에러 제목 -->
+  <h1 class="error-title" th:switch="${status}">
+    <span th:case="404">페이지를 찾을 수 없습니다</span>
+    <span th:case="500">서버 내부 오류</span>
+    <span th:case="403">접근이 거부되었습니다</span>
+    <span th:case="401">인증이 필요합니다</span>
+    <span th:case="408">요청 시간이 초과되었습니다</span>
+    <span th:case="503">서비스를 사용할 수 없습니다</span>
+    <span th:case="*">알 수 없는 오류가 발생했습니다</span>
+  </h1>
+
+  <!-- 에러 설명 -->
+  <p class="error-subtitle" th:switch="${status}">
+    <span th:case="404">요청하신 페이지나 리소스를 찾을 수 없습니다.</span>
+    <span th:case="500">서버에서 예상치 못한 오류가 발생했습니다.</span>
+    <span th:case="403">이 페이지에 접근할 권한이 없습니다.</span>
+    <span th:case="401">로그인이 필요하거나 인증 정보가 올바르지 않습니다.</span>
+    <span th:case="408">서버 응답 시간이 초과되었습니다.</span>
+    <span th:case="503">서버가 일시적으로 사용 불가능한 상태입니다.</span>
+    <span th:case="*">서버에서 처리할 수 없는 요청입니다.</span>
+  </p>
+
+  <!-- 오류 상세 정보 -->
+  <div class="error-details">
+    <div class="detail-item">
+      <span class="detail-label">🕐 발생 시간:</span>
+      <span class="detail-value" id="errorTime"></span>
+    </div>
+    <div class="detail-item">
+      <span class="detail-label">🌐 요청 URL:</span>
+      <span class="detail-value" th:text="${path}" id="errorPath"></span>
+    </div>
+    <div class="detail-item" th:if="${message}">
+      <span class="detail-label">📝 오류 메시지:</span>
+      <span class="detail-value" th:text="${message}"></span>
+    </div>
+    <div class="detail-item">
+      <span class="detail-label">🔧 요청 ID:</span>
+      <span class="detail-value" id="requestId"></span>
+    </div>
+    <div class="detail-item">
+      <span class="detail-label">💻 브라우저:</span>
+      <span class="detail-value" id="userAgent"></span>
+    </div>
+  </div>
+
+  <!-- 해결 제안 -->
+  <div class="suggestions">
+    <div class="suggestions-title">해결 방법</div>
+    <ul class="suggestion-list" th:switch="${status}">
+      <div th:case="404">
+        <li>URL 주소를 다시 확인해보세요</li>
+        <li>메인 페이지에서 원하는 기능을 찾아보세요</li>
+        <li>브라우저의 뒤로 가기 버튼을 사용해보세요</li>
+        <li>북마크가 오래된 것일 수 있습니다</li>
+      </div>
+      <div th:case="500">
+        <li>잠시 후 다시 시도해보세요</li>
+        <li>페이지를 새로고침해보세요</li>
+        <li>문제가 계속되면 고객지원팀에 문의하세요</li>
+        <li>브라우저 캐시를 삭제해보세요</li>
+      </div>
+      <div th:case="403">
+        <li>로그인 상태를 확인해보세요</li>
+        <li>계정 권한을 확인해보세요</li>
+        <li>관리자에게 접근 권한을 요청하세요</li>
+        <li>다른 계정으로 로그인해보세요</li>
+      </div>
+      <div th:case="401">
+        <li>로그인 페이지에서 다시 로그인해보세요</li>
+        <li>비밀번호를 확인해보세요</li>
+        <li>계정이 활성화되어 있는지 확인하세요</li>
+        <li>쿠키와 세션 정보를 삭제해보세요</li>
+      </div>
+      <div th:case="408">
+        <li>인터넷 연결 상태를 확인해보세요</li>
+        <li>페이지를 새로고침해보세요</li>
+        <li>잠시 후 다시 시도해보세요</li>
+        <li>브라우저를 재시작해보세요</li>
+      </div>
+      <div th:case="503">
+        <li>서버 점검 시간인지 확인해보세요</li>
+        <li>잠시 후 다시 접속해보세요</li>
+        <li>다른 브라우저로 시도해보세요</li>
+        <li>공지사항을 확인해보세요</li>
+      </div>
+      <div th:case="*">
+        <li>페이지를 새로고침해보세요</li>
+        <li>브라우저를 재시작해보세요</li>
+        <li>잠시 후 다시 시도해보세요</li>
+        <li>문제가 지속되면 지원팀에 문의하세요</li>
+      </div>
+    </ul>
+  </div>
+
+  <!-- 서버 상태 -->
+  <div class="server-status">
+    <strong>🖥️ 서비스 상태:</strong>
+    <div class="status-indicator" id="serverStatus">
+      <span class="status-dot"></span>
+      <span>확인 중...</span>
+    </div>
+  </div>
+
+  <!-- 자동 재시도 (특정 오류에만 표시) -->
+  <div class="retry-section" id="retrySection" style="display: none;" th:if="${status == 500 or status == 503 or status == 408}">
+    <div class="retry-timer">🔄 <span id="retryCountdown">30</span>초 후 자동으로 다시 시도합니다</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressBar"></div>
+    </div>
+    <button class="btn btn-warning" onclick="cancelRetry()">
+      <span class="btn-icon">✋</span>자동 재시도 취소
+    </button>
+  </div>
+
+  <!-- 액션 버튼들 -->
+  <div class="action-buttons">
+    <button class="btn btn-primary" onclick="location.reload()">
+      <span class="btn-icon">🔄</span>새로고침
+    </button>
+    <button class="btn btn-success" onclick="goBack()">
+      <span class="btn-icon">↩️</span>이전 페이지
+    </button>
+    <a href="/" class="btn btn-secondary">
+      <span class="btn-icon">🏠</span>홈으로
+    </a>
+    <button class="btn btn-warning" onclick="reportError()">
+      <span class="btn-icon">📨</span>오류 신고
+    </button>
+  </div>
+
+  <!-- 오류 신고 섹션 -->
+  <div class="report-section">
+    <button class="report-toggle" onclick="toggleReportForm()">
+      🐛 상세한 오류 정보를 제공하여 개선에 도움을 주세요
+    </button>
+    <div class="report-form" id="reportForm">
+      <div class="form-group">
+        <label class="form-label">어떤 작업을 하려고 했나요?</label>
+        <input type="text" class="form-control" id="userAction" placeholder="예: 새 방을 만들려고 했습니다">
+      </div>
+      <div class="form-group">
+        <label class="form-label">추가 설명</label>
+        <textarea class="form-control" id="additionalInfo" placeholder="오류가 발생하기 전 상황을 자세히 설명해주세요"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="submitReport()">
+        <span class="btn-icon">📤</span>신고 제출
+      </button>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  // 서버에서 전달받은 데이터
+  const errorStatus = /*[[${status}]]*/ '';
+  const errorMessage = /*[[${message}]]*/ '';
+  const errorPath = /*[[${path}]]*/ '';
+
+  // 자동 재시도 관련 변수
+  let retryTimer = null;
+  let retryCountdown = 30;
+  let progressInterval = null;
+
+  // 페이지 로드 시 초기화
+  window.addEventListener('load', function() {
+    initializeErrorPage();
+  });
+
+  function initializeErrorPage() {
+    // 현재 시간 설정
+    document.getElementById('errorTime').textContent = new Date().toLocaleString();
+
+    // 요청 URL 설정 (서버에서 제공되지 않은 경우)
+    if (!errorPath) {
+      document.getElementById('errorPath').textContent = window.location.href;
+    }
+
+    // 고유 요청 ID 생성
+    document.getElementById('requestId').textContent = generateRequestId();
+
+    // 사용자 에이전트 설정
+    const userAgent = navigator.userAgent;
+    document.getElementById('userAgent').textContent = userAgent.length > 50 ?
+            userAgent.substring(0, 50) + '...' : userAgent;
+
+    // 서버 상태 확인
+    checkServerStatus();
+
+    // 자동 재시도 시작 (특정 오류에만)
+    if (['500', '503', '408'].includes(errorStatus)) {
+      startAutoRetry();
+    }
+
+    // 오류 로깅
+    logError();
+  }
+
+  // 고유 요청 ID 생성
+  function generateRequestId() {
+    return 'REQ-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+  }
+
+  // 서버 상태 확인
+  async function checkServerStatus() {
+    const statusElement = document.getElementById('serverStatus');
+
+    try {
+      const response = await fetch('/', {
+        method: 'HEAD',
+        cache: 'no-cache',
+        timeout: 5000
+      });
+
+      if (response.ok) {
+        statusElement.className = 'status-indicator status-online';
+        statusElement.innerHTML = '<span class="status-dot"></span><span>정상 운영 중</span>';
+      } else {
+        statusElement.className = 'status-indicator status-warning';
+        statusElement.innerHTML = '<span class="status-dot"></span><span>일부 기능 제한</span>';
+      }
+    } catch (error) {
+      statusElement.className = 'status-indicator status-offline';
+      statusElement.innerHTML = '<span class="status-dot"></span><span>서버 연결 불가</span>';
+    }
+  }
+
+  // 자동 재시도 시작
+  function startAutoRetry() {
+    const retrySection = document.getElementById('retrySection');
+    if (retrySection) {
+      retrySection.style.display = 'block';
+
+      retryTimer = setInterval(() => {
+        retryCountdown--;
+        document.getElementById('retryCountdown').textContent = retryCountdown;
+
+        // 프로그레스 바 업데이트
+        const progress = ((30 - retryCountdown) / 30) * 100;
+        document.getElementById('progressBar').style.width = progress + '%';
+
+        if (retryCountdown <= 0) {
+          clearInterval(retryTimer);
+          location.reload();
+        }
+      }, 1000);
+    }
+  }
+
+  // 자동 재시도 취소
+  function cancelRetry() {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      const retrySection = document.getElementById('retrySection');
+      if (retrySection) {
+        retrySection.style.display = 'none';
+      }
+      showNotification('자동 재시도가 취소되었습니다', 'info');
+    }
+  }
+
+  // 뒤로가기
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
+  }
+
+  // 오류 신고 폼 토글
+  function toggleReportForm() {
+    const form = document.getElementById('reportForm');
+    form.classList.toggle('show');
+
+    if (form.classList.contains('show')) {
+      document.getElementById('userAction').focus();
+    }
+  }
+
+  // 오류 신고 제출
+  function submitReport() {
+    const userAction = document.getElementById('userAction').value;
+    const additionalInfo = document.getElementById('additionalInfo').value;
+
+    if (!userAction.trim()) {
+      showNotification('수행하려던 작업을 입력해주세요', 'warning');
+      return;
+    }
+
+    const reportData = {
+      status: errorStatus,
+      message: errorMessage,
+      path: errorPath,
+      userAction: userAction,
+      additionalInfo: additionalInfo,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      requestId: document.getElementById('requestId').textContent
+    };
+
+    // 실제 환경에서는 서버로 전송
+    console.log('Error Report:', reportData);
+
+    // 성공 메시지
+    showNotification('오류 신고가 접수되었습니다. 빠른 시일 내에 확인하겠습니다. 감사합니다!', 'success');
+
+    // 폼 초기화
+    document.getElementById('userAction').value = '';
+    document.getElementById('additionalInfo').value = '';
+    document.getElementById('reportForm').classList.remove('show');
+  }
+
+  // 간단한 오류 신고
+  function reportError() {
+    const confirmed = confirm('오류 정보를 개발팀에 전송하시겠습니까?\n\n전송되는 정보:\n- 오류 코드 및 메시지\n- 접속 URL\n- 브라우저 정보\n- 발생 시간');
+
+    if (confirmed) {
+      const errorData = {
+        status: errorStatus,
+        message: errorMessage,
+        path: errorPath,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        requestId: document.getElementById('requestId').textContent
+      };
+
+      // 실제 환경에서는 서버로 전송
+      console.log('Quick Error Report:', errorData);
+      showNotification('오류가 신고되었습니다. 개선에 도움이 됩니다!', 'success');
+    }
+  }
+
+  // 오류 로깅
+  function logError() {
+    const requestIdElement = document.getElementById('requestId');
+    const requestId = requestIdElement ? requestIdElement.textContent : 'N/A';
+
+    const errorLog = {
+      timestamp: new Date().toISOString(),
+      status: errorStatus || 'unknown',
+      message: errorMessage || 'No message',
+      path: errorPath || window.location.pathname,
+      userAgent: navigator.userAgent,
+      referrer: document.referrer,
+      requestId: requestId
+    };
+
+    console.error('Application Error:', errorLog);
+
+    // 로컬 스토리지에 오류 이력 저장 (디버깅용)
+    try {
+      const errorHistory = JSON.parse(localStorage.getItem('errorHistory') || '[]');
+      errorHistory.unshift(errorLog);
+
+      // 최대 10개까지만 저장
+      if (errorHistory.length > 10) {
+        errorHistory.pop();
+      }
+
+      localStorage.setItem('errorHistory', JSON.stringify(errorHistory));
+    } catch (e) {
+      console.warn('Failed to save error history:', e);
+    }
+  }
+
+  // 알림 메시지 표시
+  function showNotification(message, type = 'info') {
+    // 기존 알림 제거
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+
+    // 새 알림 생성
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+                <div class="notification-content">
+                    ${getNotificationIcon(type)} ${message}
+                </div>
+                <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+    // 스타일 적용
+    notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${getNotificationColor(type)};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                max-width: 400px;
+                animation: slideInRight 0.3s ease;
+                font-size: 0.9rem;
+            `;
+
+    // 닫기 버튼 스타일
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.style.cssText = `
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.2rem;
+                cursor: pointer;
+                margin-left: 15px;
+                opacity: 0.7;
+                transition: opacity 0.2s;
+            `;
+
+    document.body.appendChild(notification);
+
+    // 5초 후 자동 제거
+    setTimeout(() => {
+      if (notification.parentElement) {
+        notification.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+      }
+    }, 5000);
+  }
+
+  // 알림 아이콘 반환
+  function getNotificationIcon(type) {
+    switch (type) {
+      case 'success': return '0';
+      case 'error': return 'x';
+      case 'warning': return '?';
+      case 'info': return '!';
+      default: return '!';
+    }
+  }
+
+  // 알림 색상 반환
+  function getNotificationColor(type) {
+    switch (type) {
+      case 'success': return '#28a745';
+      case 'error': return '#dc3545';
+      case 'warning': return '#ffc107';
+      case 'info': return '#17a2b8';
+      default: return '#6c757d';
+    }
+  }
+
+  // 키보드 단축키
+  document.addEventListener('keydown', function(e) {
+    switch (e.key) {
+      case 'F5':
+        // F5로 새로고침
+        e.preventDefault();
+        location.reload();
+        break;
+      case 'Escape':
+        // ESC로 홈으로 이동
+        window.location.href = '/';
+        break;
+      case 'r':
+        // R키로 오류 신고
+        if (e.ctrlKey) {
+          e.preventDefault();
+          reportError();
+        }
+        break;
+      case 'Backspace':
+        // 백스페이스로 뒤로가기 (입력 필드가 아닌 경우)
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          goBack();
+        }
+        break;
+    }
+  });
+
+  // 연결 상태 모니터링
+  let connectionMonitor = setInterval(() => {
+    if (!navigator.onLine) {
+      showNotification('인터넷 연결이 끊어졌습니다', 'error');
+      document.body.style.filter = 'grayscale(100%)';
+    } else {
+      document.body.style.filter = 'none';
+    }
+  }, 5000);
+
+  // 페이지 가시성 변경 감지
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      // 페이지가 다시 보이면 서버 상태 재확인
+      checkServerStatus();
+    }
+  });
+
+  // 오류 통계 수집 (익명)
+  function collectErrorStats() {
+    const stats = {
+      errorCode: errorStatus,
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent.substring(0, 50),
+      screenResolution: `${screen.width}x${screen.height}`,
+      viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+      language: navigator.language,
+      platform: navigator.platform,
+      cookieEnabled: navigator.cookieEnabled,
+      onlineStatus: navigator.onLine
+    };
+
+    // 실제 환경에서는 익명 통계 서버로 전송
+    console.log('Error Statistics:', stats);
+  }
+
+  // 복구 시도 함수들
+  function tryRecovery() {
+    showNotification('자동 복구를 시도하는 중...', 'info');
+
+    // 캐시 정리
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        names.forEach(function(name) {
+          caches.delete(name);
+        });
+      });
+    }
+
+    // 로컬 스토리지 정리 (선택적)
+    if (confirm('브라우저 데이터를 정리하여 문제를 해결해보시겠습니까?\n(로그인 정보 등이 삭제될 수 있습니다)')) {
+      localStorage.clear();
+      sessionStorage.clear();
+      showNotification('브라우저 데이터가 정리되었습니다. 페이지를 새로고침합니다.', 'success');
+      setTimeout(() => location.reload(), 2000);
+    }
+  }
+
+  // 개발자 도구 감지 (보안용)
+  let devtools = {open: false, orientation: null};
+  setInterval(function() {
+    if (window.outerHeight - window.innerHeight > 200 || window.outerWidth - window.innerWidth > 200) {
+      if (!devtools.open) {
+        devtools.open = true;
+        console.log('개발자 도구가 감지되었습니다. 오류 정보가 콘솔에 표시됩니다.');
+        console.table({
+          '오류 코드': errorStatus,
+          '오류 메시지': errorMessage,
+          '요청 경로': errorPath,
+          '발생 시간': new Date().toLocaleString(),
+          '요청 ID': document.getElementById('requestId').textContent
+        });
+      }
+    } else {
+      devtools.open = false;
+    }
+  }, 500);
+
+  // 페이지 언로드 시 정리
+  window.addEventListener('beforeunload', function() {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+    }
+    if (connectionMonitor) {
+      clearInterval(connectionMonitor);
+    }
+  });
+
+  // 터치 이벤트 지원 (모바일)
+  if ('ontouchstart' in window) {
+    document.addEventListener('touchstart', function() {
+      // 터치 디바이스에서 호버 효과 활성화
+      document.body.classList.add('touch-device');
+    });
+  }
+
+  // 애니메이션 CSS 추가
+  if (!document.querySelector('#errorAnimations')) {
+    const style = document.createElement('style');
+    style.id = 'errorAnimations';
+    style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+
+                @keyframes slideOutRight {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+
+                .touch-device .btn:hover {
+                    transform: none;
+                }
+
+                .touch-device .error-container:hover {
+                    transform: none;
+                }
+            `;
+    document.head.appendChild(style);
+  }
+
+  // 초기 통계 수집
+  collectErrorStats();
+
+  // 접근성 개선: 스크린 리더용 알림
+  function announceToScreenReader(message) {
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+    announcement.textContent = message;
+
+    document.body.appendChild(announcement);
+
+    setTimeout(() => {
+      document.body.removeChild(announcement);
+    }, 1000);
+  }
+
+  // 페이지 로드 완료 알림
+  announceToScreenReader(`오류 페이지가 로드되었습니다. 오류 코드 ${errorStatus}입니다.`);
+
+  // 자동 진단 실행
+  setTimeout(() => {
+    runAutoDiagnostics();
+  }, 2000);
+
+  function runAutoDiagnostics() {
+    const diagnostics = [];
+
+    // 기본 연결 확인
+    if (!navigator.onLine) {
+      diagnostics.push(' 인터넷 연결 끊김');
+    } else {
+      diagnostics.push('인터넷 연결 정상');
+    }
+
+    // 자바스크립트 활성화 확인
+    diagnostics.push('JavaScript 활성화됨');
+
+    // 쿠키 지원 확인
+    if (navigator.cookieEnabled) {
+      diagnostics.push('쿠키 지원됨');
+    } else {
+      diagnostics.push('쿠키 비활성화됨');
+    }
+
+    // 로컬스토리지 지원 확인
+    try {
+      localStorage.setItem('test', 'test');
+      localStorage.removeItem('test');
+      diagnostics.push('로컬스토리지 지원됨');
+    } catch (e) {
+      diagnostics.push('로컬스토리지 사용 불가');
+    }
+
+    console.log('자동 진단 결과:', diagnostics);
+  }
+</script>
+</body>
+</html>

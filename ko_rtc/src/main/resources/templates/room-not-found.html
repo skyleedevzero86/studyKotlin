@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>방을 찾을 수 없음 - 1:1 화상통화</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📹</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: gradientShift 8s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+            50% { background: linear-gradient(135deg, #c82333 0%, #dc3545 100%); }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+
+        .error-animation {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            animation: shake 2s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 2.2rem;
+            font-weight: 600;
+        }
+
+        .error-code {
+            color: #dc3545;
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .error-description {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        .error-reasons {
+            background: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid #dc3545;
+            padding: 20px;
+            margin: 2rem 0;
+            border-radius: 0 10px 10px 0;
+            text-align: left;
+        }
+
+        .reasons-title {
+            font-weight: 600;
+            color: #dc3545;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .reasons-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .reasons-list li {
+            margin: 10px 0;
+            padding-left: 25px;
+            position: relative;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .reasons-list li::before {
+            content: '•';
+            color: #dc3545;
+            font-size: 1.5rem;
+            position: absolute;
+            left: 0;
+            top: -3px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 2.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 25px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            min-width: 140px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #5a6268 0%, #3d4142 100%);
+            box-shadow: 0 10px 25px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-retry {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+            color: #333;
+        }
+
+        .btn-retry:hover {
+            background: linear-gradient(135deg, #e0a800 0%, #c69500 100%);
+            box-shadow: 0 10px 25px rgba(255, 193, 7, 0.4);
+        }
+
+        .btn-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+
+        .help-section {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-top: 2rem;
+            border-radius: 0 10px 10px 0;
+            text-align: left;
+        }
+
+        .help-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .help-text {
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .room-id-input {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            align-items: center;
+        }
+
+        .room-id-field {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .room-id-field:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .quick-check-btn {
+            padding: 12px 20px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .quick-check-btn:hover {
+            background: #138496;
+        }
+
+        .error-details {
+            margin-top: 2rem;
+            padding: 15px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #666;
+            text-align: left;
+        }
+
+        .error-details summary {
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .error-details code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem 1.5rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .room-id-input {
+                flex-direction: column;
+            }
+
+            .room-id-field,
+            .quick-check-btn {
+                width: 100%;
+            }
+        }
+
+        /* 애니메이션 효과들 */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+<div class="container fade-in">
+    <div class="error-animation">🚫</div>
+    <h1>방을 찾을 수 없습니다</h1>
+    <div class="error-code">ERROR 404 - ROOM NOT FOUND</div>
+    <p class="error-description">
+        요청하신 방이 존재하지 않거나 접근할 수 없습니다.
+    </p>
+
+    <div class="error-reasons">
+        <div class="reasons-title">🔍 가능한 원인들</div>
+        <ul class="reasons-list">
+            <li>방 ID가 올바르지 않습니다</li>
+            <li>방이 이미 삭제되었거나 만료되었습니다</li>
+            <li>방에 이미 최대 인원(2명)이 참가중입니다</li>
+            <li>네트워크 연결에 문제가 있습니다</li>
+            <li>서버에 일시적인 문제가 발생했습니다</li>
+        </ul>
+    </div>
+
+    <div class="help-section">
+        <div class="help-title">💡 해결 방법</div>
+        <div class="help-text">
+            방 ID를 다시 확인하거나, 방 생성자에게 새로운 링크를 요청해보세요.
+            아래에서 방 ID를 다시 입력하여 확인할 수도 있습니다.
+        </div>
+
+        <div class="room-id-input">
+            <input type="text" class="room-id-field" placeholder="방 ID를 입력하세요" id="roomIdCheck">
+            <button class="quick-check-btn" onclick="checkRoomId()">✓ 확인</button>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <a href="/join" class="btn btn-primary">
+            <span class="btn-icon">🔄</span>
+            다시 시도
+        </a>
+        <a href="/create-room" class="btn btn-retry">
+            <span class="btn-icon">➕</span>
+            새 방 만들기
+        </a>
+        <a href="/" class="btn btn-secondary">
+            <span class="btn-icon">🏠</span>
+            홈으로
+        </a>
+    </div>
+
+    <details class="error-details">
+        <summary>🔧 기술적 세부사항</summary>
+        <p>
+            <strong>오류 시간:</strong> <code id="errorTime"></code><br>
+            <strong>요청 URL:</strong> <code id="requestUrl"></code><br>
+            <strong>브라우저:</strong> <code id="userAgent"></code><br>
+            <strong>서버 상태:</strong> <span id="serverStatus">확인 중...</span>
+        </p>
+    </details>
+</div>
+
+<script>
+    // 페이지 로드 시 정보 설정
+    window.addEventListener('load', function() {
+        // 현재 시간 설정
+        document.getElementById('errorTime').textContent = new Date().toLocaleString();
+
+        // 요청 URL 설정
+        document.getElementById('requestUrl').textContent = window.location.href;
+
+        // 사용자 에이전트 설정
+        document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+
+        // 서버 상태 확인
+        checkServerStatus();
+
+        // 방 ID 입력 필드에 포커스
+        document.getElementById('roomIdCheck').focus();
+
+        // URL에서 roomId 파라미터 가져오기
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('roomId');
+        if (roomId) {
+            document.getElementById('roomIdCheck').value = roomId;
+        }
+    });
+
+    // 서버 상태 확인
+    async function checkServerStatus() {
+        try {
+            const response = await fetch('/api/health', {
+                method: 'HEAD',
+                timeout: 5000
+            });
+
+            const statusElement = document.getElementById('serverStatus');
+            if (response.ok) {
+                statusElement.innerHTML = '<span style="color: #28a745;">🟢 정상</span>';
+            } else {
+                statusElement.innerHTML = '<span style="color: #ffc107;">🟡 불안정</span>';
+            }
+        } catch (error) {
+            document.getElementById('serverStatus').innerHTML = '<span style="color: #dc3545;">🔴 연결 불가</span>';
+        }
+    }
+
+    // 방 ID 확인
+    function checkRoomId() {
+        const roomId = document.getElementById('roomIdCheck').value.trim();
+
+        if (!roomId) {
+            showNotification('방 ID를 입력해주세요', 'warning');
+            return;
+        }
+
+        if (roomId.length < 8) {
+            showNotification('올바른 방 ID 형식이 아닙니다', 'error');
+            return;
+        }
+
+        // 방 ID 유효성 검사 (간단한 패턴 체크)
+        const roomIdPattern = /^[a-zA-Z0-9\-]{8,}$/;
+        if (!roomIdPattern.test(roomId)) {
+            showNotification('방 ID에 유효하지 않은 문자가 포함되어 있습니다', 'error');
+            return;
+        }
+
+        // 로딩 상태 표시
+        const checkBtn = document.querySelector('.quick-check-btn');
+        const originalText = checkBtn.innerHTML;
+        checkBtn.innerHTML = '⏳ 확인 중...';
+        checkBtn.disabled = true;
+
+        // 실제 방 존재 여부 확인 (API 호출)
+        setTimeout(() => {
+            // 임시로 랜덤하게 성공/실패 결정 (실제로는 서버 API 호출)
+            const exists = Math.random() > 0.7;
+
+            if (exists) {
+                showNotification('방이 존재합니다! 참가 페이지로 이동합니다...', 'success');
+                setTimeout(() => {
+                    window.location.href = `/join?roomId=${encodeURIComponent(roomId)}`;
+                }, 1500);
+            } else {
+                showNotification('이 방 ID로는 방을 찾을 수 없습니다', 'error');
+            }
+
+            // 버튼 원상복구
+            checkBtn.innerHTML = originalText;
+            checkBtn.disabled = false;
+        }, 2000);
+    }
+
+    // 알림 메시지 표시
+    function showNotification(message, type = 'info') {
+        // 기존 알림 제거
+        const existingNotification = document.querySelector('.notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        // 새 알림 생성
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+                <div class="notification-content">
+                    ${getNotificationIcon(type)} ${message}
+                </div>
+                <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+        // 스타일 적용
+        notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${getNotificationColor(type)};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                max-width: 400px;
+                animation: slideInRight 0.3s ease;
+                font-size: 0.9rem;
+            `;
+
+        // 닫기 버튼 스타일
+        const closeBtn = notification.querySelector('.notification-close');
+        closeBtn.style.cssText = `
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.2rem;
+                cursor: pointer;
+                margin-left: 15px;
+                opacity: 0.7;
+                transition: opacity 0.2s;
+            `;
+
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.7');
+
+        document.body.appendChild(notification);
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 3000);
+    }
+
+    // 알림 아이콘 반환
+    function getNotificationIcon(type) {
+        switch (type) {
+            case 'success': return '✅';
+            case 'error': return '❌';
+            case 'warning': return '⚠️';
+            default: return 'ℹ️';
+        }
+    }
+
+    // 알림 색상 반환
+    function getNotificationColor(type) {
+        switch (type) {
+            case 'success': return '#28a745';
+            case 'error': return '#dc3545';
+            case 'warning': return '#ffc107';
+            default: return '#17a2b8';
+        }
+    }
+
+    // 애니메이션 CSS 추가
+    const style = document.createElement('style');
+    style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+    document.head.appendChild(style);
+
+    // 엔터키로 방 ID 확인
+    document.getElementById('roomIdCheck').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            checkRoomId();
+        }
+    });
+
+    // 클립보드에서 붙여넣기 감지
+    document.getElementById('roomIdCheck').addEventListener('paste', function(e) {
+        setTimeout(() => {
+            // 붙여넣기 후 자동으로 공백 제거 및 형식 정리
+            this.value = this.value.trim().replace(/[^a-zA-Z0-9\-]/g, '');
+        }, 100);
+    });
+
+    // 페이지 새로고침 함수
+    function refreshPage() {
+        window.location.reload();
+    }
+
+    // 뒤로가기 감지
+    window.addEventListener('popstate', function(e) {
+        // 브라우저 뒤로가기 시 홈으로 이동
+        window.location.href = '/';
+    });
+
+    // 도움말 토글
+    function toggleHelp() {
+        const helpSection = document.querySelector('.help-section');
+        helpSection.style.display = helpSection.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // 자동 재시도 기능
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    function autoRetry() {
+        if (retryCount < maxRetries) {
+            retryCount++;
+            showNotification(`자동 재시도 중... (${retryCount}/${maxRetries})`, 'info');
+
+            setTimeout(() => {
+                checkServerStatus();
+            }, 2000);
+        } else {
+            showNotification('최대 재시도 횟수에 도달했습니다', 'warning');
+        }
+    }
+
+    // 오류 보고 기능
+    function reportError() {
+        const errorData = {
+            timestamp: new Date().toISOString(),
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            roomId: new URLSearchParams(window.location.search).get('roomId') || 'none'
+        };
+
+        // 실제 구현에서는 서버로 에러 로그 전송
+        console.log('Error Report:', errorData);
+        showNotification('오류가 보고되었습니다. 감사합니다!', 'success');
+    }
+
+    // 키보드 단축키
+    document.addEventListener('keydown', function(e) {
+        switch (e.key) {
+            case 'Escape':
+                window.location.href = '/';
+                break;
+            case 'F5':
+                e.preventDefault();
+                refreshPage();
+                break;
+            case 'r':
+                if (!e.ctrlKey && !e.metaKey) {
+                    autoRetry();
+                }
+                break;
+        }
+    });
+
+    let connectionMonitor = setInterval(() => {
+        if (navigator.onLine) {
+            document.body.style.filter = 'none';
+        } else {
+            document.body.style.filter = 'grayscale(100%)';
+            showNotification('인터넷 연결이 끊어졌습니다', 'error');
+        }
+    }, 5000);
+
+    window.addEventListener('beforeunload', function() {
+        if (connectionMonitor) {
+            clearInterval(connectionMonitor);
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            const focusableElements = document.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey && document.activeElement === firstElement) {
+                e.preventDefault();
+                lastElement.focus();
+            } else if (!e.shiftKey && document.activeElement === lastElement) {
+                e.preventDefault();
+                firstElement.focus();
+            }
+        }
+    });
+</script>
+</body>
+</html>

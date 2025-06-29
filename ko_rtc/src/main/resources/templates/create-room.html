@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>방 만들기 - 1:1 화상통화</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📹</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: gradientShift 10s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+            50% { background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+
+        .logo {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2.5rem;
+            font-size: 1rem;
+        }
+
+        .error-message {
+            background: rgba(220, 53, 69, 0.1);
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin-bottom: 2rem;
+            border-radius: 0 10px 10px 0;
+            color: #dc3545;
+            font-weight: 500;
+            text-align: left;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.8rem;
+            color: #333;
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        input[type="text"].error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: #aaa;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 2.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 500;
+            min-width: 150px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            box-shadow: 0 10px 25px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon::before {
+            content: attr(data-icon);
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #aaa;
+            z-index: 1;
+        }
+
+        .input-icon input {
+            padding-left: 50px;
+        }
+
+        .tips {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 2rem;
+            border-radius: 0 10px 10px 0;
+            text-align: left;
+        }
+
+        .tips-title {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .tips-text {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="logo">📹</div>
+    <h1>새 방 만들기</h1>
+    <p class="subtitle">친구와 함께할 화상통화 방을 생성하세요</p>
+
+    <!-- 에러 메시지 표시 (Spring Boot 3.x 호환) -->
+    <div th:if="${error}" class="error-message">
+        <span th:text="${error}">오류 메시지</span>
+    </div>
+
+    <form method="post" action="/create-room" id="createRoomForm">
+        <div class="form-group">
+            <label for="roomName">방 이름</label>
+            <div class="input-icon" data-icon="＠">
+                <input type="text"
+                       id="roomName"
+                       name="roomName"
+                       required
+                       th:value="${roomName}"
+                       th:class="${error != null ? 'error' : ''}"
+                       placeholder="예: 친구들과의 모임"
+                       maxlength="50">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="userName"> 사용자 이름</label>
+            <div class="input-icon" data-icon="ㅁ">
+                <input type="text"
+                       id="userName"
+                       name="userName"
+                       required
+                       th:value="${userName}"
+                       th:class="${error != null ? 'error' : ''}"
+                       placeholder="본인의 이름을 입력하세요"
+                       maxlength="20">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="btn" id="submitBtn">
+                <span class="btn-icon">-></span>
+                방 만들기
+            </button>
+            <a href="/" class="btn btn-secondary">
+                <span class="btn-icon">@</span>
+                돌아가기
+            </a>
+        </div>
+    </form>
+
+    <div class="tips">
+        <div class="tips-title">팁</div>
+        <div class="tips-text">
+            방을 만들면 고유한 방 ID가 생성됩니다. 이 ID를 친구에게 공유하여 화상통화에 초대하세요!
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    // 서버에서 전달된 에러가 있는지 확인
+    const hasError = /*[[${error != null}]]*/ false;
+
+    // 폼 요소들
+    const form = document.getElementById('createRoomForm');
+    const roomName = document.getElementById('roomName');
+    const userName = document.getElementById('userName');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // 실시간 입력 검증 및 정리
+    roomName.addEventListener('input', function() {
+        // XSS 방지를 위한 특수문자 제거
+        this.value = this.value.replace(/[<>\"'&]/g, '');
+        // 에러 상태 제거
+        this.classList.remove('error');
+        validateForm();
+    });
+
+    userName.addEventListener('input', function() {
+        this.value = this.value.replace(/[<>\"'&]/g, '');
+        this.classList.remove('error');
+        validateForm();
+    });
+
+    // 폼 유효성 검사
+    function validateForm() {
+        const roomNameValue = roomName.value.trim();
+        const userNameValue = userName.value.trim();
+
+        const isValid = roomNameValue.length >= 2 && userNameValue.length >= 1;
+
+        submitBtn.disabled = !isValid;
+        return isValid;
+    }
+
+    // 폼 제출 처리
+    form.addEventListener('submit', function(e) {
+        const roomNameValue = roomName.value.trim();
+        const userNameValue = userName.value.trim();
+
+        // 클라이언트 사이드 검증
+        if (roomNameValue.length < 2) {
+            e.preventDefault();
+            showFieldError(roomName, '방 이름은 최소 2글자 이상 입력해주세요.');
+            return;
+        }
+
+        if (userNameValue.length < 1) {
+            e.preventDefault();
+            showFieldError(userName, '사용자 이름을 입력해주세요.');
+            return;
+        }
+
+        // 로딩 상태 표시
+        submitBtn.innerHTML = '<span class="btn-icon">⏳</span>방 생성 중...';
+        submitBtn.disabled = true;
+
+        // 중복 제출 방지
+        form.style.pointerEvents = 'none';
+    });
+
+    // 필드별 에러 표시
+    function showFieldError(field, message) {
+        field.classList.add('error');
+        field.focus();
+        alert(message); // 간단한 알림 (나중에 토스트로 교체 가능)
+    }
+
+    // 엔터키로 폼 제출
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey && validateForm()) {
+            form.submit();
+        }
+    });
+
+    // 페이지 로드 시 초기화
+    window.addEventListener('load', function() {
+
+        if (hasError) {
+            if (roomName.value.trim().length < 2) {
+                roomName.focus();
+            } else {
+                userName.focus();
+            }
+        } else {
+            roomName.focus();
+        }
+
+        // 초기 폼 검증
+        validateForm();
+    });
+
+    // 브라우저 뒤로가기 시 폼 리셋
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            submitBtn.innerHTML = '<span class="btn-icon">🚀</span>방 만들기';
+            submitBtn.disabled = false;
+            form.style.pointerEvents = 'auto';
+        }
+    });
+</script>
+</body>
+</html>

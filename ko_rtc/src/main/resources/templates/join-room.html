@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>방 참가하기 - 1:1 화상통화</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📹</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: gradientShift 10s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+            50% { background: linear-gradient(135deg, #20c997 0%, #28a745 100%); }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+
+        .logo {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2.5rem;
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.8rem;
+            color: #333;
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #28a745;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+            transform: translateY(-2px);
+        }
+
+        input[type="text"]::placeholder {
+            color: #aaa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 2.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 30px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 500;
+            min-width: 150px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background: #218838;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            box-shadow: 0 10px 25px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon::before {
+            content: attr(data-icon);
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #aaa;
+            z-index: 1;
+        }
+
+        .input-icon input {
+            padding-left: 50px;
+        }
+
+        .tips {
+            background: rgba(40, 167, 69, 0.1);
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin-top: 2rem;
+            border-radius: 0 10px 10px 0;
+            text-align: left;
+        }
+
+        .tips-title {
+            font-weight: 600;
+            color: #28a745;
+            margin-bottom: 8px;
+        }
+
+        .tips-text {
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .room-id-input {
+            position: relative;
+        }
+
+        .paste-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #28a745;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .paste-btn:hover {
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        .recent-rooms {
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .recent-title {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .recent-item {
+            background: rgba(40, 167, 69, 0.05);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+        }
+
+        .recent-item:hover {
+            background: rgba(40, 167, 69, 0.1);
+            border-color: #28a745;
+        }
+
+        .recent-item-id {
+            font-family: 'Courier New', monospace;
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .recent-item-time {
+            color: #999;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="logo"></div>
+    <h1>방 참가하기</h1>
+    <p class="subtitle">친구가 공유한 방 ID를 입력하여 참가하세요</p>
+
+    <form method="post" action="/join">
+        <div class="form-group">
+            <label for="roomId">방 ID</label>
+            <div class="input-icon room-id-input" data-icon="🔑">
+                <input type="text" id="roomId" name="roomId" required
+                       placeholder="예: abc123-def456-ghi789"
+                       pattern="^[a-zA-Z0-9\-]{8,}$"
+                       title="올바른 방 ID를 입력해주세요">
+                <button type="button" class="paste-btn" onclick="pasteRoomId()">📋 붙여넣기</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="userName"> 사용자 이름</label>
+            <div class="input-icon" data-icon="">
+                <input type="text" id="userName" name="userName" required
+                       placeholder="본인의 이름을 입력하세요" maxlength="20">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="btn">
+                <span class="btn-icon"></span>
+                참가하기
+            </button>
+            <a href="/" class="btn btn-secondary">
+                <span class="btn-icon"></span>
+                돌아가기
+            </a>
+        </div>
+    </form>
+
+    <div class="recent-rooms" id="recentRooms" style="display: none;">
+        <div class="recent-title">최근 참가한 방</div>
+        <div id="recentRoomsList"></div>
+    </div>
+
+    <div class="tips">
+        <div class="tips-title">팁</div>
+        <div class="tips-text">
+            • 방 ID는 방 생성자가 공유한 고유 식별자입니다<br>
+            • 방 ID를 클립보드에 복사한 후 '붙여넣기' 버튼을 눌러보세요<br>
+            • 존재하지 않는 방 ID이거나 이미 가득 찬 방에는 참가할 수 없습니다
+        </div>
+    </div>
+</div>
+
+<script>
+    // 로컬 스토리지에서 최근 방 목록 가져오기
+    function loadRecentRooms() {
+        const recent = JSON.parse(localStorage.getItem('recentRooms') || '[]');
+        if (recent.length > 0) {
+            const recentRoomsDiv = document.getElementById('recentRooms');
+            const recentRoomsList = document.getElementById('recentRoomsList');
+
+            recentRoomsDiv.style.display = 'block';
+            recentRoomsList.innerHTML = '';
+
+            recent.slice(0, 3).forEach(room => {
+                const item = document.createElement('div');
+                item.className = 'recent-item';
+                item.innerHTML = `
+                        <div class="recent-item-id">${room.id}</div>
+                        <div class="recent-item-time">${room.time}</div>
+                    `;
+                item.onclick = () => selectRecentRoom(room.id);
+                recentRoomsList.appendChild(item);
+            });
+        }
+    }
+
+    // 최근 방 선택
+    function selectRecentRoom(roomId) {
+        document.getElementById('roomId').value = roomId;
+        document.getElementById('roomId').focus();
+    }
+
+    // 클립보드에서 붙여넣기
+    async function pasteRoomId() {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text.trim()) {
+                document.getElementById('roomId').value = text.trim();
+                document.getElementById('roomId').focus();
+            }
+        } catch (err) {
+            alert('클립보드에서 읽기에 실패했습니다. 직접 입력해주세요.');
+            document.getElementById('roomId').focus();
+        }
+    }
+
+    // 폼 유효성 검사
+    const form = document.querySelector('form');
+    const roomId = document.getElementById('roomId');
+    const userName = document.getElementById('userName');
+
+    // 실시간 입력 검증
+    roomId.addEventListener('input', function() {
+        this.value = this.value.replace(/[<>\"'&\s]/g, '');
+    });
+
+    userName.addEventListener('input', function() {
+        this.value = this.value.replace(/[<>\"'&]/g, '');
+    });
+
+    // 폼 제출 시 검증
+    form.addEventListener('submit', function(e) {
+        const roomIdValue = roomId.value.trim();
+        const userNameValue = userName.value.trim();
+
+        if (roomIdValue.length < 8) {
+            e.preventDefault();
+            alert('올바른 방 ID를 입력해주세요. (최소 8자 이상)');
+            roomId.focus();
+            return;
+        }
+
+        if (userNameValue.length < 1) {
+            e.preventDefault();
+            alert('사용자 이름을 입력해주세요.');
+            userName.focus();
+            return;
+        }
+
+        // 최근 방 목록에 추가
+        saveRecentRoom(roomIdValue);
+
+        // 로딩 상태 표시
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<span class="btn-icon">⏳</span>참가 중...';
+        submitBtn.disabled = true;
+    });
+
+    // 최근 방 저장
+    function saveRecentRoom(roomId) {
+        const recent = JSON.parse(localStorage.getItem('recentRooms') || '[]');
+        const now = new Date().toLocaleString();
+
+        // 중복 제거
+        const filtered = recent.filter(room => room.id !== roomId);
+
+        // 새 항목 추가 (최신이 맨 앞에)
+        filtered.unshift({ id: roomId, time: now });
+
+        // 최대 5개까지만 저장
+        const limited = filtered.slice(0, 5);
+
+        localStorage.setItem('recentRooms', JSON.stringify(limited));
+    }
+
+    // 엔터키로 폼 제출
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            form.submit();
+        }
+    });
+
+    // URL 파라미터에서 방 ID 가져오기
+    function getUrlParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    // 페이지 로드 시 초기화
+    window.addEventListener('load', function() {
+        loadRecentRooms();
+
+        // URL에서 방 ID 파라미터 확인
+        const urlRoomId = getUrlParam('roomId');
+        if (urlRoomId) {
+            roomId.value = urlRoomId;
+            userName.focus();
+        } else {
+            roomId.focus();
+        }
+    });
+
+    // Ctrl+V로 붙여넣기
+    roomId.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'v') {
+            setTimeout(() => {
+                this.value = this.value.replace(/[<>\"'&\s]/g, '');
+            }, 100);
+        }
+    });
+</script>
+</body>
+</html>

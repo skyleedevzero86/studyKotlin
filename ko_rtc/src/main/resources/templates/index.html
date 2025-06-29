@@ -1,4 +1,3 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -18,25 +17,42 @@
         }
         .container {
             background: white;
-            padding: 2rem;
+            padding: 3rem;
             border-radius: 20px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
             text-align: center;
             max-width: 400px;
             width: 90%;
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .logo {
-            font-size: 2.5rem;
+            font-size: 3rem;
             color: #667eea;
             margin-bottom: 1rem;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
         }
         h1 {
             color: #333;
-            margin-bottom: 2rem;
+            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 2.5rem;
+            font-size: 1.1rem;
         }
         .btn {
             display: inline-block;
-            padding: 12px 30px;
+            padding: 15px 30px;
             margin: 10px;
             background: #667eea;
             color: white;
@@ -45,770 +61,129 @@
             transition: all 0.3s ease;
             border: none;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            min-width: 160px;
         }
         .btn:hover {
             background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
         }
         .btn-secondary {
-            background: #6c757d;
+            background: #28a745;
         }
         .btn-secondary:hover {
-            background: #5a6268;
+            background: #218838;
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+        .btn-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        .features {
+            margin-top: 2rem;
+            text-align: left;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+        }
+        .feature-item {
+            margin: 10px 0;
+            color: #555;
+            font-size: 0.95rem;
+        }
+        .feature-item::before {
+            content: '✓';
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 8px;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="logo">📹</div>
+    <div class="logo"></div>
     <h1>1:1 화상통화</h1>
-    <p>간편하고 안전한 화상통화 서비스입니다.</p>
+    <p class="subtitle">간편하고 안전한 실시간 화상통화 서비스</p>
 
     <div>
-        <a href="/create-room" class="btn">새 방 만들기</a>
-        <a href="/join" class="btn btn-secondary">방 참가하기</a>
-    </div>
-</div>
-</body>
-</html>
-
-<!-- templates/create-room.html -->
-<!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>방 만들기 - 1:1 화상통화</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-            text-align: left;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #333;
-            font-weight: 500;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-            box-sizing: border-box;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 10px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        .btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        .btn-back {
-            background: #6c757d;
-        }
-        .btn-back:hover {
-            background: #5a6268;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 2rem;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>새 방 만들기</h1>
-    <form method="post" action="/create-room">
-        <div class="form-group">
-            <label for="roomName">방 이름</label>
-            <input type="text" id="roomName" name="roomName" required placeholder="방 이름을 입력하세요">
-        </div>
-        <div class="form-group">
-            <label for="userName">사용자 이름</label>
-            <input type="text" id="userName" name="userName" required placeholder="이름을 입력하세요">
-        </div>
-        <div>
-            <button type="submit" class="btn">방 만들기</button>
-            <a href="/" class="btn btn-back">돌아가기</a>
-        </div>
-    </form>
-</div>
-</body>
-</html>
-
-<!-- templates/join-room.html -->
-<!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>방 참가하기 - 1:1 화상통화</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .form-group {
-            margin-bottom: 1.5rem;
-            text-align: left;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #333;
-            font-weight: 500;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-            box-sizing: border-box;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 10px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        .btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        .btn-back {
-            background: #6c757d;
-        }
-        .btn-back:hover {
-            background: #5a6268;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 2rem;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>방 참가하기</h1>
-    <form method="post" action="/join">
-        <div class="form-group">
-            <label for="roomId">방 ID</label>
-            <input type="text" id="roomId" name="roomId" required placeholder="방 ID를 입력하세요">
-        </div>
-        <div class="form-group">
-            <label for="userName">사용자 이름</label>
-            <input type="text" id="userName" name="userName" required placeholder="이름을 입력하세요">
-        </div>
-        <div>
-            <button type="submit" class="btn">참가하기</button>
-            <a href="/" class="btn btn-back">돌아가기</a>
-        </div>
-    </form>
-</div>
-</body>
-</html>
-
-<!-- templates/video-call.html -->
-<!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${roomName} + ' - 화상통화'">화상통화</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a1a;
-            color: white;
-            overflow: hidden;
-        }
-        .video-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            position: relative;
-        }
-        .main-video {
-            flex: 1;
-            position: relative;
-            background: #2a2a2a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .remote-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: #2a2a2a;
-        }
-        .local-video-container {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            background: #333;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 2px solid #667eea;
-            z-index: 10;
-        }
-        .local-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .controls {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            z-index: 10;
-        }
-        .control-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            transition: all 0.3s ease;
-        }
-        .control-btn:hover {
-            transform: scale(1.1);
-        }
-        .btn-video {
-            background: #667eea;
-            color: white;
-        }
-        .btn-audio {
-            background: #28a745;
-            color: white;
-        }
-        .btn-end {
-            background: #dc3545;
-            color: white;
-        }
-        .btn-video.off {
-            background: #6c757d;
-        }
-        .btn-audio.off {
-            background: #6c757d;
-        }
-        .room-info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px 15px;
-            border-radius: 10px;
-            z-index: 10;
-        }
-        .status {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 5;
-        }
-        .status h2 {
-            margin-bottom: 1rem;
-            color: #667eea;
-        }
-        .spinner {
-            border: 4px solid #333;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-<div class="video-container">
-    <div class="room-info">
-        <div><strong th:text="${roomName}">방 이름</strong></div>
-        <div>사용자: <span th:text="${userName}">사용자명</span></div>
-        <div id="connectionStatus">연결 중...</div>
+        <a href="/create-room" class="btn">
+            <span class="btn-icon"></span>새 방 만들기
+        </a>
+        <a href="/join" class="btn btn-secondary">
+            <span class="btn-icon"></span>방 참가하기
+        </a>
     </div>
 
-    <div class="main-video">
-        <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
-        <div class="status" id="statusMessage">
-            <div class="spinner"></div>
-            <h2>상대방을 기다리는 중...</h2>
-            <p>방 ID를 공유하여 상대방을 초대하세요</p>
-            <p><strong th:text="${roomId}">방 ID</strong></p>
-        </div>
-    </div>
-
-    <div class="local-video-container">
-        <video id="localVideo" class="local-video" autoplay muted playsinline></video>
-    </div>
-
-    <div class="controls">
-        <button id="videoBtn" class="control-btn btn-video" title="비디오 토글">📹</button>
-        <button id="audioBtn" class="control-btn btn-audio" title="오디오 토글">🎤</button>
-        <button id="endBtn" class="control-btn btn-end" title="통화 종료">📞</button>
+    <div class="features">
+        <div class="feature-item">무료 1:1 화상통화</div>
+        <div class="feature-item">실시간 오디오/비디오 통화</div>
+        <div class="feature-item">화면 공유 지원</div>
+        <div class="feature-item">안전한 P2P 연결</div>
     </div>
 </div>
 
-<script th:inline="javascript">
-    const roomId = /*[[${roomId}]]*/ '';
-    const userId = /*[[${userId}]]*/ '';
-    const userName = /*[[${userName}]]*/ '';
+<script>
+    // 페이지 로드 애니메이션
+    window.addEventListener('load', function() {
+        console.log('1:1 화상통화 서비스에 오신 것을 환영합니다!');
 
-    let localStream = null;
-    let remoteStream = null;
-    let peerConnection = null;
-    let websocket = null;
-    let isVideoEnabled = true;
-    let isAudioEnabled = true;
-
-    const configuration = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-    };
-
-    // DOM 요소들
-    const localVideo = document.getElementById('localVideo');
-    const remoteVideo = document.getElementById('remoteVideo');
-    const videoBtn = document.getElementById('videoBtn');
-    const audioBtn = document.getElementById('audioBtn');
-    const endBtn = document.getElementById('endBtn');
-    const statusMessage = document.getElementById('statusMessage');
-    const connectionStatus = document.getElementById('connectionStatus');
-
-    // 초기화
-    async function init() {
-        try {
-            // 로컬 미디어 스트림 획득
-            localStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
-            localVideo.srcObject = localStream;
-
-            // WebSocket 연결
-            connectWebSocket();
-
-            // 컨트롤 버튼 이벤트 리스너
-            setupControlButtons();
-
-        } catch (error) {
-            console.error('미디어 스트림 획득 실패:', error);
-            statusMessage.innerHTML = '<h2>카메라/마이크 접근 실패</h2><p>브라우저에서 카메라와 마이크 권한을 허용해주세요.</p>';
-        }
-    }
-
-    function connectWebSocket() {
-        const wsUrl = `ws://localhost:8080/ws/signaling?roomId=${roomId}`;
-        websocket = new WebSocket(wsUrl);
-
-        websocket.onopen = () => {
-            console.log('WebSocket 연결됨');
-            connectionStatus.textContent = '연결됨';
-
-            // 방 참가 메시지 전송
-            sendMessage({
-                type: 'JOIN_ROOM',
-                roomId: roomId,
-                fromUserId: userId
-            });
-        };
-
-        websocket.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            await handleSignalingMessage(message);
-        };
-
-        websocket.onclose = () => {
-            console.log('WebSocket 연결 종료');
-            connectionStatus.textContent = '연결 끊김';
-        };
-
-        websocket.onerror = (error) => {
-            console.error('WebSocket 오류:', error);
-            connectionStatus.textContent = '연결 오류';
-        };
-    }
-
-    async function handleSignalingMessage(message) {
-        console.log('시그널링 메시지 수신:', message);
-
-        switch (message.type) {
-            case 'USER_JOINED':
-                if (message.fromUserId !== userId) {
-                    statusMessage.innerHTML = '<h2>상대방이 참가했습니다</h2><p>연결을 설정하는 중...</p>';
-                    await createPeerConnection();
-                    await createOffer();
-                }
-                break;
-
-            case 'OFFER':
-                if (message.toUserId === userId || !message.toUserId) {
-                    await handleOffer(message.data);
-                }
-                break;
-
-            case 'ANSWER':
-                if (message.toUserId === userId || !message.toUserId) {
-                    await handleAnswer(message.data);
-                }
-                break;
-
-            case 'ICE_CANDIDATE':
-                if (message.toUserId === userId || !message.toUserId) {
-                    await handleIceCandidate(message.data);
-                }
-                break;
-
-            case 'USER_LEFT':
-                if (message.fromUserId !== userId) {
-                    handleUserLeft();
-                }
-                break;
-        }
-    }
-
-    async function createPeerConnection() {
-        peerConnection = new RTCPeerConnection(configuration);
-
-        // 로컬 스트림 추가
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-
-        // 원격 스트림 처리
-        peerConnection.ontrack = (event) => {
-            console.log('원격 스트림 수신');
-            remoteStream = event.streams[0];
-            remoteVideo.srcObject = remoteStream;
-            statusMessage.style.display = 'none';
-        };
-
-        // ICE 후보 처리
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                sendMessage({
-                    type: 'ICE_CANDIDATE',
-                    roomId: roomId,
-                    fromUserId: userId,
-                    data: event.candidate
-                });
-            }
-        };
-
-        // 연결 상태 모니터링
-        peerConnection.onconnectionstatechange = () => {
-            console.log('연결 상태:', peerConnection.connectionState);
-            connectionStatus.textContent = `연결 상태: ${peerConnection.connectionState}`;
-
-            if (peerConnection.connectionState === 'connected') {
-                statusMessage.style.display = 'none';
-            } else if (peerConnection.connectionState === 'disconnected' ||
-                peerConnection.connectionState === 'failed') {
-                handleUserLeft();
-            }
-        };
-    }
-
-    async function createOffer() {
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            sendMessage({
-                type: 'OFFER',
-                roomId: roomId,
-                fromUserId: userId,
-                data: offer
-            });
-        } catch (error) {
-            console.error('Offer 생성 실패:', error);
-        }
-    }
-
-    async function handleOffer(offer) {
-        try {
-            if (!peerConnection) {
-                await createPeerConnection();
-            }
-
-            await peerConnection.setRemoteDescription(offer);
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            sendMessage({
-                type: 'ANSWER',
-                roomId: roomId,
-                fromUserId: userId,
-                data: answer
-            });
-        } catch (error) {
-            console.error('Offer 처리 실패:', error);
-        }
-    }
-
-    async function handleAnswer(answer) {
-        try {
-            await peerConnection.setRemoteDescription(answer);
-        } catch (error) {
-            console.error('Answer 처리 실패:', error);
-        }
-    }
-
-    async function handleIceCandidate(candidate) {
-        try {
-            if (peerConnection) {
-                await peerConnection.addIceCandidate(candidate);
-            }
-        } catch (error) {
-            console.error('ICE 후보 추가 실패:', error);
-        }
-    }
-
-    function handleUserLeft() {
-        statusMessage.style.display = 'block';
-        statusMessage.innerHTML = '<h2>상대방이 나갔습니다</h2><p>새로운 참가자를 기다리는 중...</p>';
-
-        if (remoteVideo.srcObject) {
-            remoteVideo.srcObject = null;
-        }
-
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-    }
-
-    function setupControlButtons() {
-        videoBtn.addEventListener('click', toggleVideo);
-        audioBtn.addEventListener('click', toggleAudio);
-        endBtn.addEventListener('click', endCall);
-    }
-
-    function toggleVideo() {
-        isVideoEnabled = !isVideoEnabled;
-        const videoTrack = localStream.getVideoTracks()[0];
-
-        if (videoTrack) {
-            videoTrack.enabled = isVideoEnabled;
-            videoBtn.classList.toggle('off', !isVideoEnabled);
-            videoBtn.textContent = isVideoEnabled ? '📹' : '📷';
-        }
-    }
-
-    function toggleAudio() {
-        isAudioEnabled = !isAudioEnabled;
-        const audioTrack = localStream.getAudioTracks()[0];
-
-        if (audioTrack) {
-            audioTrack.enabled = isAudioEnabled;
-            audioBtn.classList.toggle('off', !isAudioEnabled);
-            audioBtn.textContent = isAudioEnabled ? '🎤' : '🎙️';
-        }
-    }
-
-    function endCall() {
-        if (confirm('통화를 종료하시겠습니까?')) {
-            // 통화 종료 메시지 전송
-            sendMessage({
-                type: 'LEAVE_ROOM',
-                roomId: roomId,
-                fromUserId: userId
-            });
-
-            // 리소스 정리
-            cleanup();
-
-            // 메인 페이지로 이동
-            window.location.href = '/';
-        }
-    }
-
-    function cleanup() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-
-        if (peerConnection) {
-            peerConnection.close();
-        }
-
-        if (websocket) {
-            websocket.close();
-        }
-    }
-
-    function sendMessage(message) {
-        if (websocket && websocket.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify(message));
-        }
-    }
-
-    // 페이지 언로드 시 정리
-    window.addEventListener('beforeunload', () => {
-        cleanup();
+        // 브라우저 호환성 체크
+        checkBrowserCompatibility();
     });
 
-    // 페이지 로드 시 초기화
-    window.addEventListener('load', init);
-</script>
-</body>
-</html>
+    // 브라우저 호환성 체크
+    function checkBrowserCompatibility() {
+        const isWebRTCSupported = !!(
+            navigator.mediaDevices &&
+            navigator.mediaDevices.getUserMedia &&
+            window.RTCPeerConnection
+        );
 
-<!-- templates/room-not-found.html -->
-<!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>방을 찾을 수 없음 - 1:1 화상통화</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        if (!isWebRTCSupported) {
+            showCompatibilityWarning();
         }
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .error-icon {
-            font-size: 3rem;
-            color: #dc3545;
-            margin-bottom: 1rem;
-        }
-        h1 {
+    }
+
+    // 호환성 경고 표시
+    function showCompatibilityWarning() {
+        const warning = document.createElement('div');
+        warning.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffc107;
             color: #333;
-            margin-bottom: 1rem;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        `;
+        warning.innerHTML = '이 브라우저는 화상통화를 지원하지 않을 수 있습니다. Chrome, Firefox, Safari 최신 버전을 권장합니다.';
+
+        document.body.appendChild(warning);
+
+        setTimeout(() => warning.remove(), 5000);
+    }
+
+    // 키보드 단축키
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '1' || e.key === 'c') {
+            window.location.href = '/create-room';
+        } else if (e.key === '2' || e.key === 'j') {
+            window.location.href = '/join';
         }
-        p {
-            color: #666;
-            margin-bottom: 2rem;
+    });
+
+    // 페이지 가시성 API
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            console.log('페이지가 다시 활성화되었습니다');
         }
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 10px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-        }
-        .btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="error-icon">❌</div>
-    <h1>방을 찾을 수 없습니다</h1>
-    <p>입력하신 방 ID가 존재하지 않거나 이미 종료된 방입니다.</p>
-    <a href="/" class="btn">홈으로 돌아가기</a>
-</div>
+    });
+</script>
 </body>
 </html>
