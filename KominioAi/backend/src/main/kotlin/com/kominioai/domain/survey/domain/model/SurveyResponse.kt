@@ -11,7 +11,7 @@ import java.time.Instant
 data class SurveyResponse(
     @Id val id: ResponseId,
     val surveyId: SurveyId,
-    val respondentId: UserId? = null, // null for anonymous responses
+    val respondentId: UserId? = null,
     val submittedAt: Instant,
     @OneToMany(mappedBy = "response", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     val answers: MutableList<Answer> = mutableListOf()
