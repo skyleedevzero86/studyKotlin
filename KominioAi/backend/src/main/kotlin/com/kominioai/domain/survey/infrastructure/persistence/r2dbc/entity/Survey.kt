@@ -1,43 +1,28 @@
-package com.kominioai.domain.survey.infrastructure.persistence.jpa.entity
+package com.kominioai.domain.survey.infrastructure.persistence.r2dbc.entity
 
 import com.kominioai.domain.survey.domain.model.SurveySettings
 import com.kominioai.domain.survey.domain.model.domain.Survey as DomainSurvey
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
-import jakarta.persistence.*
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Table
 import java.time.LocalDateTime
 
-@Entity
-@Table(name = "surveys")
-open class Survey(
+@Table("surveys")
+data class Survey(
     @Id
-    open var id: String,
-
-    @Column(nullable = false)
-    open var title: String,
-
-    @Column(columnDefinition = "TEXT")
-    open var description: String?,
-
-    @Column(name = "created_by", nullable = false)
-    open var createdBy: String,
-
-    @Column(name = "created_at", nullable = false)
-    open var createdAt: LocalDateTime,
-
-    @Column(name = "updated_at", nullable = false)
-    open var updatedAt: LocalDateTime,
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    open var status: SurveyStatus,
-
-    @OneToMany(mappedBy = "survey", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    open var questions: MutableList<Question> = mutableListOf(),
-
-    @Embedded
-    open var settings: SurveySettings
+    val id: String,
+    val title: String,
+    val description: String?,
+    val createdBy: String,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime,
+    val status: SurveyStatus,
+    val allowAnonymous: Boolean,
+    val allowMultipleResponses: Boolean,
+    val requireLogin: Boolean,
+    val collectIpAddress: Boolean
 ) {
     fun toDomain(): DomainSurvey {
         return DomainSurvey(
@@ -48,8 +33,13 @@ open class Survey(
             createdAt = createdAt,
             updatedAt = updatedAt,
             status = status,
-            questions = questions.map { it.toDomain() },
-            settings = settings
+            questions = emptyList(),
+            settings = SurveySettings(
+                allowAnonymous = allowAnonymous,
+                allowMultipleResponses = allowMultipleResponses,
+                requireLogin = requireLogin,
+                collectIpAddress = collectIpAddress
+            )
         )
     }
 
@@ -63,8 +53,10 @@ open class Survey(
                 createdAt = domainSurvey.createdAt,
                 updatedAt = domainSurvey.updatedAt,
                 status = domainSurvey.status,
-                questions = domainSurvey.questions.map { Question.from(it) }.toMutableList(),
-                settings = domainSurvey.settings
+                allowAnonymous = domainSurvey.settings.allowAnonymous,
+                allowMultipleResponses = domainSurvey.settings.allowMultipleResponses,
+                requireLogin = domainSurvey.settings.requireLogin,
+                collectIpAddress = domainSurvey.settings.collectIpAddress
             )
         }
     }

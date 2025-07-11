@@ -1,73 +1,66 @@
 package com.kominioai.domain.survey.domain.model
 
+import com.kominioai.domain.survey.domain.valueobject.QuestionId
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import jakarta.persistence.CascadeType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.OneToMany
-import jakarta.persistence.Table
-import java.util.UUID
+import com.kominioai.domain.survey.domain.valueobject.SurveyId
 
-@Entity
-@Table(name = "questions")
 data class Question(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
-
-    @Column(nullable = false)
+    val id: QuestionId,
+    val surveyId: SurveyId,
+    val order: Int,
     val text: String,
-
-    @Enumerated(EnumType.STRING)
+    val description: String?,
     val type: QuestionType,
-
-    @Column(name = "is_required", nullable = false)
-    val isRequired: Boolean = false,
-
-    @Column(name = "order_index", nullable = false)
-    var orderIndex: Int,
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "survey_id", nullable = false)
-    var survey: Survey? = null,
-
-    @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    val options: MutableList<QuestionOption> = mutableListOf()
+    val required: Boolean,
+    val options: List<QuestionOption>
 ) {
-    protected constructor() : this(
-        id = UUID.randomUUID(),
-        text = "",
-        type = QuestionType.SINGLE_CHOICE,
-        isRequired = false,
-        orderIndex = 0,
-        survey = null
-    )
-
-    fun addOption(optionText: String, orderIndex: Int) {
-        val option = QuestionOption(
-            questionId = this.id.toString(),
-            orderIndex = orderIndex,
-            text = optionText,
-            question = this
-        )
-        options.add(option)
+    companion object {
+        fun create(
+            surveyId: SurveyId,
+            order: Int,
+            text: String,
+            description: String?,
+            type: QuestionType,
+            required: Boolean,
+            options: List<String>
+        ): Question {
+            return Question(
+                id = QuestionId.generate(),
+                surveyId = surveyId,
+                order = order,
+                text = text,
+                description = description,
+                type = type,
+                required = required,
+                options = options.mapIndexed { index, optionText ->
+                    QuestionOption.create(
+                        order = index + 1,
+                        text = optionText
+                    )
+                }
+            )
+        }
     }
 
-    fun addExistingOption(option: QuestionOption): QuestionOption {
-        val newOption = option.copy(
-            questionId = this.id.toString(),
-            question = this
-        )
-        options.add(newOption)
-        return newOption
+    fun addOption(option: QuestionOption): Question {
+        return copy(options = options + option)
+    }
+
+    fun validateAnswer(answer: Answer): Boolean {
+        return when (type) {
+            QuestionType.TEXT, QuestionType.TEXTAREA, QuestionType.NUMBER, QuestionType.DATE, QuestionType.EMAIL -> {
+                answer.textAnswer?.isNotBlank() == true
+            }
+            QuestionType.SINGLE_CHOICE -> {
+                answer.selectedOptions.size == 1
+            }
+            QuestionType.MULTIPLE_CHOICE -> {
+                answer.selectedOptions.isNotEmpty()
+            }
+            QuestionType.RATING -> {
+                answer.selectedOptions.size == 1
+            }
+            else -> true
+        }
     }
 }

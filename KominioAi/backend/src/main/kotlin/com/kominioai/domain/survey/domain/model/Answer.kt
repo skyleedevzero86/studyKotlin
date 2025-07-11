@@ -1,50 +1,36 @@
 package com.kominioai.domain.survey.domain.model
 
-import com.kominioai.domain.survey.domain.valueobject.ResponseId
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Question
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.JoinTable
-import jakarta.persistence.ManyToMany
-import jakarta.persistence.ManyToOne
-import jakarta.persistence.Table
-import java.util.UUID
+import com.kominioai.domain.survey.domain.valueobject.AnswerId
+import com.kominioai.domain.survey.domain.valueobject.QuestionId
+import com.kominioai.domain.survey.domain.valueobject.QuestionType
+import java.time.LocalDateTime
 
-@Entity
-@Table(name = "answers")
 data class Answer(
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: String = UUID.randomUUID().toString(),
-
-    @Column(name = "response_id", nullable = false)
+    val id: AnswerId,
     val responseId: String,
-
-    @Column(name = "question_id", nullable = false)
-    val questionId: String,
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "question_id", nullable = false, insertable = false, updatable = false)
-    val question: Question,
-
-    @Column(name = "text_answer", length = 2000)
-    val textAnswer: String? = null,
-
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "answer_options",
-        joinColumns = [JoinColumn(name = "answer_id")],
-        inverseJoinColumns = [JoinColumn(name = "option_id")]
-    )
-    val selectedOptions: MutableList<QuestionOption> = mutableListOf(),
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "response_id", insertable = false, updatable = false)
-    val response: SurveyResponse? = null
-)
+    val questionId: QuestionId,
+    val questionType: QuestionType,
+    val textAnswer: String?,
+    val selectedOptions: List<QuestionOption>,
+    val createdAt: LocalDateTime
+) {
+    companion object {
+        fun create(
+            responseId: String,
+            questionId: QuestionId,
+            questionType: QuestionType,
+            textAnswer: String?,
+            selectedOptions: List<QuestionOption>
+        ): Answer {
+            return Answer(
+                id = AnswerId.generate(),
+                responseId = responseId,
+                questionId = questionId,
+                questionType = questionType,
+                textAnswer = textAnswer,
+                selectedOptions = selectedOptions,
+                createdAt = LocalDateTime.now()
+            )
+        }
+    }
+}

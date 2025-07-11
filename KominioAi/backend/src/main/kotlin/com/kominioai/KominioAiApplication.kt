@@ -4,18 +4,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories
+import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
 
 @SpringBootApplication
 @EnableScheduling
-@EnableJpaRepositories(
+@EnableR2dbcRepositories(
     basePackages = [
-        "com.kominioai.domain.survey.infrastructure.persistence.jpa.repository"
+        "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.repository"
     ]
 )
 @ComponentScan(basePackages = [
-    "com.kominioai.domain.survey.infrastructure.persistence.jpa.repository",
-    "com.kominioai.domain.survey.infrastructure.persistence.jpa.adapter"
+    "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.repository",
+    "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.adapter"
 ])
 class KominioAiApplication
 

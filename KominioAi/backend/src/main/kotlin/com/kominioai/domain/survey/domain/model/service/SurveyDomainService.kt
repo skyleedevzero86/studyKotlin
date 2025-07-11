@@ -12,11 +12,10 @@ import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
-import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import java.util.UUID
-
+import java.util.NoSuchElementException
 @Service
 class SurveyDomainService(
     private val surveyRepository: SurveyRepository,

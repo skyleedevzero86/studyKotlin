@@ -1,55 +1,31 @@
-package com.kominioai.domain.survey.infrastructure.persistence.jpa.entity
+package com.kominioai.domain.survey.infrastructure.persistence.r2dbc.entity
 
 import com.kominioai.domain.survey.domain.valueobject.AnswerId
 import com.kominioai.domain.survey.domain.valueobject.QuestionId
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
-import jakarta.persistence.*
-import java.util.UUID
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Table
+import java.time.LocalDateTime
 
-@Entity
-@Table(name = "response_answers")
+@Table("response_answers")
 data class ResponseAnswer(
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: String = UUID.randomUUID().toString(),
-
-    @Column(name = "survey_response_id", nullable = false)
+    val id: String,
     val surveyResponseId: String,
-
-    @Column(name = "question_id", nullable = false)
     val questionId: String,
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "question_type", nullable = false)
     val questionType: QuestionType,
-
-    @Column(name = "text_answer", length = 2000)
-    val textAnswer: String? = null,
-
-    @Column(name = "selected_option_ids", length = 1000)
-    val selectedOptionIds: String? = null,
-
-    @Column(name = "created_at", nullable = false)
-    val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now(),
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "survey_response_id", insertable = false, updatable = false)
-    var surveyResponse: SurveyResponse? = null
+    val textAnswer: String?,
+    val selectedOptionIds: String?,
+    val createdAt: LocalDateTime
 ) {
-    protected constructor() : this(
-        surveyResponseId = "",
-        questionId = "",
-        questionType = QuestionType.SINGLE_CHOICE
-    )
-
     fun toDomain(): com.kominioai.domain.survey.domain.model.domain.Answer {
         return com.kominioai.domain.survey.domain.model.domain.Answer(
             id = AnswerId.from(id),
+            responseId = surveyResponseId,
             questionId = QuestionId.from(questionId),
             questionType = questionType,
             textAnswer = textAnswer,
             selectedOptions = parseSelectedOptions(),
-            responseId = surveyResponseId,
             createdAt = createdAt
         )
     }
