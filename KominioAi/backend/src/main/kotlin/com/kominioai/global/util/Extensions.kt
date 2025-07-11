@@ -1,10 +1,10 @@
 package com.kominioai.global.util
 
-import com.kominioai.domain.survey.domain.model.Answer
-import com.kominioai.domain.survey.domain.model.Question
-import com.kominioai.domain.survey.domain.model.QuestionOption
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Answer
+import com.kominioai.domain.survey.domain.model.domain.Question
+import com.kominioai.domain.survey.domain.model.domain.QuestionOption
+import com.kominioai.domain.survey.domain.model.domain.Survey
+import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 import com.kominioai.domain.survey.presentation.rest.dto.response.AnswerDto
 import com.kominioai.domain.survey.presentation.rest.dto.common.QuestionDto
 import com.kominioai.domain.survey.presentation.rest.dto.common.QuestionOptionDto
@@ -16,39 +16,28 @@ fun Survey.toDto(): SurveyDto = SurveyDto(
     id = id.value,
     title = title,
     description = description,
-    status = status,
     createdBy = createdBy.value,
     createdAt = createdAt,
-    publishedAt = publishedAt,
-    closedAt = closedAt,
-    questions = questions.map { it.toDto() }
-)
-
-fun Survey.toBasicDto(): SurveyDto = SurveyDto(
-    id = id.value,
-    title = title,
-    description = description,
+    updatedAt = updatedAt,
     status = status,
-    createdBy = createdBy.value,
-    createdAt = createdAt,
-    publishedAt = null,
-    closedAt = null,
-    questions = questions.map { it.toDto() }
+    questions = questions.map { it.toDto() },
+    settings = settings
 )
 
 fun Question.toDto(): QuestionDto = QuestionDto(
-    id = id.toString(),
-    title = text,
+    id = id.value,
+    order = order,
+    text = text,
+    description = description,
     type = type,
-    isRequired = isRequired,
-    orderIndex = orderIndex,
+    required = required,
     options = options.map { it.toDto() }
 )
 
 fun QuestionOption.toDto(): QuestionOptionDto = QuestionOptionDto(
-    id = id,
-    text = text,
-    orderIndex = orderIndex
+    id = id.value,
+    order = order,
+    text = text
 )
 
 fun SurveyResponse.toDto(): SurveyResponseDto = SurveyResponseDto(
@@ -60,8 +49,8 @@ fun SurveyResponse.toDto(): SurveyResponseDto = SurveyResponseDto(
 )
 
 fun Answer.toDto(): AnswerDto = AnswerDto(
-    id = id,
-    questionId = questionId,
+    id = id.value,
+    questionId = questionId.value,
     answerText = textAnswer,
-    selectedOptionId = selectedOptions.firstOrNull()?.id
+    selectedOptionId = selectedOptions.firstOrNull()?.id?.value
 )

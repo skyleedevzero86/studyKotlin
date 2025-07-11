@@ -1,7 +1,11 @@
 package com.kominioai.domain.survey.domain.valueobject
 
-data class ResponseId(val value: String) {
+import java.util.UUID
+
+@JvmInline
+value class ResponseId(val value: String) {
     companion object {
-        fun generate(): ResponseId = ResponseId(java.util.UUID.randomUUID().toString())
+        fun generate(): ResponseId = ResponseId(UUID.randomUUID().toString())
+        fun from(value: String): ResponseId = ResponseId(value)
     }
 }

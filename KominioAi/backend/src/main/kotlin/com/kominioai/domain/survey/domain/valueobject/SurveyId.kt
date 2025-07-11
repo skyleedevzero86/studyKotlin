@@ -1,7 +1,11 @@
 package com.kominioai.domain.survey.domain.valueobject
 
-data class SurveyId(val value: String) {
+import java.util.UUID
+
+@JvmInline
+value class SurveyId(val value: String) {
     companion object {
-        fun generate(): SurveyId = SurveyId(java.util.UUID.randomUUID().toString())
+        fun generate(): SurveyId = SurveyId(UUID.randomUUID().toString())
+        fun from(value: String): SurveyId = SurveyId(value)
     }
 }

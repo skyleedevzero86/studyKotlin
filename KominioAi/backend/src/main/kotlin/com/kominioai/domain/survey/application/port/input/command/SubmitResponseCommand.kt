@@ -1,10 +1,11 @@
 package com.kominioai.domain.survey.application.port.input.command
 
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
-import com.kominioai.domain.survey.domain.valueobject.UserId
+import com.kominioai.domain.survey.domain.model.domain.Answer
 
-data class SubmitResponseCommand(
+data class SubmitSurveyResponseCommand(
     val surveyId: SurveyId,
-    val respondentId: UserId?,
-    val answers: List<AnswerSubmission>
+    val respondentId: String?,
+    val answers: List<Answer>,
+    val ipAddress: String?
 )

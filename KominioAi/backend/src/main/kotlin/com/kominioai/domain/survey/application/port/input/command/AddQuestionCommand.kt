@@ -5,8 +5,10 @@ import com.kominioai.domain.survey.domain.valueobject.SurveyId
 
 data class AddQuestionCommand(
     val surveyId: SurveyId,
-    val title: String,
+    val order: Int,
+    val text: String,
+    val description: String?,
     val type: QuestionType,
-    val isRequired: Boolean = false,
+    val required: Boolean,
     val options: List<String> = emptyList()
 )

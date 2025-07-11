@@ -34,7 +34,7 @@ data class Question(
     val isRequired: Boolean = false,
 
     @Column(name = "order_index", nullable = false)
-    var orderIndex: Int,
+    var orderIndex: Int, // 'val'에서 'var'로 변경
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "survey_id", nullable = false)
@@ -53,18 +53,7 @@ data class Question(
     )
 
     fun addOption(option: QuestionOption) {
-        option.question = this
         options.add(option)
-    }
-
-    fun addOption(text: String, orderIndex: Int): QuestionOption {
-        val option = QuestionOption(
-            questionId = this.id.toString(),
-            text = text,
-            orderIndex = orderIndex
-        )
         option.question = this
-        options.add(option)
-        return option
     }
 }

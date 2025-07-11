@@ -1,6 +1,7 @@
 package com.kominioai.domain.survey.domain.model
 
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Question
 import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
