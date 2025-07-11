@@ -1,4 +1,4 @@
-package com.kominioai.domain.survey.presentation.rest.dto.response
+package com.kominioai.domain.survey.presentation.rest.dto.common
 
 data class QuestionOptionDto(
     val id: String,

@@ -1,8 +1,8 @@
 package com.kominioai.domain.survey.performance
 
 import com.kominioai.domain.survey.domain.model.Answer
-import com.kominioai.domain.survey.domain.model.Survey
-import com.kominioai.domain.survey.domain.model.SurveyResponse
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus

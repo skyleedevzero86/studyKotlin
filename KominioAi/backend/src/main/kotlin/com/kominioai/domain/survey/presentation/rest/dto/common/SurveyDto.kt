@@ -1,4 +1,4 @@
-package com.kominioai.domain.survey.presentation.rest.dto.response
+package com.kominioai.domain.survey.presentation.rest.dto.common
 
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import java.time.Instant

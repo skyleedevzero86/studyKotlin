@@ -1,6 +1,6 @@
 package com.kominioai.global.util
 
-import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyDto
+import com.kominioai.domain.survey.presentation.rest.dto.common.SurveyDto
 import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyResponseDto
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetails

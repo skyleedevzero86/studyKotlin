@@ -6,10 +6,12 @@ import com.kominioai.domain.survey.application.port.input.query.GetUserSurveysQu
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
 import com.kominioai.domain.survey.domain.model.service.SurveyDomainService
-import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyDto
+import com.kominioai.domain.survey.presentation.rest.dto.common.SurveyDto
 import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyResponseDto
 import org.springframework.stereotype.Service
 import com.kominioai.global.util.toDto
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @Service
 class SurveyQueryService(
@@ -18,19 +20,25 @@ class SurveyQueryService(
     private val surveyDomainService: SurveyDomainService
 ) {
 
-    suspend fun getSurvey(query: GetSurveyQuery): SurveyDto? {
-        return surveyRepository.findById(query.surveyId)?.toDto()
+    fun getUserSurveys(query: GetUserSurveysQuery): Flux<SurveyDto> {
+        return surveyRepository.findByCreatedBy(query.userId)
+            .map { it.toDto() }
     }
 
-    suspend fun getUserSurveys(query: GetUserSurveysQuery): List<SurveyDto> {
-        return surveyRepository.findByCreatedBy(query.userId).map { it.toDto() }
+    fun getSurveyResponses(query: GetSurveyResponsesQuery): Flux<SurveyResponseDto> {
+        return surveyResponseRepository.findBySurveyId(
+            java.util.UUID.fromString(query.surveyId.value)
+        ).map { it.toDto() }
     }
 
-    suspend fun getSurveyResponses(query: GetSurveyResponsesQuery): List<SurveyResponseDto> {
-        return surveyResponseRepository.findBySurveyId(query.surveyId).map { it.toDto() }
+    fun getPublishedSurveys(): Flux<SurveyDto> {
+        return surveyRepository.findPublishedSurveys()
+            .map { it.toDto() }
     }
 
-    suspend fun getPublishedSurveys(): List<SurveyDto> {
-        return surveyRepository.findPublishedSurveys().map { it.toDto() }
+    fun getSurvey(query: GetSurveyQuery): Mono<SurveyDto> {
+        return surveyRepository.findById(
+            java.util.UUID.fromString(query.surveyId.value)
+        ).map { it.toDto() }
     }
 }

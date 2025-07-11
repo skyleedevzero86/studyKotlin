@@ -1,12 +1,15 @@
 package com.kominioai.domain.survey.application.port.output
 
-import com.kominioai.domain.survey.domain.model.SurveyResponse
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import java.util.UUID
 
 interface SurveyResponseRepository {
-    suspend fun save(response: SurveyResponse): SurveyResponse
-    suspend fun findById(id: ResponseId): SurveyResponse?
-    suspend fun findBySurveyId(surveyId: SurveyId): List<SurveyResponse>
-    suspend fun countBySurveyId(surveyId: SurveyId): Long
+    fun save(response: SurveyResponse): Mono<SurveyResponse>
+    fun findById(id: UUID): Mono<SurveyResponse>
+    fun findBySurveyId(surveyId: UUID): Flux<SurveyResponse>
+    fun countBySurveyId(surveyId: UUID): Mono<Long>
 }

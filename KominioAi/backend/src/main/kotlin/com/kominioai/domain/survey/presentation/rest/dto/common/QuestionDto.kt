@@ -1,6 +1,7 @@
-package com.kominioai.domain.survey.presentation.rest.dto.response
+package com.kominioai.domain.survey.presentation.rest.dto.common
 
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
+import com.kominioai.domain.survey.presentation.rest.dto.common.QuestionOptionDto
 
 data class QuestionDto(
     val id: String,

@@ -4,7 +4,7 @@ import com.kominioai.domain.survey.application.port.input.query.GetSurveyQuery
 import com.kominioai.domain.survey.application.port.input.query.GetUserSurveysQuery
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
-import com.kominioai.domain.survey.domain.model.Survey
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
 import com.kominioai.domain.survey.domain.model.service.SurveyDomainService
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus

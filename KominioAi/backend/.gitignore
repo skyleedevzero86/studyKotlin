@@ -1,4 +1,9 @@
 application.properties
+*.log
+logs/
+log/
+spring.log
+spring-*.log
 application-*.properties
 application.yml
 application-*.yml

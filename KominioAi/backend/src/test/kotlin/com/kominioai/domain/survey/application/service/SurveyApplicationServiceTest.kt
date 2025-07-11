@@ -8,8 +8,8 @@ import com.kominioai.domain.survey.application.port.output.EventPublisher
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
 import com.kominioai.domain.survey.domain.model.Question
-import com.kominioai.domain.survey.domain.model.Survey
-import com.kominioai.domain.survey.domain.model.SurveyResponse
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
 import com.kominioai.domain.survey.domain.model.event.SurveyEvent
 import com.kominioai.domain.survey.domain.model.service.SurveyDomainService
 import com.kominioai.domain.survey.domain.valueobject.QuestionType

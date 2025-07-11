@@ -1,28 +1,70 @@
 package com.kominioai.domain.survey.domain.model
 
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
-import com.kominioai.domain.survey.domain.valueobject.SurveyId
-import jakarta.persistence.*
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import jakarta.persistence.CascadeType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
+import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
 import java.util.UUID
 
 @Entity
 @Table(name = "questions")
 data class Question(
-    @Id val id: String = UUID.randomUUID().toString(),
-    val surveyId: SurveyId,
-    val title: String,
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    val id: UUID = UUID.randomUUID(),
+
+    @Column(nullable = false)
+    val text: String,
+
+    @Enumerated(EnumType.STRING)
     val type: QuestionType,
+
+    @Column(name = "is_required", nullable = false)
     val isRequired: Boolean = false,
-    val orderIndex: Int,
-    @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    val options: MutableList<QuestionOption> = mutableListOf(),
+
+    @Column(name = "order_index", nullable = false)
+    var orderIndex: Int,
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "survey_id")
-    val survey: Survey? = null
+    @JoinColumn(name = "survey_id", nullable = false)
+    var survey: Survey? = null,
+
+    @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
+    val options: MutableList<QuestionOption> = mutableListOf()
 ) {
-    fun addOption(option: QuestionOption): Question {
-        require(type.supportsOptions()) { "Question type ${type} does not support options" }
+    protected constructor() : this(
+        id = UUID.randomUUID(),
+        text = "",
+        type = QuestionType.SINGLE_CHOICE,
+        isRequired = false,
+        orderIndex = 0,
+        survey = null
+    )
+
+    fun addOption(option: QuestionOption) {
+        option.question = this
         options.add(option)
-        return this
+    }
+
+    fun addOption(text: String, orderIndex: Int): QuestionOption {
+        val option = QuestionOption(
+            questionId = this.id.toString(),
+            text = text,
+            orderIndex = orderIndex
+        )
+        option.question = this
+        options.add(option)
+        return option
     }
 }

@@ -4,14 +4,14 @@ import com.kominioai.domain.survey.application.port.input.command.AnswerSubmissi
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
 import com.kominioai.domain.survey.domain.model.Question
-import com.kominioai.domain.survey.domain.model.Survey
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
 import com.kominioai.domain.survey.presentation.rest.dto.request.CreateSurveyRequest
 import com.kominioai.domain.survey.presentation.rest.dto.request.SubmitResponseRequest
-import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyDto
+import com.kominioai.domain.survey.presentation.rest.dto.common.SurveyDto
 import com.kominioai.domain.survey.presentation.rest.dto.response.SurveyResponseDto
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest

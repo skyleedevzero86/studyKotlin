@@ -3,8 +3,8 @@ package com.kominioai.global.util
 import com.kominioai.domain.survey.domain.model.Answer
 import com.kominioai.domain.survey.domain.model.Question
 import com.kominioai.domain.survey.domain.model.QuestionOption
-import com.kominioai.domain.survey.domain.model.Survey
-import com.kominioai.domain.survey.domain.model.SurveyResponse
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
