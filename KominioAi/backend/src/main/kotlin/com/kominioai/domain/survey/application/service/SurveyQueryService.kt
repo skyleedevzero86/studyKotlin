@@ -36,7 +36,7 @@ class SurveyQueryService(
     }
 
     fun getSurvey(query: GetSurveyQuery): Mono<SurveyDto> {
-        return surveyRepository.findById(query.surveyId)
+        return surveyRepository.findByIdWithQuestions(query.surveyId)
             .map { it.toDto() }
     }
 }

@@ -31,7 +31,8 @@ class SurveyLoadTest {
                     repeat(numberOfRequests / numberOfThreads) { requestIndex ->
                         val request = CreateSurveyRequest(
                             title = "Load Test Survey $threadIndex-$requestIndex",
-                            description = "Load test description"
+                            description = "Load test description",
+                            createdBy = "loadtestuser"
                         )
 
                         try {

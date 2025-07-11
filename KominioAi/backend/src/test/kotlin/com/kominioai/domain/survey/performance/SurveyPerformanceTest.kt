@@ -1,12 +1,15 @@
 package com.kominioai.domain.survey.performance
 
-import com.kominioai.domain.survey.domain.model.Answer
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Answer
+import com.kominioai.domain.survey.domain.model.domain.Survey
+import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
+import com.kominioai.domain.survey.domain.valueobject.QuestionId
+import com.kominioai.domain.survey.domain.valueobject.QuestionType
+import com.kominioai.domain.survey.domain.model.SurveySettings
 import io.kotest.matchers.longs.shouldBeLessThan
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
@@ -14,7 +17,7 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
-import java.time.Instant
+import java.time.LocalDateTime
 
 @TestMethodOrder(OrderAnnotation::class)
 class SurveyPerformanceTest {
@@ -25,13 +28,11 @@ class SurveyPerformanceTest {
         val startTime = System.currentTimeMillis()
 
         repeat(1000) { i ->
-            val survey = Survey(
-                id = SurveyId.generate(),
+            val _survey = Survey.create(
                 title = "Performance Test Survey $i",
                 description = "Performance test description",
-                status = SurveyStatus.DRAFT,
-                createdBy = UserId("testuser"),
-                createdAt = Instant.now()
+                createdBy = UserId.from("testuser"),
+                settings = SurveySettings()
             )
 
             delay(1)
@@ -49,27 +50,24 @@ class SurveyPerformanceTest {
     @Test
     @Order(2)
     fun `should measure response submission performance`() = runTest {
-        val surveyId = SurveyId.generate()
+        val surveyId = SurveyId.from("test-survey")
         val startTime = System.currentTimeMillis()
 
         repeat(5000) { i ->
-            val response = SurveyResponse(
-                id = ResponseId.generate(),
-                surveyId = surveyId,
-                respondentId = UserId("respondent$i"),
-                submittedAt = Instant.now()
+            val answer = Answer.create(
+                responseId = "response$i",
+                questionId = QuestionId.from("question1"),
+                questionType = QuestionType.TEXT,
+                textAnswer = "Answer for response $i",
+                selectedOptions = emptyList()
             )
 
-            repeat(5) { j ->
-                response.addAnswer(
-                    Answer(
-                        responseId = response.id,
-                        questionId = "question$j",
-                        answerText = "Answer $j for response $i",
-                        selectedOptionId = null
-                    )
-                )
-            }
+            val _response = SurveyResponse.create(
+                surveyId = surveyId,
+                respondentId = UserId.from("respondent$i"),
+                answers = listOf(answer),
+                ipAddress = "127.0.0.1"
+            )
 
             delay(1)
         }

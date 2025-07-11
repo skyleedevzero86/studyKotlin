@@ -11,6 +11,7 @@ import com.kominioai.domain.survey.presentation.rest.dto.request.AddQuestionRequ
 import com.kominioai.domain.survey.presentation.rest.dto.request.CreateSurveyRequest
 import com.kominioai.domain.survey.presentation.rest.dto.request.PublishSurveyRequest
 import com.kominioai.domain.survey.presentation.rest.dto.response.*
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -28,6 +29,8 @@ class SurveyController(
     private val getSurveyUseCase: GetSurveyUseCase,
     private val getSurveyStatisticsUseCase: GetSurveyStatisticsUseCase
 ) {
+    
+    private val logger = LoggerFactory.getLogger(SurveyController::class.java)
 
     @PostMapping
     fun createSurvey(@Valid @RequestBody request: CreateSurveyRequest): Mono<ResponseEntity<CreateSurveyResponse>> {
@@ -81,7 +84,14 @@ class SurveyController(
     fun getSurvey(@PathVariable surveyId: String): Mono<ResponseEntity<SurveyDto>> {
         val query = GetSurveyQuery(SurveyId.from(surveyId))
         return getSurveyUseCase.execute(query)
-            .map { ResponseEntity.ok(it) }
+            .map { surveyDto ->
+                if (surveyDto.questions.isEmpty()) {
+                    logger.warn("Survey ${surveyId} has no questions")
+                } else {
+                    logger.info("Survey ${surveyId} has ${surveyDto.questions.size} questions")
+                }
+                ResponseEntity.ok(surveyDto)
+            }
             .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
     }
 

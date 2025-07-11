@@ -39,4 +39,15 @@ data class SurveyResponse(
             )
         }
     }
+
+    fun toDomainWithAnswers(answers: List<com.kominioai.domain.survey.domain.model.domain.Answer>): DomainSurveyResponse {
+        return DomainSurveyResponse(
+            id = ResponseId.from(id),
+            surveyId = SurveyId.from(surveyId),
+            respondentId = respondentId?.let { UserId.from(it) },
+            submittedAt = submittedAt,
+            answers = answers,
+            ipAddress = ipAddress
+        )
+    }
 }

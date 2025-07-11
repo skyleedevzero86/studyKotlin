@@ -1,5 +1,6 @@
 package com.kominioai.global.exception.handler
 
+import com.kominioai.global.exception.SurveyNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -8,6 +9,17 @@ import java.time.LocalDateTime
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
+
+    @ExceptionHandler(SurveyNotFoundException::class)
+    fun handleSurveyNotFound(ex: SurveyNotFoundException): ResponseEntity<ErrorResponse> {
+        val error = ErrorResponse(
+            timestamp = LocalDateTime.now(),
+            status = HttpStatus.NOT_FOUND.value(),
+            error = "Survey Not Found",
+            message = ex.message ?: "설문조사를 찾을 수 없습니다."
+        )
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error)
+    }
 
     @ExceptionHandler(NoSuchElementException::class)
     fun handleNotFound(ex: NoSuchElementException): ResponseEntity<ErrorResponse> {

@@ -1,34 +1,32 @@
 package com.kominioai.global.util
 
-import com.kominioai.domain.survey.domain.model.Answer
-import com.kominioai.domain.survey.domain.model.Question
-import com.kominioai.domain.survey.domain.model.QuestionOption
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Answer
+import com.kominioai.domain.survey.domain.model.domain.Question
+import com.kominioai.domain.survey.domain.model.domain.QuestionOption
+import com.kominioai.domain.survey.domain.model.domain.Survey
+import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
+import com.kominioai.domain.survey.domain.valueobject.QuestionId
+import com.kominioai.domain.survey.domain.model.SurveySettings
 import com.kominioai.global.util.data.BulkTestData
-import java.time.Instant
+import java.time.LocalDateTime
 import kotlin.random.Random
 
 object TestDataGenerator {
 
     fun generateSurvey(
-        id: SurveyId = SurveyId.generate(),
         title: String = "Test Survey ${Random.nextInt(1000)}",
-        status: SurveyStatus = SurveyStatus.DRAFT,
-        createdBy: UserId = UserId("testuser${Random.nextInt(100)}")
+        createdBy: UserId = UserId.from("testuser${Random.nextInt(100)}")
     ): Survey {
-        return Survey(
-            id = id,
+        return Survey.create(
             title = title,
             description = "Generated test survey description",
-            status = status,
             createdBy = createdBy,
-            createdAt = Instant.now()
+            settings = SurveySettings()
         )
     }
 
@@ -38,53 +36,44 @@ object TestDataGenerator {
         isRequired: Boolean = false,
         orderIndex: Int = 1
     ): Question {
-        val question = Question(
+        val question = Question.create(
             surveyId = surveyId,
-            title = "Test Question ${Random.nextInt(1000)}",
+            order = orderIndex,
+            text = "Test Question ${Random.nextInt(1000)}",
+            description = null,
             type = type,
-            isRequired = isRequired,
-            orderIndex = orderIndex
-        )
-
-        if (type in listOf(QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_CHOICE)) {
-            repeat(Random.nextInt(3, 6)) { i ->
-                question.addOption(
-                    QuestionOption(
-                        questionId = question.id,
-                        text = "Option ${i + 1}",
-                        orderIndex = i + 1
-                    )
-                )
+            required = isRequired,
+            options = if (type in listOf(QuestionType.SINGLE_CHOICE, QuestionType.MULTIPLE_CHOICE)) {
+                (1..Random.nextInt(3, 6)).map { "Option $it" }
+            } else {
+                emptyList()
             }
-        }
+        )
 
         return question
     }
 
     fun generateSurveyResponse(
         surveyId: SurveyId,
-        questionIds: List<String>,
+        questionIds: List<QuestionId>,
         respondentId: UserId? = null
     ): SurveyResponse {
-        val response = SurveyResponse(
-            id = ResponseId.generate(),
-            surveyId = surveyId,
-            respondentId = respondentId,
-            submittedAt = Instant.now()
-        )
-
-        questionIds.forEach { questionId ->
-            response.addAnswer(
-                Answer(
-                    responseId = response.id,
-                    questionId = questionId,
-                    answerText = "Generated answer for question $questionId",
-                    selectedOptionId = null
-                )
+        val answers = questionIds.map { questionId ->
+            Answer.create(
+                responseId = "",
+                questionId = questionId,
+                questionType = QuestionType.TEXT,
+                textAnswer = "Generated answer for question ${questionId.value}",
+                selectedOptions = emptyList()
             )
         }
 
-        return response
+        return SurveyResponse.create(
+            surveyId = surveyId,
+            respondentId = respondentId,
+            answers = answers,
+            ipAddress = "127.0.0.1"
+        )
     }
 
     fun generateBulkTestData(
@@ -97,26 +86,29 @@ object TestDataGenerator {
 
         repeat(numberOfSurveys) { i ->
             val survey = generateSurvey(
-                title = "Bulk Test Survey ${i + 1}",
-                status = SurveyStatus.PUBLISHED
+                title = "Bulk Test Survey ${i + 1}"
             )
 
+            val questions = mutableListOf<Question>()
             repeat(questionsPerSurvey) { j ->
                 val question = generateQuestion(
                     surveyId = survey.id,
                     type = QuestionType.values()[Random.nextInt(QuestionType.values().size)],
                     orderIndex = j + 1
                 )
-                survey.addQuestion(question)
+                questions.add(question)
             }
 
-            surveys.add(survey)
+            val surveyWithQuestions = questions.fold(survey) { acc, question ->
+                acc.addQuestion(question)
+            }
+            surveys.add(surveyWithQuestions)
 
             repeat(responsesPerSurvey) { k ->
                 val response = generateSurveyResponse(
                     surveyId = survey.id,
-                    questionIds = survey.questions.map { it.id },
-                    respondentId = UserId("respondent${k + 1}")
+                    questionIds = questions.map { it.id },
+                    respondentId = UserId.from("respondent${k + 1}")
                 )
                 responses.add(response)
             }

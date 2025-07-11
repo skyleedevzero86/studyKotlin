@@ -12,10 +12,10 @@ import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
+import com.kominioai.global.exception.SurveyNotFoundException
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import java.util.UUID
-import java.util.NoSuchElementException
+
 @Service
 class SurveyDomainService(
     private val surveyRepository: SurveyRepository,
@@ -36,14 +36,14 @@ class SurveyDomainService(
     }
 
     fun addQuestionToSurvey(
-        surveyId: UUID,
+        surveyId: String,
         questionText: String,
         questionType: QuestionType,
         isRequired: Boolean = false,
         options: List<String> = emptyList()
     ): Mono<Survey> {
-        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
-            .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
+        return surveyRepository.findById(SurveyId.from(surveyId))
+            .switchIfEmpty(Mono.error(SurveyNotFoundException("설문조사를 찾을 수 없습니다: $surveyId")))
             .flatMap { survey ->
                 val question = Question.create(
                     surveyId = survey.id,
@@ -60,18 +60,18 @@ class SurveyDomainService(
             }
     }
 
-    fun activateSurvey(surveyId: UUID): Mono<Survey> {
-        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
-            .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
+    fun activateSurvey(surveyId: String): Mono<Survey> {
+        return surveyRepository.findById(SurveyId.from(surveyId))
+            .switchIfEmpty(Mono.error(SurveyNotFoundException("설문조사를 찾을 수 없습니다: $surveyId")))
             .flatMap { survey ->
                 val updatedSurvey = survey.publish()
                 surveyRepository.save(updatedSurvey)
             }
     }
 
-    fun submitResponse(surveyId: UUID, answers: List<AnswerSubmission>): Mono<SurveyResponse> {
-        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
-            .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
+    fun submitResponse(surveyId: String, answers: List<AnswerSubmission>): Mono<SurveyResponse> {
+        return surveyRepository.findById(SurveyId.from(surveyId))
+            .switchIfEmpty(Mono.error(SurveyNotFoundException("설문조사를 찾을 수 없습니다: $surveyId")))
             .flatMap { survey ->
                 if (survey.status != SurveyStatus.PUBLISHED) {
                     return@flatMap Mono.error<SurveyResponse>(
@@ -107,13 +107,13 @@ class SurveyDomainService(
             }
     }
 
-    fun getSurveyStatistics(surveyId: UUID): Mono<SurveyStatistics> {
+    fun getSurveyStatistics(surveyId: String): Mono<SurveyStatistics> {
         return Mono.zip(
-            surveyRepository.findById(SurveyId.from(surveyId.toString())),
-            responseRepository.countBySurveyId(SurveyId.from(surveyId.toString()))
+            surveyRepository.findById(SurveyId.from(surveyId)),
+            responseRepository.countBySurveyId(SurveyId.from(surveyId))
         ) { survey, responseCount ->
             SurveyStatistics(
-                surveyId = UUID.fromString(survey.id.value),
+                surveyId = survey.id.value,
                 title = survey.title,
                 totalResponses = responseCount,
                 status = survey.status

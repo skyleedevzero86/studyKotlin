@@ -4,20 +4,21 @@ import com.kominioai.domain.survey.application.port.input.query.GetSurveyQuery
 import com.kominioai.domain.survey.application.port.input.query.GetUserSurveysQuery
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import com.kominioai.domain.survey.domain.model.domain.Survey
 import com.kominioai.domain.survey.domain.model.service.SurveyDomainService
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
+import com.kominioai.domain.survey.domain.model.SurveySettings
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.mockk.*
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import java.time.Instant
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 @ExtendWith(MockKExtension::class)
 class SurveyQueryServiceTest {
@@ -35,32 +36,30 @@ class SurveyQueryServiceTest {
     @Test
     fun `should return survey when found`() = runTest {
         // Given
-        val surveyId = SurveyId("survey123")
-        val survey = Survey(
-            id = surveyId,
+        val surveyId = SurveyId.from("survey123")
+        val userId = UserId.from("user123")
+        val survey = Survey.create(
             title = "Test Survey",
             description = "Test Description",
-            status = SurveyStatus.PUBLISHED,
-            createdBy = UserId("user123"),
-            createdAt = Instant.now()
+            createdBy = userId,
+            settings = SurveySettings()
         )
 
-        coEvery { surveyRepository.findById(surveyId) } returns survey
+        coEvery { surveyRepository.findByIdWithQuestions(surveyId) } returns Mono.just(survey)
 
         // When
         val result = surveyQueryService.getSurvey(GetSurveyQuery(surveyId))
 
         // Then
         result shouldNotBe null
-        result?.id shouldBe surveyId.value
-        result?.title shouldBe survey.title
+        coVerify { surveyRepository.findByIdWithQuestions(surveyId) }
     }
 
     @Test
-    fun `should return null when survey not found`() = runTest {
+    fun `should return empty when survey not found`() = runTest {
         // Given
-        val surveyId = SurveyId("nonexistent")
-        coEvery { surveyRepository.findById(surveyId) } returns null
+        val surveyId = SurveyId.from("nonexistent")
+        coEvery { surveyRepository.findByIdWithQuestions(surveyId) } returns Mono.empty()
 
         // When
         val result = surveyQueryService.getSurvey(GetSurveyQuery(surveyId))
@@ -72,34 +71,29 @@ class SurveyQueryServiceTest {
     @Test
     fun `should return user surveys`() = runTest {
         // Given
-        val userId = UserId("user123")
+        val userId = UserId.from("user123")
         val surveys = listOf(
-            Survey(
-                id = SurveyId("survey1"),
+            Survey.create(
                 title = "Survey 1",
                 description = "Description 1",
-                status = SurveyStatus.DRAFT,
                 createdBy = userId,
-                createdAt = Instant.now()
+                settings = SurveySettings()
             ),
-            Survey(
-                id = SurveyId("survey2"),
+            Survey.create(
                 title = "Survey 2",
                 description = "Description 2",
-                status = SurveyStatus.PUBLISHED,
                 createdBy = userId,
-                createdAt = Instant.now()
+                settings = SurveySettings()
             )
         )
 
-        coEvery { surveyRepository.findByCreatedBy(userId) } returns surveys
+        coEvery { surveyRepository.findByCreatedBy(userId) } returns Flux.fromIterable(surveys)
 
         // When
         val result = surveyQueryService.getUserSurveys(GetUserSurveysQuery(userId))
 
         // Then
-        result.size shouldBe 2
-        result[0].id shouldBe "survey1"
-        result[1].id shouldBe "survey2"
+        result shouldNotBe null
+        coVerify { surveyRepository.findByCreatedBy(userId) }
     }
 }

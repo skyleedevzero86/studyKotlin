@@ -11,8 +11,7 @@ import reactor.core.publisher.Flux
 interface SurveyR2dbcRepository : ReactiveCrudRepository<Survey, String> {
     fun findByCreatedBy(userId: String): Flux<Survey>
     fun findByStatus(status: SurveyStatus): Flux<Survey>
-    
+
     @Query("SELECT * FROM surveys WHERE status = 'PUBLISHED'")
     fun findPublishedSurveys(): Flux<Survey>
 }
- 

@@ -1,12 +1,13 @@
 package com.kominioai.domain.survey.benchmark
 
 import com.kominioai.domain.survey.application.port.input.command.CreateSurveyCommand
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
+import com.kominioai.domain.survey.domain.model.domain.Survey
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
+import com.kominioai.domain.survey.domain.model.SurveySettings
 import org.openjdk.jmh.annotations.*
-import java.time.Instant
+import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 @BenchmarkMode(Mode.AverageTime)
@@ -25,7 +26,8 @@ class SurveyBenchmark {
             CreateSurveyCommand(
                 title = "Benchmark Survey $i",
                 description = "Benchmark test description",
-                createdBy = UserId("benchmarkuser")
+                createdBy = UserId.from("benchmarkuser"),
+                settings = SurveySettings()
             )
         }
     }
@@ -33,13 +35,11 @@ class SurveyBenchmark {
     @Benchmark
     fun benchmarkSurveyCreation(): Survey {
         val command = testData[0]
-        return Survey(
-            id = SurveyId.generate(),
+        return Survey.create(
             title = command.title,
             description = command.description,
-            status = SurveyStatus.DRAFT,
             createdBy = command.createdBy,
-            createdAt = Instant.now()
+            settings = command.settings
         )
     }
 }

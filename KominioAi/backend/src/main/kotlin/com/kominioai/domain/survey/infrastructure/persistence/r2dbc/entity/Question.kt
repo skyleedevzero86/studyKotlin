@@ -32,10 +32,10 @@ data class Question(
     }
 
     companion object {
-        fun from(question: DomainQuestion): Question {
+        fun from(question: DomainQuestion, surveyId: String): Question {
             return Question(
                 id = question.id.value,
-                surveyId = question.surveyId.value,
+                surveyId = surveyId,
                 orderIndex = question.order,
                 text = question.text,
                 description = question.description,
@@ -43,5 +43,18 @@ data class Question(
                 required = question.required
             )
         }
+    }
+
+    fun toDomainWithOptions(options: List<com.kominioai.domain.survey.domain.model.domain.QuestionOption>): DomainQuestion {
+        return DomainQuestion(
+            id = QuestionId.from(id),
+            surveyId = SurveyId.from(surveyId),
+            order = orderIndex,
+            text = text,
+            description = description,
+            type = type,
+            required = required,
+            options = options
+        )
     }
 }

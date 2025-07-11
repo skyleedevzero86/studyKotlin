@@ -15,7 +15,7 @@ data class ResponseAnswer(
     val questionId: String,
     val questionType: QuestionType,
     val textAnswer: String?,
-    val selectedOptionIds: String?,
+    val selectedOptionIds: String?, // JSON 형태로 저장
     val createdAt: LocalDateTime
 ) {
     fun toDomain(): com.kominioai.domain.survey.domain.model.domain.Answer {
@@ -31,7 +31,11 @@ data class ResponseAnswer(
     }
 
     private fun parseSelectedOptions(): List<com.kominioai.domain.survey.domain.model.domain.QuestionOption> {
-        return emptyList()
+        return if (selectedOptionIds.isNullOrBlank()) {
+            emptyList()
+        } else {
+            emptyList()
+        }
     }
 
     companion object {
@@ -50,5 +54,17 @@ data class ResponseAnswer(
         private fun serializeSelectedOptions(options: List<com.kominioai.domain.survey.domain.model.domain.QuestionOption>): String? {
             return if (options.isEmpty()) null else options.joinToString(",") { it.id.value }
         }
+    }
+
+    fun toDomainWithSelectedOptions(selectedOptions: List<com.kominioai.domain.survey.domain.model.domain.QuestionOption>): com.kominioai.domain.survey.domain.model.domain.Answer {
+        return com.kominioai.domain.survey.domain.model.domain.Answer(
+            id = AnswerId.from(id),
+            responseId = surveyResponseId,
+            questionId = QuestionId.from(questionId),
+            questionType = questionType,
+            textAnswer = textAnswer,
+            selectedOptions = selectedOptions,
+            createdAt = createdAt
+        )
     }
 }

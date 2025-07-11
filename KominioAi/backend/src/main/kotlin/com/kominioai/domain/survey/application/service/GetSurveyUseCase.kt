@@ -12,8 +12,8 @@ import reactor.core.publisher.Mono
 class GetSurveyUseCase(
     private val surveyRepository: SurveyRepository
 ) {
-    fun execute(query: GetSurveyQuery): Mono<SurveyDto?> {
-        return surveyRepository.findById(query.surveyId)
+    fun execute(query: GetSurveyQuery): Mono<SurveyDto> {
+        return surveyRepository.findByIdWithQuestions(query.surveyId)
             .map { SurveyDto.from(it) }
             .switchIfEmpty(Mono.empty())
     }

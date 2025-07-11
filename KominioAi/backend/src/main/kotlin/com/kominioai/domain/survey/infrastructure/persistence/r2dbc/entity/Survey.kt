@@ -60,4 +60,23 @@ data class Survey(
             )
         }
     }
+
+    fun toDomainWithQuestions(questions: List<com.kominioai.domain.survey.domain.model.domain.Question>): DomainSurvey {
+        return DomainSurvey(
+            id = SurveyId.from(id),
+            title = title,
+            description = description,
+            createdBy = UserId.from(createdBy),
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            status = status,
+            questions = questions,
+            settings = SurveySettings(
+                allowAnonymous = allowAnonymous,
+                allowMultipleResponses = allowMultipleResponses,
+                requireLogin = requireLogin,
+                collectIpAddress = collectIpAddress
+            )
+        )
+    }
 }

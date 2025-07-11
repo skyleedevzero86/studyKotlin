@@ -47,7 +47,7 @@ class SurveyResponseController(
         )
 
         return surveyApplicationService.submitResponse(command)
-            .map { ResponseSubmissionResult(it) }
+            .map { ResponseSubmissionResult(it.value) }
             .map { ResponseEntity.ok(it) }
     }
 

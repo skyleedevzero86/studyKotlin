@@ -1,7 +1,7 @@
 package com.kominioai.global.util.data
 
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Survey
+import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 
 data class BulkTestData(
     val surveys: List<Survey>,

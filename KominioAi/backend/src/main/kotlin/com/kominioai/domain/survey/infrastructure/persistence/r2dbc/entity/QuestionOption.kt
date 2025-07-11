@@ -22,10 +22,10 @@ data class QuestionOption(
     }
 
     companion object {
-        fun from(option: DomainQuestionOption): QuestionOption {
+        fun from(option: DomainQuestionOption, questionId: String): QuestionOption {
             return QuestionOption(
                 id = option.id.value,
-                questionId = "",
+                questionId = questionId,
                 orderIndex = option.order,
                 text = option.text
             )
