@@ -16,8 +16,8 @@ class JpaSurveyResponseRepositoryAdapter(
 ) : SurveyResponseRepository {
 
     override fun save(response: SurveyResponse): Mono<SurveyResponse> {
-        val entity = SurveyResponseEntity.from(response)
-        val savedEntity = jpaRepository.save(entity)
+        val responseEntity = SurveyResponseEntity.from(response)
+        val savedEntity = jpaRepository.save(responseEntity)
         return Mono.just(savedEntity.toDomain())
     }
 

@@ -5,6 +5,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.transaction.annotation.EnableTransactionManagement
 
 @Configuration
-@EnableJpaRepositories
+@EnableJpaRepositories(
+    basePackages = [
+        "com.kominioai.domain.survey.infrastructure.persistence.jpa.repository"
+    ],
+    entityManagerFactoryRef = "entityManagerFactory",
+    transactionManagerRef = "transactionManager"
+)
 @EnableTransactionManagement
 class DatabaseConfiguration

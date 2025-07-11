@@ -4,7 +4,9 @@ import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.stereotype.Repository
 
+@Repository
 interface SurveyJpaRepository : JpaRepository<Survey, String> {
     fun findByCreatedBy(userId: String): List<Survey>
     fun findByStatus(status: SurveyStatus): List<Survey>
