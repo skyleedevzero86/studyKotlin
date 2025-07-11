@@ -1,0 +1,5 @@
+package com.kominioai.domain.survey.domain.valueobject
+
+enum class SurveyStatus {
+    DRAFT, PUBLISHED, CLOSED
+}
