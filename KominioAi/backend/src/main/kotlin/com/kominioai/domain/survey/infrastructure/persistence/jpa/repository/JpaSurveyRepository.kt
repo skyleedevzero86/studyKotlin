@@ -10,10 +10,9 @@ import com.kominioai.domain.survey.infrastructure.persistence.jpa.repository.Sur
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.UUID
 
 @Repository
-class JpaSurveyRepository(
+class JpaSurveyRepositoryAdapter(
     private val jpaRepository: SurveyJpaRepository
 ) : SurveyRepository {
 
@@ -25,8 +24,8 @@ class JpaSurveyRepository(
 
     override fun findById(id: SurveyId): Mono<Survey> {
         val entity = jpaRepository.findById(id.value)
-        return if (entity != null) {
-            Mono.just(entity.toDomain())
+        return if (entity.isPresent) {
+            Mono.just(entity.get().toDomain())
         } else {
             Mono.empty()
         }
@@ -43,7 +42,7 @@ class JpaSurveyRepository(
     }
 
     override fun findByCreatedBy(userId: UserId): Flux<Survey> {
-        val entities = jpaRepository.findByCreatedBy(userId)
+        val entities = jpaRepository.findByCreatedBy(userId.value)
         return Flux.fromIterable(entities.map { it.toDomain() })
     }
 

@@ -9,26 +9,30 @@ import java.util.UUID
 
 @Entity
 @Table(name = "answers")
-data class Answer(
+open class Answer(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: String = UUID.randomUUID().toString(),
+    open var id: String = UUID.randomUUID().toString(),
 
     @Column(name = "response_id", nullable = false)
-    val responseId: String,
+    open var responseId: String,
 
     @Column(name = "question_id", nullable = false)
-    val questionId: String,
+    open var questionId: String,
 
     @Column(name = "question_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    val questionType: com.kominioai.domain.survey.domain.valueobject.QuestionType,
+    open var questionType: com.kominioai.domain.survey.domain.valueobject.QuestionType,
 
     @Column(name = "text_answer", length = 2000)
-    val textAnswer: String? = null,
+    open var textAnswer: String? = null,
 
     @Column(name = "created_at", nullable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    open var createdAt: LocalDateTime = LocalDateTime.now(),
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "response_id", insertable = false, updatable = false)
+    open var surveyResponse: SurveyResponse? = null,
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -36,7 +40,7 @@ data class Answer(
         joinColumns = [JoinColumn(name = "answer_id")],
         inverseJoinColumns = [JoinColumn(name = "option_id")]
     )
-    val selectedOptions: MutableList<QuestionOption> = mutableListOf()
+    open var selectedOptions: MutableList<QuestionOption> = mutableListOf()
 ) {
     fun toDomain(): DomainAnswer {
         return DomainAnswer(

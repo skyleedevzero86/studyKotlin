@@ -11,4 +11,6 @@ interface SurveyResponseRepository {
     fun findById(id: ResponseId): Mono<SurveyResponse>
     fun findBySurveyId(surveyId: SurveyId): Flux<SurveyResponse>
     fun countBySurveyId(surveyId: SurveyId): Mono<Long>
+    fun findAll(): Flux<SurveyResponse>
+    fun delete(id: ResponseId): Mono<Void>
 }

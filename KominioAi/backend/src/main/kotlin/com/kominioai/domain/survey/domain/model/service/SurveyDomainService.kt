@@ -4,11 +4,10 @@ import com.kominioai.domain.survey.application.port.input.command.AnswerSubmissi
 import com.kominioai.domain.survey.application.port.input.query.SurveyStatistics
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
-import com.kominioai.domain.survey.domain.model.Answer
-import com.kominioai.domain.survey.domain.model.Question
-import com.kominioai.domain.survey.domain.model.QuestionOption
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.Survey
-import com.kominioai.domain.survey.infrastructure.persistence.jpa.entity.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Survey
+import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
+import com.kominioai.domain.survey.domain.model.domain.Question
+import com.kominioai.domain.survey.domain.model.domain.Answer
 import com.kominioai.domain.survey.domain.valueobject.QuestionType
 import com.kominioai.domain.survey.domain.valueobject.SurveyStatus
 import com.kominioai.domain.survey.domain.valueobject.UserId
@@ -24,18 +23,14 @@ class SurveyDomainService(
     private val responseRepository: SurveyResponseRepository
 ) {
 
-    fun canUserAccessSurvey(survey: Survey, userId: UserId): Boolean {
-        return survey.createdBy == userId || survey.status == SurveyStatus.PUBLISHED
-    }
-
     fun createSurvey(title: String, description: String? = null, createdBy: UserId): Mono<Survey> {
         require(title.isNotBlank()) { "설문조사 제목은 필수입니다." }
 
         val survey = Survey.create(
-            id = SurveyId.generate(),
             title = title,
             description = description,
-            createdBy = createdBy
+            createdBy = createdBy,
+            settings = com.kominioai.domain.survey.domain.model.SurveySettings()
         )
 
         return surveyRepository.save(survey)
@@ -48,68 +43,66 @@ class SurveyDomainService(
         isRequired: Boolean = false,
         options: List<String> = emptyList()
     ): Mono<Survey> {
-        return surveyRepository.findById(surveyId)
+        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
             .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
             .flatMap { survey ->
-                val question = Question(
+                val question = Question.create(
+                    surveyId = survey.id,
+                    order = survey.questions.size + 1,
                     text = questionText,
+                    description = null,
                     type = questionType,
-                    isRequired = isRequired,
-                    orderIndex = survey.questions.size + 1
+                    required = isRequired,
+                    options = options
                 )
 
-                options.forEachIndexed { index, optionText ->
-                    question.addOption(optionText, index + 1)
-                }
-
-                survey.addQuestion(question)
-                surveyRepository.save(survey)
+                val updatedSurvey = survey.addQuestion(question)
+                surveyRepository.save(updatedSurvey)
             }
     }
 
     fun activateSurvey(surveyId: UUID): Mono<Survey> {
-        return surveyRepository.findById(surveyId)
+        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
             .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
             .flatMap { survey ->
-                survey.activate()
-                surveyRepository.save(survey)
+                val updatedSurvey = survey.publish()
+                surveyRepository.save(updatedSurvey)
             }
     }
 
     fun submitResponse(surveyId: UUID, answers: List<AnswerSubmission>): Mono<SurveyResponse> {
-        return surveyRepository.findById(surveyId)
+        return surveyRepository.findById(SurveyId.from(surveyId.toString()))
             .switchIfEmpty(Mono.error(NoSuchElementException("설문조사를 찾을 수 없습니다.")))
             .flatMap { survey ->
-                if (survey.status != SurveyStatus.ACTIVE) {
+                if (survey.status != SurveyStatus.PUBLISHED) {
                     return@flatMap Mono.error<SurveyResponse>(
-                        IllegalStateException("활성화된 설문조사만 응답할 수 있습니다.")
+                        IllegalStateException("게시된 설문조사만 응답할 수 있습니다.")
                     )
                 }
 
-                val response = SurveyResponse(
-                    id = ResponseId.generate(),
-                    surveyId = survey.id
-                )
+                val domainAnswers = answers.map { answerSubmission ->
+                    val question = survey.questions.find { it.id.value == answerSubmission.questionId }
+                        ?: throw IllegalArgumentException("질문을 찾을 수 없습니다: ${answerSubmission.questionId}")
 
-                answers.forEach { answerRequest ->
-                    val question = survey.questions.find { it.id.toString() == answerRequest.questionId }
-                        ?: throw IllegalArgumentException("질문을 찾을 수 없습니다.")
-
-                    val answer = Answer(
-                        responseId = response.id.value,
-                        questionId = question.id.toString(),
-                        question = question,
-                        textAnswer = answerRequest.answerText
-                    )
-
-                    answerRequest.selectedOptionIds.forEach { optionId ->
-                        val option = question.options.find { it.id == optionId }
-                            ?: throw IllegalArgumentException("선택지를 찾을 수 없습니다.")
-                        answer.selectedOptions.add(option)
+                    val selectedOptions = answerSubmission.selectedOptionIds.mapNotNull { optionId ->
+                        question.options.find { it.id.value == optionId }
                     }
 
-                    response.addAnswer(answer)
+                    Answer.create(
+                        responseId = "",
+                        questionId = question.id,
+                        questionType = question.type,
+                        textAnswer = answerSubmission.answerText,
+                        selectedOptions = selectedOptions
+                    )
                 }
+
+                val response = SurveyResponse.create(
+                    surveyId = survey.id,
+                    respondentId = null,
+                    answers = domainAnswers,
+                    ipAddress = null
+                )
 
                 responseRepository.save(response)
             }
@@ -117,8 +110,8 @@ class SurveyDomainService(
 
     fun getSurveyStatistics(surveyId: UUID): Mono<SurveyStatistics> {
         return Mono.zip(
-            surveyRepository.findById(surveyId),
-            responseRepository.countBySurveyId(surveyId)
+            surveyRepository.findById(SurveyId.from(surveyId.toString())),
+            responseRepository.countBySurveyId(SurveyId.from(surveyId.toString()))
         ) { survey, responseCount ->
             SurveyStatistics(
                 surveyId = UUID.fromString(survey.id.value),
@@ -127,20 +120,5 @@ class SurveyDomainService(
                 status = survey.status
             )
         }
-    }
-
-    fun validateSurveyResponse(survey: Survey, response: SurveyResponse): List<String> {
-        val errors = mutableListOf<String>()
-
-        val requiredQuestions = survey.questions.filter { it.isRequired }
-        val answeredQuestions = response.answers.map { it.question.id.toString() }.toSet()
-
-        requiredQuestions.forEach { question ->
-            if (question.id.toString() !in answeredQuestions) {
-                errors.add("Question '${question.text}' is required")
-            }
-        }
-
-        return errors
     }
 }

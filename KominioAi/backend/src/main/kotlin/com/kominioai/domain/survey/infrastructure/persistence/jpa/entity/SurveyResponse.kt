@@ -1,8 +1,8 @@
 package com.kominioai.domain.survey.infrastructure.persistence.jpa.entity
 
-import com.kominioai.domain.survey.domain.model.domain.SurveyResponse as DomainSurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
+import com.kominioai.domain.survey.domain.valueobject.UserId
 import jakarta.persistence.*
 import java.time.LocalDateTime
 import java.util.UUID
@@ -26,14 +26,18 @@ data class SurveyResponse(
     @Column(name = "ip_address")
     val ipAddress: String? = null,
 
-    @OneToMany(mappedBy = "response", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    val answers: MutableList<Answer> = mutableListOf()
+    @OneToMany(mappedBy = "surveyResponse", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
+    val answers: MutableList<ResponseAnswer> = mutableListOf()
 ) {
-    fun toDomain(): DomainSurveyResponse {
-        return DomainSurveyResponse(
+    protected constructor() : this(
+        surveyId = ""
+    )
+
+    fun toDomain(): com.kominioai.domain.survey.domain.model.domain.SurveyResponse {
+        return com.kominioai.domain.survey.domain.model.domain.SurveyResponse(
             id = ResponseId.from(id),
             surveyId = SurveyId.from(surveyId),
-            respondentId = respondentId,
+            respondentId = respondentId?.let { UserId.from(it) },
             submittedAt = submittedAt,
             answers = answers.map { it.toDomain() },
             ipAddress = ipAddress
@@ -41,14 +45,26 @@ data class SurveyResponse(
     }
 
     companion object {
-        fun from(response: DomainSurveyResponse): SurveyResponse {
-            return SurveyResponse(
-                id = response.id.value,
-                surveyId = response.surveyId.value,
-                respondentId = response.respondentId,
-                submittedAt = response.submittedAt,
-                ipAddress = response.ipAddress
+        fun from(domainResponse: com.kominioai.domain.survey.domain.model.domain.SurveyResponse): SurveyResponse {
+            val entity = SurveyResponse(
+                id = domainResponse.id.value,
+                surveyId = domainResponse.surveyId.value,
+                respondentId = domainResponse.respondentId?.value,
+                submittedAt = domainResponse.submittedAt,
+                ipAddress = domainResponse.ipAddress
             )
+
+            domainResponse.answers.forEach { domainAnswer ->
+                val answerEntity = ResponseAnswer.from(domainAnswer, entity.id)
+                entity.answers.add(answerEntity)
+            }
+
+            return entity
         }
+    }
+
+    fun addAnswer(answer: ResponseAnswer) {
+        answers.add(answer)
+        answer.surveyResponse = this
     }
 }

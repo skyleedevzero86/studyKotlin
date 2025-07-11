@@ -29,10 +29,21 @@ class SurveyResponseController(
         @Valid @RequestBody request: SubmitResponseRequest,
         @AuthenticationPrincipal user: UserDetails?
     ): Mono<ResponseEntity<ResponseSubmissionResult>> {
+        val answers = request.answers.map { answerSubmission ->
+            com.kominioai.domain.survey.domain.model.domain.Answer.create(
+                responseId = "",
+                questionId = com.kominioai.domain.survey.domain.valueobject.QuestionId.from(answerSubmission.questionId),
+                questionType = com.kominioai.domain.survey.domain.valueobject.QuestionType.TEXT,
+                textAnswer = answerSubmission.answerText,
+                selectedOptions = emptyList()
+            )
+        }
+
         val command = SubmitResponseCommand(
-            surveyId = SurveyId(request.surveyId),
-            respondentId = user?.username?.let { UserId(it) },
-            answers = request.answers
+            surveyId = SurveyId.from(request.surveyId),
+            respondentId = user?.username,
+            answers = answers,
+            ipAddress = null
         )
 
         return surveyApplicationService.submitResponse(command)
@@ -42,7 +53,7 @@ class SurveyResponseController(
 
     @GetMapping("/survey/{surveyId}")
     fun getSurveyResponses(@PathVariable surveyId: String): Mono<ResponseEntity<Flux<SurveyResponseDto>>> {
-        val query = GetSurveyResponsesQuery(SurveyId(surveyId))
+        val query = GetSurveyResponsesQuery(SurveyId.from(surveyId))
         val responses = surveyQueryService.getSurveyResponses(query)
         return Mono.just(ResponseEntity.ok(responses))
     }

@@ -1,4 +1,4 @@
-package com.kominioai.domain.survey.infrastructure.persistence.jpa.repository
+package com.kominioai.domain.survey.infrastructure.persistence.jpa.adapter
 
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
 import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
@@ -11,7 +11,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Repository
-class JpaSurveyResponseRepository(
+class JpaSurveyResponseRepositoryAdapter(
     private val jpaRepository: SurveyResponseJpaRepository
 ) : SurveyResponseRepository {
 
@@ -23,20 +23,30 @@ class JpaSurveyResponseRepository(
 
     override fun findById(id: ResponseId): Mono<SurveyResponse> {
         val entity = jpaRepository.findById(id.value)
-        return if (entity != null) {
-            Mono.just(entity.toDomain())
+        return if (entity.isPresent) {
+            Mono.just(entity.get().toDomain())
         } else {
             Mono.empty()
         }
     }
 
     override fun findBySurveyId(surveyId: SurveyId): Flux<SurveyResponse> {
-        val entities = jpaRepository.findBySurveyId(surveyId)
+        val entities = jpaRepository.findBySurveyId(surveyId.value)
         return Flux.fromIterable(entities.map { it.toDomain() })
     }
 
     override fun countBySurveyId(surveyId: SurveyId): Mono<Long> {
-        val count = jpaRepository.countBySurveyId(surveyId)
+        val count = jpaRepository.countBySurveyId(surveyId.value)
         return Mono.just(count)
+    }
+
+    override fun findAll(): Flux<SurveyResponse> {
+        val entities = jpaRepository.findAll()
+        return Flux.fromIterable(entities.map { it.toDomain() })
+    }
+
+    override fun delete(id: ResponseId): Mono<Void> {
+        jpaRepository.deleteById(id.value)
+        return Mono.empty()
     }
 }

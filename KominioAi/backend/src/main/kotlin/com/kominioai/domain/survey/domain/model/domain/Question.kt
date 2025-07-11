@@ -41,4 +41,26 @@ data class Question(
             )
         }
     }
+
+    fun addOption(option: QuestionOption): Question {
+        return copy(options = options + option)
+    }
+
+    fun validateAnswer(answer: Answer): Boolean {
+        return when (type) {
+            QuestionType.TEXT, QuestionType.TEXTAREA, QuestionType.NUMBER, QuestionType.DATE, QuestionType.EMAIL -> {
+                answer.textAnswer?.isNotBlank() == true
+            }
+            QuestionType.SINGLE_CHOICE -> {
+                answer.selectedOptions.size == 1
+            }
+            QuestionType.MULTIPLE_CHOICE -> {
+                answer.selectedOptions.isNotEmpty()
+            }
+            QuestionType.RATING -> {
+                answer.selectedOptions.size == 1
+            }
+            else -> true
+        }
+    }
 }

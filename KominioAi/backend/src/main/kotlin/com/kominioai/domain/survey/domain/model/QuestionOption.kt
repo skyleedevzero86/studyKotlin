@@ -22,7 +22,7 @@ data class QuestionOption(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", insertable = false, updatable = false)
-    val question: Question? = null
+    var question: Question? = null
 ) {
     fun toDomain(): com.kominioai.domain.survey.domain.model.domain.QuestionOption {
         return com.kominioai.domain.survey.domain.model.domain.QuestionOption(

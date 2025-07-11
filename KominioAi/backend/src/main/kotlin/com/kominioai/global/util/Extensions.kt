@@ -43,7 +43,7 @@ fun QuestionOption.toDto(): QuestionOptionDto = QuestionOptionDto(
 fun SurveyResponse.toDto(): SurveyResponseDto = SurveyResponseDto(
     id = id.value,
     surveyId = surveyId.value,
-    respondentId = respondentId,
+    respondentId = respondentId?.value,
     submittedAt = submittedAt.toInstant(ZoneOffset.UTC),
     answers = answers.map { it.toDto() }
 )

@@ -7,22 +7,22 @@ import java.util.UUID
 
 @Entity
 @Table(name = "question_options")
-data class QuestionOption(
+open class QuestionOption(
     @Id
-    val id: String,
+    open var id: String,
 
     @Column(name = "question_id", nullable = false)
-    val questionId: String,
+    open var questionId: String,
 
     @Column(name = "order_num", nullable = false)
-    val orderIndex: Int,
+    open var orderIndex: Int,
 
     @Column(nullable = false, length = 200)
-    val text: String,
+    open var text: String,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", insertable = false, updatable = false)
-    val question: Question?
+    open var question: Question?
 ) {
     fun toDomain(): DomainQuestionOption {
         return DomainQuestionOption(

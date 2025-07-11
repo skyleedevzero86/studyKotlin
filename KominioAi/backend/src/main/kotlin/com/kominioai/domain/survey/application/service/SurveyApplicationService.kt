@@ -31,9 +31,9 @@ class SurveyApplicationService(
     override fun addQuestion(command: AddQuestionCommand): Mono<SurveyDto> {
         return surveyDomainService.addQuestionToSurvey(
             surveyId = UUID.fromString(command.surveyId.value),
-            questionText = command.title,
+            questionText = command.text,
             questionType = command.type,
-            isRequired = command.isRequired,
+            isRequired = command.required,
             options = command.options
         ).map { it.toDto() }
     }
@@ -44,14 +44,22 @@ class SurveyApplicationService(
     }
 
     override fun submitResponse(command: SubmitResponseCommand): Mono<UUID> {
+        val answerSubmissions = command.answers.map { answer ->
+            com.kominioai.domain.survey.application.port.input.command.AnswerSubmission(
+                questionId = answer.questionId.value,
+                answerText = answer.textAnswer,
+                selectedOptionIds = answer.selectedOptions.map { it.id.value }
+            )
+        }
+
         return surveyDomainService.submitResponse(
             surveyId = UUID.fromString(command.surveyId.value),
-            answers = command.answers
+            answers = answerSubmissions
         ).map { UUID.fromString(it.id.value) }
     }
 
     override fun getSurvey(id: UUID): Mono<SurveyDto> {
-        return surveyRepository.findById(id)
+        return surveyRepository.findById(com.kominioai.domain.survey.domain.valueobject.SurveyId.from(id.toString()))
             .map { it.toDto() }
     }
 

@@ -9,35 +9,35 @@ import java.util.UUID
 
 @Entity
 @Table(name = "questions")
-data class Question(
+open class Question(
     @Id
-    val id: String,
+    open var id: String,
 
     @Column(name = "survey_id", nullable = false)
-    val surveyId: String,
+    open var surveyId: String,
 
     @Column(name = "order_num", nullable = false)
-    val orderIndex: Int,
+    open var orderIndex: Int,
 
     @Column(nullable = false, length = 500)
-    val text: String,
+    open var text: String,
 
     @Column(length = 1000)
-    val description: String?,
+    open var description: String?,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val type: QuestionType,
+    open var type: QuestionType,
 
     @Column(nullable = false)
-    val required: Boolean,
+    open var required: Boolean,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "survey_id", insertable = false, updatable = false)
-    val survey: Survey?,
+    open var survey: Survey?,
 
     @OneToMany(mappedBy = "question", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    val options: List<QuestionOption> = mutableListOf()
+    open var options: MutableList<QuestionOption> = mutableListOf()
 ) {
     fun toDomain(): DomainQuestion {
         return DomainQuestion(

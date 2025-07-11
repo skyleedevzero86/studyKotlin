@@ -26,9 +26,8 @@ class SurveyQueryService(
     }
 
     fun getSurveyResponses(query: GetSurveyResponsesQuery): Flux<SurveyResponseDto> {
-        return surveyResponseRepository.findBySurveyId(
-            java.util.UUID.fromString(query.surveyId.value)
-        ).map { it.toDto() }
+        return surveyResponseRepository.findBySurveyId(query.surveyId)
+            .map { it.toDto() }
     }
 
     fun getPublishedSurveys(): Flux<SurveyDto> {
@@ -37,8 +36,7 @@ class SurveyQueryService(
     }
 
     fun getSurvey(query: GetSurveyQuery): Mono<SurveyDto> {
-        return surveyRepository.findById(
-            java.util.UUID.fromString(query.surveyId.value)
-        ).map { it.toDto() }
+        return surveyRepository.findById(query.surveyId)
+            .map { it.toDto() }
     }
 }

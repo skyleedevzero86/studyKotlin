@@ -10,34 +10,34 @@ import java.time.LocalDateTime
 
 @Entity
 @Table(name = "surveys")
-open data class Survey(
+open class Survey(
     @Id
-    open val id: String,
+    open var id: String,
 
     @Column(nullable = false)
-    open val title: String,
+    open var title: String,
 
     @Column(columnDefinition = "TEXT")
-    open val description: String?,
+    open var description: String?,
 
     @Column(name = "created_by", nullable = false)
-    open val createdBy: String,
+    open var createdBy: String,
 
     @Column(name = "created_at", nullable = false)
-    open val createdAt: LocalDateTime,
+    open var createdAt: LocalDateTime,
 
     @Column(name = "updated_at", nullable = false)
-    open val updatedAt: LocalDateTime,
+    open var updatedAt: LocalDateTime,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    open val status: SurveyStatus,
+    open var status: SurveyStatus,
 
     @OneToMany(mappedBy = "survey", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
-    open val questions: List<Question> = emptyList(),
+    open var questions: MutableList<Question> = mutableListOf(),
 
     @Embedded
-    open val settings: SurveySettings
+    open var settings: SurveySettings
 ) {
     fun toDomain(): DomainSurvey {
         return DomainSurvey(
@@ -63,7 +63,7 @@ open data class Survey(
                 createdAt = domainSurvey.createdAt,
                 updatedAt = domainSurvey.updatedAt,
                 status = domainSurvey.status,
-                questions = domainSurvey.questions.map { Question.from(it) },
+                questions = domainSurvey.questions.map { Question.from(it) }.toMutableList(),
                 settings = domainSurvey.settings
             )
         }

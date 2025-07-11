@@ -2,12 +2,13 @@ package com.kominioai.domain.survey.domain.model.domain
 
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import com.kominioai.domain.survey.domain.valueobject.SurveyId
+import com.kominioai.domain.survey.domain.valueobject.UserId
 import java.time.LocalDateTime
 
 data class SurveyResponse(
     val id: ResponseId,
     val surveyId: SurveyId,
-    val respondentId: String?,
+    val respondentId: UserId?,
     val submittedAt: LocalDateTime,
     val answers: List<Answer>,
     val ipAddress: String?
@@ -19,7 +20,7 @@ data class SurveyResponse(
     companion object {
         fun create(
             surveyId: SurveyId,
-            respondentId: String?,
+            respondentId: UserId?,
             answers: List<Answer>,
             ipAddress: String?
         ): SurveyResponse {

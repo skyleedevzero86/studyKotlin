@@ -1,12 +1,13 @@
 package com.kominioai.domain.survey.application.service
 
-import com.kominioai.domain.survey.application.port.input.command.SubmitSurveyResponseCommand
+import com.kominioai.domain.survey.application.port.input.command.SubmitResponseCommand
 import com.kominioai.domain.survey.application.port.output.SurveyRepository
 import com.kominioai.domain.survey.application.port.output.SurveyResponseRepository
 import com.kominioai.domain.survey.domain.model.domain.Question
 import com.kominioai.domain.survey.domain.model.domain.Answer
 import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.SurveyResponseId
+import com.kominioai.domain.survey.domain.valueobject.UserId
 import com.kominioai.global.exception.SurveyNotFoundException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,7 +20,7 @@ class SubmitSurveyResponseUseCase(
     private val surveyRepository: SurveyRepository,
     private val surveyResponseRepository: SurveyResponseRepository
 ) {
-    fun execute(command: SubmitSurveyResponseCommand): Mono<SurveyResponseId> {
+    fun execute(command: SubmitResponseCommand): Mono<SurveyResponseId> {
         return surveyRepository.findById(command.surveyId)
             .switchIfEmpty(Mono.error(SurveyNotFoundException("설문조사를 찾을 수 없습니다: ${command.surveyId}")))
             .flatMap { survey ->
@@ -31,7 +32,7 @@ class SubmitSurveyResponseUseCase(
 
                 val response = SurveyResponse.create(
                     surveyId = command.surveyId,
-                    respondentId = command.respondentId,
+                    respondentId = command.respondentId?.let { UserId.from(it) },
                     answers = command.answers,
                     ipAddress = command.ipAddress
                 )
