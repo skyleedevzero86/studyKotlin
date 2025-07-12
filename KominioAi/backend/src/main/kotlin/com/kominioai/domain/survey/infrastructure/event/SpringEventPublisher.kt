@@ -15,10 +15,6 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.measureTimeMillis
 
-/**
- * Spring ApplicationEventPublisher를 사용한 이벤트 발행 구현체
- * 메트릭 수집, 로깅, 에러 핸들링을 포함한 강화된 이벤트 발행기
- */
 @Component
 class SpringEventPublisher(
     private val applicationEventPublisher: ApplicationEventPublisher,
@@ -27,8 +23,7 @@ class SpringEventPublisher(
 ) : EventPublisher {
 
     private val logger = LoggerFactory.getLogger(SpringEventPublisher::class.java)
-    
-    // 메트릭을 위한 카운터들
+
     private val totalPublished = AtomicLong(0)
     private val successCount = AtomicLong(0)
     private val failureCount = AtomicLong(0)
@@ -60,14 +55,11 @@ class SpringEventPublisher(
                 else -> "unknown"
             }
             logger.info("Publishing event: ${event.eventType} - eventId: ${event.eventId}, surveyId: $surveyIdValue, correlationId: ${metadata.correlationId}")
-            
-            // Spring ApplicationEventPublisher를 사용하여 이벤트 발행
+
             applicationEventPublisher.publishEvent(event)
-            
-            // 메트릭 업데이트
+
             updateMetrics(true, System.currentTimeMillis() - startTime)
-            
-            // 비즈니스 메트릭 기록
+
             businessMetricsService.recordEventPublished(event.eventType, event.eventId)
             
             logger.info("Event published successfully: ${event.eventType}")
@@ -164,7 +156,6 @@ class SpringEventPublisher(
     }
 
     override fun isHealthy(): Boolean {
-        // 기본적으로 Spring ApplicationEventPublisher는 항상 사용 가능
         return true
     }
 
@@ -188,10 +179,7 @@ class SpringEventPublisher(
             lastPublishTime = lastPublish
         )
     }
-    
-    /**
-     * 메트릭 업데이트
-     */
+
     private fun updateMetrics(success: Boolean, duration: Long) {
         totalPublished.incrementAndGet()
         
@@ -205,8 +193,7 @@ class SpringEventPublisher(
         
         lastPublishTime.set(System.currentTimeMillis())
         totalPublishTime.addAndGet(duration)
-        
-        // 타이머 메트릭 기록
+
         meterRegistry.timer("event.publish.duration", "type", "spring").record(java.time.Duration.ofMillis(duration))
     }
 }

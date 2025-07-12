@@ -60,7 +60,7 @@ class QuestionEventListener(
         try {
 
             surveyCacheService.invalidateSurveyCache(event.surveyId)
-            surveyCacheService.invalidateSurveyCache(event.surveyId) // Using the same method for now
+            surveyCacheService.invalidateSurveyCache(event.surveyId)
 
             businessMetricsService.recordQuestionUpdated(
                 event.surveyId.value,
@@ -92,7 +92,7 @@ class QuestionEventListener(
         try {
 
             surveyCacheService.invalidateSurveyCache(event.surveyId)
-            surveyCacheService.invalidateSurveyCache(event.surveyId) // Using the same method for now
+            surveyCacheService.invalidateSurveyCache(event.surveyId)
 
             businessMetricsService.recordQuestionDeleted(event.surveyId.value)
 

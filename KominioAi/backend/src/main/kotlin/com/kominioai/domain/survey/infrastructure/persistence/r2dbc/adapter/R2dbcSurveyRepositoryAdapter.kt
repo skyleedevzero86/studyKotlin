@@ -43,7 +43,6 @@ class R2dbcSurveyRepositoryAdapter(
             .flatMap { savedSurveyEntity ->
                 val savedSurvey = savedSurveyEntity.toDomain()
 
-                // 질문과 옵션들을 별도로 저장
                 saveQuestionsAndOptions(survey, savedSurvey.id.value)
                     .thenReturn(savedSurvey)
             }
@@ -51,13 +50,10 @@ class R2dbcSurveyRepositoryAdapter(
                 val duration = System.currentTimeMillis() - startTime
                 performanceMetrics.recordQueryTime("save", duration)
 
-                // 기존 캐시 무효화
                 surveyDataLoader.invalidateCache(savedSurvey.id.value)
 
-                // Redis 캐시 무효화
                 surveyCacheService.invalidateSurveyCache(savedSurvey.id)
 
-                // 게시된 설문조사 목록 캐시도 무효화
                 surveyCacheService.invalidatePublishedSurveysCache()
 
                 logger.debug("Survey saved and all caches invalidated for surveyId: ${savedSurvey.id.value}")
@@ -74,11 +70,11 @@ class R2dbcSurveyRepositoryAdapter(
                 if (cachedSurvey != null) {
                     Mono.just(cachedSurvey)
                 } else {
-                    // 캐시 미스 시 데이터베이스에서 조회
+
                     surveyRepository.findById(id.value)
                         .map { it.toDomain() }
                         .flatMap { survey ->
-                            // 조회된 데이터를 캐시에 저장
+
                             surveyCacheService.cacheSurvey(survey)
                                 .thenReturn(survey)
                         }
@@ -119,15 +115,15 @@ class R2dbcSurveyRepositoryAdapter(
         return surveyCacheService.getPublishedSurveys()
             .flatMapMany { cachedSurveys ->
                 if (cachedSurveys != null) {
-                    // 캐시 히트 시 캐시된 데이터 반환
+
                     Flux.fromIterable(cachedSurveys)
                 } else {
-                    // 캐시 미스 시 데이터베이스에서 조회
+
                     surveyRepository.findPublishedSurveys()
                         .map { it.toDomain() }
                         .collectList()
                         .flatMapMany { surveys ->
-                            // 조회된 데이터를 캐시에 저장
+
                             surveyCacheService.cachePublishedSurveys(surveys)
                                 .thenMany(Flux.fromIterable(surveys))
                         }
@@ -147,13 +143,11 @@ class R2dbcSurveyRepositoryAdapter(
     override fun delete(id: SurveyId): Mono<Void> {
         return surveyRepository.deleteById(id.value)
             .doOnSuccess {
-                // 기존 캐시 무효화
+
                 surveyDataLoader.invalidateCache(id.value)
 
-                // Redis 캐시 무효화
                 surveyCacheService.invalidateSurveyCache(id)
 
-                // 게시된 설문조사 목록 캐시도 무효화
                 surveyCacheService.invalidatePublishedSurveysCache()
 
                 logger.debug("Survey deleted and all caches invalidated for surveyId: ${id.value}")
@@ -165,22 +159,18 @@ class R2dbcSurveyRepositoryAdapter(
 
         val startTime = System.currentTimeMillis()
 
-        // 먼저 Redis 캐시에서 조회
         return surveyCacheService.getSurveyWithQuestionsById(id)
             .flatMap { cachedSurvey ->
                 if (cachedSurvey != null) {
                     Mono.just(cachedSurvey)
                 } else {
-                    // 캐시 미스 시 기존 로직으로 폴백
                     loadSurveyWithJoinQuery(id.value)
                         .flatMap { survey ->
-                            // 조회된 데이터를 캐시에 저장
                             surveyCacheService.cacheSurveyWithQuestions(survey)
                                 .thenReturn(survey)
                         }
                         .onErrorResume { error ->
                             logger.warn("Join query failed, falling back to batch loading: ${error.message}")
-                            // 방법 2: 배치 처리로 폴백
                             loadSurveyWithBatchProcessing(id.value)
                                 .flatMap { survey ->
                                     surveyCacheService.cacheSurveyWithQuestions(survey)
@@ -189,7 +179,6 @@ class R2dbcSurveyRepositoryAdapter(
                         }
                         .onErrorResume { error ->
                             logger.warn("Batch loading failed, falling back to cached loading: ${error.message}")
-                            // 방법 3: 캐시된 DataLoader로 폴백
                             loadSurveyWithCachedDataLoader(id.value)
                                 .flatMap { survey ->
                                     surveyCacheService.cacheSurveyWithQuestions(survey)
@@ -212,23 +201,19 @@ class R2dbcSurveyRepositoryAdapter(
 
         val startTime = System.currentTimeMillis()
 
-        // 페이징 파라미터 계산
         val limit = pageable.pageSize.toLong()
         val offset = (pageable.pageNumber * pageable.pageSize).toLong()
 
-        // 정렬 파라미터 추출
         val sort = pageable.sort.firstOrNull()
         val sortBy = sort?.property ?: "created_at"
         val sortDir = sort?.direction?.name?.lowercase() ?: "desc"
 
         return Mono.zip(
-            // 페이징된 설문지 데이터 조회
             if (sortBy != "created_at" || sortDir != "desc") {
                 surveyRepository.findAllWithPagingAndSorting(sortBy, sortDir, limit, offset)
             } else {
                 surveyRepository.findAllWithPaging(limit, offset)
             }.collectList(),
-            // 전체 개수 조회
             surveyRepository.countAll()
         ).flatMap { tuple ->
             val surveys = tuple.t1
@@ -241,7 +226,6 @@ class R2dbcSurveyRepositoryAdapter(
                     totalCount
                 ) as Page<Survey>)
             } else {
-                // 페이징된 설문지들의 질문들을 배치로 로드
                 val surveyIds = surveys.map { it.id }
                 surveyDataLoader.loadSurveysWithQuestionsAndOptions(surveyIds)
                     .map { questionsBySurveyId ->
@@ -351,7 +335,6 @@ class R2dbcSurveyRepositoryAdapter(
         }
     }
 
-    // 카운트 메서드들
     override fun countAll(): Mono<Long> = surveyRepository.countAll()
 
     override fun countByStatus(status: SurveyStatus): Mono<Long> = surveyRepository.countByStatus(status)
@@ -360,9 +343,6 @@ class R2dbcSurveyRepositoryAdapter(
 
     override fun countPublishedSurveys(): Mono<Long> = surveyRepository.countPublishedSurveys()
 
-    /**
-     * 방법 1: 조인 쿼리를 사용한 최적화된 로딩
-     */
     private fun loadSurveyWithJoinQuery(surveyId: String): Mono<Survey> {
         return surveyRepository.findSurveyWithQuestionsAndOptionsTyped(surveyId)
             .collectList()
@@ -379,9 +359,6 @@ class R2dbcSurveyRepositoryAdapter(
             }
     }
 
-    /**
-     * 방법 2: 배치 처리를 사용한 로딩
-     */
     private fun loadSurveyWithBatchProcessing(surveyId: String): Mono<Survey> {
         return Mono.zip(
             surveyRepository.findById(surveyId),
@@ -394,9 +371,6 @@ class R2dbcSurveyRepositoryAdapter(
         }
     }
 
-    /**
-     * 방법 3: 캐시된 DataLoader를 사용한 로딩
-     */
     private fun loadSurveyWithCachedDataLoader(surveyId: String): Mono<Survey> {
         return Mono.zip(
             surveyRepository.findById(surveyId),
@@ -409,9 +383,6 @@ class R2dbcSurveyRepositoryAdapter(
         }
     }
 
-    /**
-     * 질문과 옵션들을 배치로 저장
-     */
     private fun saveQuestionsAndOptions(survey: Survey, surveyId: String): Mono<Void> {
         if (survey.questions.isEmpty()) {
             return Mono.empty()

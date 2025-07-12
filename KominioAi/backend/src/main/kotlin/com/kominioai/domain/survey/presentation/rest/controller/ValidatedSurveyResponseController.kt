@@ -55,11 +55,9 @@ class ValidatedSurveyResponseController(
             "answersCount" to request.answers.size,
             "ipAddress" to extractClientIpAddress(exchange)
         )
-        
-        // IP 주소 추출
+
         val ipAddress = extractClientIpAddress(exchange)
-        
-        // 도메인 검증 서비스를 통한 추가 검증
+
         return surveyResponseValidationService.validateSurveyResponseSubmission(
             surveyId = SurveyId.from(request.surveyId),
             questionIds = request.answers.map { it.questionId },
@@ -67,17 +65,16 @@ class ValidatedSurveyResponseController(
             ipAddress = ipAddress
         )
         .flatMap {
-            // 답변 내용의 비즈니스 로직 검증
+
             validateAnswerContents(request.answers)
-            
-            // 도메인 모델로 변환
+
             val answers = request.answers.map { validatedAnswer ->
                 com.kominioai.domain.survey.domain.model.domain.Answer.create(
                     responseId = "",
                     questionId = QuestionId.from(validatedAnswer.questionId),
                     questionType = determineQuestionType(validatedAnswer),
                     textAnswer = validatedAnswer.answerText,
-                    selectedOptions = emptyList() // 실제 구현에서는 옵션 정보를 로드해야 함
+                    selectedOptions = emptyList()
                 )
             }
             
@@ -92,8 +89,7 @@ class ValidatedSurveyResponseController(
         }
         .map { responseId ->
             val duration = System.currentTimeMillis() - startTime
-            
-            // 비즈니스 메트릭 기록
+
             businessMetricsService.recordSurveyResponse(
                 surveyId = request.surveyId,
                 responseId = responseId.value,
@@ -156,8 +152,7 @@ class ValidatedSurveyResponseController(
             "operation" to "GET_SURVEY_RESPONSES",
             "surveyId" to surveyId
         )
-        
-        // UUID 형식 검증
+
         if (!surveyId.matches(Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"))) {
             StructuredLogging.logWarn(
                 logger = logger,
@@ -202,22 +197,15 @@ class ValidatedSurveyResponseController(
                 Mono.error(error)
             }
     }
-    
-    /**
-     * 클라이언트 IP 주소 추출
-     */
+
     private fun extractClientIpAddress(exchange: ServerWebExchange): String? {
         return exchange.request.headers.getFirst("X-Forwarded-For")
             ?: exchange.request.headers.getFirst("X-Real-IP")
             ?: (exchange.request.remoteAddress as? InetSocketAddress)?.address?.hostAddress
     }
-    
-    /**
-     * 답변 내용의 비즈니스 로직 검증
-     */
+
     private fun validateAnswerContents(answers: List<ValidatedAnswerSubmission>) {
         answers.forEach { answer ->
-            // 텍스트 답변과 선택된 옵션 중 하나는 반드시 있어야 함
             if (answer.answerText.isNullOrBlank() && answer.selectedOptionIds.isEmpty()) {
                 StructuredLogging.logError(
                     logger = logger,
@@ -231,8 +219,7 @@ class ValidatedSurveyResponseController(
                     "질문 ${answer.questionId}: 텍스트 답변이나 선택된 옵션 중 하나는 반드시 입력해야 합니다"
                 )
             }
-            
-            // 텍스트 답변이 있는 경우 길이 검증
+
             if (!answer.answerText.isNullOrBlank() && answer.answerText.length > 2000) {
                 StructuredLogging.logError(
                     logger = logger,
@@ -248,8 +235,7 @@ class ValidatedSurveyResponseController(
                     "질문 ${answer.questionId}: 답변 텍스트는 2000자를 초과할 수 없습니다"
                 )
             }
-            
-            // 선택된 옵션이 있는 경우 개수 검증
+
             if (answer.selectedOptionIds.size > 10) {
                 StructuredLogging.logError(
                     logger = logger,
@@ -267,11 +253,7 @@ class ValidatedSurveyResponseController(
             }
         }
     }
-    
-    /**
-     * 답변 유형에 따른 질문 타입 결정
-     * 실제 구현에서는 설문지에서 질문 정보를 조회해야 함
-     */
+
     private fun determineQuestionType(answer: ValidatedAnswerSubmission): com.kominioai.domain.survey.domain.valueobject.QuestionType {
         return when {
             !answer.answerText.isNullOrBlank() && answer.selectedOptionIds.isEmpty() -> {

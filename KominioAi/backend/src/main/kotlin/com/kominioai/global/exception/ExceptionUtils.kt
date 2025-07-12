@@ -6,20 +6,10 @@ import com.kominioai.domain.survey.domain.valueobject.UserId
 import com.kominioai.domain.survey.domain.valueobject.ResponseId
 import org.slf4j.LoggerFactory
 
-/**
- * 예외 처리를 표준화하기 위한 유틸리티 클래스
- * 모든 예외 메시지의 일관성을 보장합니다.
- */
 object ExceptionUtils {
     
     private val logger = LoggerFactory.getLogger(ExceptionUtils::class.java)
-    
-    /**
-     * SurveyNotFoundException을 생성하는 표준화된 메서드
-     * @param surveyId 설문조사 ID (SurveyId 객체 또는 String)
-     * @param operation 수행하려던 작업 (예: "질문 추가", "설문조사 조회")
-     * @return SurveyNotFoundException
-     */
+
     fun createSurveyNotFoundException(surveyId: Any, operation: String = "조회"): SurveyNotFoundException {
         val surveyIdString = when (surveyId) {
             is SurveyId -> surveyId.value
@@ -32,13 +22,7 @@ object ExceptionUtils {
         logger.warn("SurveyNotFoundException 발생: $message")
         return SurveyNotFoundException(message)
     }
-    
-    /**
-     * QuestionNotFoundException을 생성하는 표준화된 메서드
-     * @param questionId 질문 ID
-     * @param operation 수행하려던 작업
-     * @return QuestionNotFoundException
-     */
+
     fun createQuestionNotFoundException(questionId: Any, operation: String = "조회"): QuestionNotFoundException {
         val questionIdString = when (questionId) {
             is QuestionId -> questionId.value
@@ -51,13 +35,7 @@ object ExceptionUtils {
         logger.warn("QuestionNotFoundException 발생: $message")
         return QuestionNotFoundException(message)
     }
-    
-    /**
-     * UserNotFoundException을 생성하는 표준화된 메서드
-     * @param userId 사용자 ID
-     * @param operation 수행하려던 작업
-     * @return UserNotFoundException
-     */
+
     fun createUserNotFoundException(userId: Any, operation: String = "조회"): UserNotFoundException {
         val userIdString = when (userId) {
             is UserId -> userId.value
@@ -70,13 +48,7 @@ object ExceptionUtils {
         logger.warn("UserNotFoundException 발생: $message")
         return UserNotFoundException(message)
     }
-    
-    /**
-     * SurveyResponseNotFoundException을 생성하는 표준화된 메서드
-     * @param responseId 응답 ID
-     * @param operation 수행하려던 작업
-     * @return SurveyResponseNotFoundException
-     */
+
     fun createSurveyResponseNotFoundException(responseId: Any, operation: String = "조회"): SurveyResponseNotFoundException {
         val responseIdString = when (responseId) {
             is ResponseId -> responseId.value
@@ -89,14 +61,7 @@ object ExceptionUtils {
         logger.warn("SurveyResponseNotFoundException 발생: $message")
         return SurveyResponseNotFoundException(message)
     }
-    
-    /**
-     * InvalidSurveyOperationException을 생성하는 표준화된 메서드
-     * @param surveyId 설문조사 ID
-     * @param operation 수행하려던 작업
-     * @param reason 실패 이유
-     * @return InvalidSurveyOperationException
-     */
+
     fun createInvalidSurveyOperationException(surveyId: Any, operation: String, reason: String): InvalidSurveyOperationException {
         val surveyIdString = when (surveyId) {
             is SurveyId -> surveyId.value
@@ -109,14 +74,7 @@ object ExceptionUtils {
         logger.warn("InvalidSurveyOperationException 발생: $message")
         return InvalidSurveyOperationException(message)
     }
-    
-    /**
-     * SurveyValidationException을 생성하는 표준화된 메서드
-     * @param field 검증 실패한 필드
-     * @param value 검증 실패한 값
-     * @param reason 실패 이유
-     * @return SurveyValidationException
-     */
+
     fun createSurveyValidationException(field: String, value: Any? = null, reason: String): SurveyValidationException {
         val valueString = value?.toString() ?: "null"
         val message = "설문조사 검증 실패. [필드: $field, 값: $valueString, 이유: $reason]"
@@ -124,14 +82,7 @@ object ExceptionUtils {
         logger.warn("SurveyValidationException 발생: $message")
         return SurveyValidationException(message)
     }
-    
-    /**
-     * 예외 메시지에 포함될 공통 정보를 포맷팅
-     * @param entityType 엔티티 타입 (예: "설문조사", "질문")
-     * @param id 엔티티 ID
-     * @param operation 수행하려던 작업
-     * @return 포맷된 메시지
-     */
+
     fun formatNotFoundMessage(entityType: String, id: Any, operation: String = "조회"): String {
         val idString = when (id) {
             is String -> id
@@ -139,14 +90,7 @@ object ExceptionUtils {
         }
         return entityType + "을(를) 찾을 수 없습니다. [ID: $idString, 작업: $operation]"
     }
-    
-    /**
-     * 예외 메시지에 포함될 작업 정보를 포맷팅
-     * @param operation 수행하려던 작업
-     * @param entityType 대상 엔티티 타입
-     * @param id 대상 엔티티 ID
-     * @return 포맷된 메시지
-     */
+
     fun formatOperationMessage(operation: String, entityType: String, id: Any): String {
         val idString = when (id) {
             is String -> id

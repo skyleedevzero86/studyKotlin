@@ -64,10 +64,9 @@ class SurveyController(
             .map { surveyId ->
                 val duration = System.currentTimeMillis() - startTime
 
-                // 비즈니스 메트릭 기록
                 businessMetricsService.recordSurveyCreation(
                     surveyId = surveyId.value,
-                    questionCount = 0, // 새로 생성된 설문은 질문이 없음
+                    questionCount = 0,
                     userId = request.createdBy
                 )
 
@@ -473,9 +472,6 @@ class SurveyController(
             }
     }
 
-    /**
-     * 정렬 파라미터를 파싱하여 Sort 객체로 변환
-     */
     private fun parseSort(sort: String): org.springframework.data.domain.Sort {
         return try {
             val parts = sort.split(",")

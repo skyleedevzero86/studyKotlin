@@ -17,8 +17,7 @@ interface SurveyR2dbcRepository : ReactiveCrudRepository<Survey, String> {
 
     @Query("SELECT * FROM surveys WHERE status = 'PUBLISHED'")
     fun findPublishedSurveys(): Flux<Survey>
-    
-    // 페이징을 위한 새로운 메서드들
+
     @Query("SELECT * FROM surveys ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
     fun findAllWithPaging(limit: Long, offset: Long): Flux<Survey>
     
@@ -42,8 +41,7 @@ interface SurveyR2dbcRepository : ReactiveCrudRepository<Survey, String> {
     
     @Query("SELECT COUNT(*) FROM surveys WHERE status = 'PUBLISHED'")
     fun countPublishedSurveys(): Mono<Long>
-    
-    // 정렬 옵션을 지원하는 페이징 쿼리
+
     @Query("""
         SELECT * FROM surveys 
         ORDER BY 
