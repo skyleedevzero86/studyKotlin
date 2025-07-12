@@ -1,3 +1,4 @@
+*.md
 application.properties
 *.log
 logs/

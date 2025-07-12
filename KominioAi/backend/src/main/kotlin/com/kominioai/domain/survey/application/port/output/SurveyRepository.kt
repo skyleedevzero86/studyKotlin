@@ -19,4 +19,15 @@ interface SurveyRepository {
     fun delete(id: SurveyId): Mono<Void>
     fun findByIdWithQuestions(id: SurveyId): Mono<Survey>
     fun findAllWithPaging(pageable: Pageable): Mono<Page<Survey>>
+
+
+    fun findByStatusWithPaging(status: SurveyStatus, pageable: Pageable): Mono<Page<Survey>>
+    fun findByCreatedByWithPaging(userId: UserId, pageable: Pageable): Mono<Page<Survey>>
+    fun findPublishedSurveysWithPaging(pageable: Pageable): Mono<Page<Survey>>
+
+
+    fun countAll(): Mono<Long>
+    fun countByStatus(status: SurveyStatus): Mono<Long>
+    fun countByCreatedBy(userId: UserId): Mono<Long>
+    fun countPublishedSurveys(): Mono<Long>
 }

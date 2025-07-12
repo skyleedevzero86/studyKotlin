@@ -2,9 +2,9 @@ package com.kominioai
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
-import org.springframework.context.annotation.ComponentScan
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
+import org.springframework.data.redis.repository.configuration.EnableRedisRepositories
 
 @SpringBootApplication
 @EnableScheduling
@@ -13,10 +13,11 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
         "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.repository"
     ]
 )
-@ComponentScan(basePackages = [
-    "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.repository",
-    "com.kominioai.domain.survey.infrastructure.persistence.r2dbc.adapter"
-])
+@EnableRedisRepositories(
+    basePackages = [
+        "com.kominioai.domain.survey.infrastructure.persistence.redis.repository"
+    ]
+)
 class KominioAiApplication
 
 fun main(args: Array<String>) {

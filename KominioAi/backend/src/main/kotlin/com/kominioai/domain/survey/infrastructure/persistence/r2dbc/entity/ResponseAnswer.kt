@@ -15,7 +15,7 @@ data class ResponseAnswer(
     val questionId: String,
     val questionType: QuestionType,
     val textAnswer: String?,
-    val selectedOptionIds: String?, // JSON 형태로 저장
+    val selectedOptionIds: String?,
     val createdAt: LocalDateTime
 ) {
     fun toDomain(): com.kominioai.domain.survey.domain.model.domain.Answer {

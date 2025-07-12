@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- 환경별 프로필 설정 -->
+    <springProfile name="local">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        
+        <!-- 구조화된 로깅을 위한 JSON 포맷터 -->
+        <appender name="STRUCTURED_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <root level="INFO">
+            <appender-ref ref="STRUCTURED_CONSOLE"/>
+        </root>
+        
+        <!-- 애플리케이션 로그 레벨 설정 -->
+        <logger name="com.kominioai" level="DEBUG"/>
+        <logger name="org.springframework.web" level="INFO"/>
+        <logger name="org.springframework.data.r2dbc" level="DEBUG"/>
+        <logger name="io.r2dbc" level="DEBUG"/>
+    </springProfile>
+    
+    <springProfile name="dev">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        
+        <!-- 구조화된 로깅을 위한 JSON 포맷터 -->
+        <appender name="STRUCTURED_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- 파일 로그 설정 -->
+        <appender name="STRUCTURED_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/application-structured.json</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>logs/application-structured.%d{yyyy-MM-dd}.json</fileNamePattern>
+                <maxHistory>30</maxHistory>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <root level="INFO">
+            <appender-ref ref="STRUCTURED_CONSOLE"/>
+            <appender-ref ref="STRUCTURED_FILE"/>
+        </root>
+        
+        <!-- 애플리케이션 로그 레벨 설정 -->
+        <logger name="com.kominioai" level="DEBUG"/>
+        <logger name="org.springframework.web" level="INFO"/>
+        <logger name="org.springframework.data.r2dbc" level="INFO"/>
+        <logger name="io.r2dbc" level="INFO"/>
+    </springProfile>
+    
+    <springProfile name="prod">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        
+        <!-- 구조화된 로깅을 위한 JSON 포맷터 -->
+        <appender name="STRUCTURED_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- 파일 로그 설정 -->
+        <appender name="STRUCTURED_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/application-structured.json</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>logs/application-structured.%d{yyyy-MM-dd}.json</fileNamePattern>
+                <maxHistory>90</maxHistory>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- 에러 로그 설정 -->
+        <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/error.log</file>
+            <filter class="ch.qos.logback.classic.filter.LevelFilter">
+                <level>ERROR</level>
+                <onMatch>ACCEPT</onMatch>
+                <onMismatch>DENY</onMismatch>
+            </filter>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>logs/error.%d{yyyy-MM-dd}.log</fileNamePattern>
+                <maxHistory>90</maxHistory>
+            </rollingPolicy>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        
+        <root level="INFO">
+            <appender-ref ref="STRUCTURED_CONSOLE"/>
+            <appender-ref ref="STRUCTURED_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+        
+        <!-- 애플리케이션 로그 레벨 설정 -->
+        <logger name="com.kominioai" level="INFO"/>
+        <logger name="org.springframework.web" level="WARN"/>
+        <logger name="org.springframework.data.r2dbc" level="WARN"/>
+        <logger name="io.r2dbc" level="WARN"/>
+    </springProfile>
+    
+    <!-- 기본 설정 (프로필이 지정되지 않은 경우) -->
+    <springProfile name="!local,!dev,!prod">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+    
+</configuration> 

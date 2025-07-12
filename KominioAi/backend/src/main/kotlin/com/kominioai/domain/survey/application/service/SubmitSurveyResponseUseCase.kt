@@ -8,7 +8,7 @@ import com.kominioai.domain.survey.domain.model.domain.Answer
 import com.kominioai.domain.survey.domain.model.domain.SurveyResponse
 import com.kominioai.domain.survey.domain.valueobject.SurveyResponseId
 import com.kominioai.domain.survey.domain.valueobject.UserId
-import com.kominioai.global.exception.SurveyNotFoundException
+import com.kominioai.global.exception.ExceptionUtils
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Mono
@@ -22,10 +22,16 @@ class SubmitSurveyResponseUseCase(
 ) {
     fun execute(command: SubmitResponseCommand): Mono<SurveyResponseId> {
         return surveyRepository.findById(command.surveyId)
-            .switchIfEmpty(Mono.error(SurveyNotFoundException("설문조사를 찾을 수 없습니다: ${command.surveyId}")))
+            .switchIfEmpty(Mono.error(ExceptionUtils.createSurveyNotFoundException(command.surveyId, "응답 제출")))
             .flatMap { survey ->
-                require(survey.status == PUBLISHED) {
-                    "게시된 설문조사만 응답할 수 있습니다."
+                if (survey.status != PUBLISHED) {
+                    return@flatMap Mono.error<SurveyResponseId>(
+                        ExceptionUtils.createInvalidSurveyOperationException(
+                            surveyId = command.surveyId,
+                            operation = "응답 제출",
+                            reason = "게시된 설문조사만 응답할 수 있습니다"
+                        )
+                    )
                 }
 
                 validateAnswers(survey.questions, command.answers)
@@ -47,18 +53,23 @@ class SubmitSurveyResponseUseCase(
         val answerMap = answers.associateBy { it.questionId }
 
         questions.filter { it.required }.forEach { question ->
-            require(answerMap.containsKey(question.id)) {
-                "필수 질문에 대한 답변이 없습니다: ${question.text}"
+            if (!answerMap.containsKey(question.id)) {
+                val message = ExceptionUtils.formatNotFoundMessage("필수 질문에 대한 답변", question.id.value, "응답 제출")
+                throw IllegalArgumentException(message)
             }
         }
 
         answers.forEach { answer ->
             val question = questionMap[answer.questionId]
-                ?: throw IllegalArgumentException("존재하지 않는 질문에 대한 답변입니다: ${answer.questionId}")
-
-            require(answer.questionType == question.type) {
-                "질문 유형과 답변 유형이 일치하지 않습니다."
+                ?: throw ExceptionUtils.createQuestionNotFoundException(answer.questionId, "응답 제출")
+            if (answer.questionType != question.type) {
+                throw ExceptionUtils.createSurveyValidationException(
+                    field = "질문 유형",
+                    value = answer.questionType,
+                    reason = "질문 유형과 답변 유형이 일치하지 않습니다"
+                )
             }
+
         }
     }
 }
