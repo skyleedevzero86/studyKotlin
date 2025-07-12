@@ -2,7 +2,6 @@ package com.kominioai.global.controller
 
 import com.kominioai.global.service.BusinessMetricsService
 import com.kominioai.global.service.SystemMetricsService
-import com.kominioai.global.util.MetricsUtils
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach

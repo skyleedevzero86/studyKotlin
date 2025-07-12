@@ -1,6 +1,5 @@
 package com.kominioai.global.config
 
-import com.kominioai.global.util.StructuredLogging
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpMethod
