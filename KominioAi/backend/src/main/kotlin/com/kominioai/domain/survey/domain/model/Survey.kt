@@ -1,6 +1,7 @@
 package com.kominioai.domain.survey.domain.model
 
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 data class Survey(
     val id: Long? = null,
@@ -20,6 +21,48 @@ data class Survey(
     val period: SurveyPeriod,
     val questions: List<Question>
 ) {
+
+    fun isWaiting(now: LocalDateTime): Boolean {
+        return startDate != null && now.isBefore(startDate)
+    }
+
+    fun isActive(now: LocalDateTime): Boolean {
+        return (startDate == null || now.isAfter(startDate) || now.isEqual(startDate)) &&
+                (endDate == null || now.isBefore(endDate) || now.isEqual(endDate))
+    }
+
+    fun isCompleted(now: LocalDateTime): Boolean {
+        return endDate != null && now.isAfter(endDate)
+    }
+
+    fun getDaysUntilStart(now: LocalDateTime): Long {
+        return if (startDate != null) {
+            ChronoUnit.DAYS.between(now, startDate)
+        } else {
+            0L
+        }
+    }
+
+    fun getParticipationRate(): Double {
+
+        return 0.0
+    }
+
+    fun getRequirementLevel(): RequirementLevel {
+        return if (questions.all { it.options.isNotEmpty() }) {
+            RequirementLevel.REQUIRED
+        } else {
+            RequirementLevel.OPTIONAL
+        }
+    }
+
+    fun getDisplayTheme(): SurveyTheme {
+        return when (surveyType) {
+            SurveyType.SURVEY -> SurveyTheme("#1976d2", "#90caf9", "chart", "survey-type-survey", "fade-in")
+            SurveyType.QUIZ -> SurveyTheme("#ff9800", "#ffe0b2", "question", "survey-type-quiz", "slide-in")
+        }
+    }
+
     fun validate(): List<String> {
         val errors = mutableListOf<String>()
 
