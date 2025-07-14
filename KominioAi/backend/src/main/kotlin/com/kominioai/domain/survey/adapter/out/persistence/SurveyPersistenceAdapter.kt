@@ -5,6 +5,7 @@ import com.kominioai.domain.survey.domain.model.*
 import com.kominioai.global.exception.domain.SurveyDomainException
 import com.kominioai.global.exception.infrastructure.InfrastructureException
 import io.r2dbc.spi.Row
+import io.r2dbc.spi.R2dbcException
 import org.slf4j.LoggerFactory
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Component
@@ -24,23 +25,21 @@ class SurveyPersistenceAdapter(
 
     override fun findById(id: SurveyId): Mono<Survey> {
         val sql = "SELECT * FROM surveys WHERE id = :id"
-        
+
         return client.sql(sql)
             .bind("id", id.value)
             .map { row, _ -> mapRowToSurveyEntity(row) }
             .one()
             .switchIfEmpty(
-                Mono.error(
+                Mono.error<SurveyEntity>(
                     SurveyDomainException.SurveyNotFoundException(id)
                 )
             )
             .flatMap { surveyEntity ->
-                // Questions를 별도로 로딩하여 Aggregate 완성
                 questionPersistenceAdapter.findBySurveyId(id)
                     .collectList()
                     .map { questions ->
                         surveyEntity.toDomain().let { survey ->
-                            // Questions를 Survey에 추가
                             questions.forEach { question ->
                                 survey.addQuestion(question)
                             }
@@ -48,7 +47,7 @@ class SurveyPersistenceAdapter(
                         }
                     }
             }
-            .onErrorMap(R2dbcException::class.java) { ex ->
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
                 InfrastructureException.DatabaseConnectionFailedException(ex)
             }
             .doOnError { error ->
@@ -61,7 +60,6 @@ class SurveyPersistenceAdapter(
             .map { row, _ -> mapRowToSurveyEntity(row) }
             .all()
             .flatMap { surveyEntity: SurveyEntity ->
-                // 각 Survey에 대해 Questions를 로딩
                 val surveyId = SurveyId.fromString(surveyEntity.id ?: "")
                 questionPersistenceAdapter.findBySurveyId(surveyId)
                     .collectList()
@@ -74,7 +72,7 @@ class SurveyPersistenceAdapter(
                         }
                     }
             }
-            .onErrorMap(R2dbcException::class.java) { ex ->
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
                 InfrastructureException.DatabaseConnectionFailedException(ex)
             }
             .doOnError { error ->
@@ -116,7 +114,6 @@ class SurveyPersistenceAdapter(
             .then()
             .thenReturn(survey.id)
             .flatMap { surveyId: SurveyId ->
-                // Questions 저장
                 val questions = survey.getQuestions()
                 if (questions.isNotEmpty()) {
                     questionPersistenceAdapter.saveAll(questions, surveyId)
@@ -125,7 +122,7 @@ class SurveyPersistenceAdapter(
                     Mono.just(surveyId)
                 }
             }
-            .onErrorMap(R2dbcException::class.java) { ex ->
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
                 InfrastructureException.DatabaseConnectionFailedException(ex)
             }
             .doOnSuccess { surveyId ->
@@ -167,7 +164,6 @@ class SurveyPersistenceAdapter(
             .then()
             .thenReturn(survey.id)
             .flatMap { surveyId: SurveyId ->
-                // Questions 업데이트 (기존 삭제 후 새로 저장)
                 questionPersistenceAdapter.deleteBySurveyId(surveyId)
                     .then(
                         Mono.defer {
@@ -181,6 +177,9 @@ class SurveyPersistenceAdapter(
                         }
                     )
                     .thenReturn(surveyId)
+            }
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
+                InfrastructureException.DatabaseConnectionFailedException(ex)
             }
             .doOnSuccess { surveyId ->
                 logger.info("Survey 수정 성공: surveyId={}", surveyId.value)
@@ -201,6 +200,9 @@ class SurveyPersistenceAdapter(
                         .then()
                 }
             )
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
+                InfrastructureException.DatabaseConnectionFailedException(ex)
+            }
             .doOnSuccess {
                 logger.info("Survey 삭제 성공: surveyId={}", id.value)
             }
@@ -226,6 +228,9 @@ class SurveyPersistenceAdapter(
                     )
             }
             .then()
+            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
+                InfrastructureException.DatabaseConnectionFailedException(ex)
+            }
             .doOnSuccess {
                 logger.info("Survey 일괄 삭제 성공: surveyIds={}", ids.map { it.value })
             }
@@ -245,7 +250,7 @@ class SurveyPersistenceAdapter(
 
     override fun existsById(id: SurveyId): Mono<Boolean> {
         val sql = "SELECT COUNT(*) FROM surveys WHERE id = :id"
-        
+
         return client.sql(sql)
             .bind("id", id.value)
             .map { row, _ -> row.get(0, Number::class.java)?.toLong() ?: 0L }
@@ -261,18 +266,18 @@ class SurveyPersistenceAdapter(
             id = row.get("id", String::class.java),
             title = row.get("title", String::class.java) ?: "",
             author = row.get("author", String::class.java) ?: "",
-            status = row.get("status", String::class.java) ?: "DRAFT",
+            status = row.get("status", String::class.java) ?: "",
             createdAt = row.get("created_at", LocalDateTime::class.java) ?: LocalDateTime.now(),
             updatedAt = row.get("updated_at", LocalDateTime::class.java) ?: LocalDateTime.now(),
-            participantCount = row.get("participant_count", Number::class.java)?.toInt() ?: 0,
-            targetType = row.get("target_type", String::class.java) ?: "ALL",
+            participantCount = row.get("participant_count", Int::class.java) ?: 0,
+            targetType = row.get("target_type", String::class.java) ?: "",
             startDate = row.get("start_date", LocalDateTime::class.java),
             endDate = row.get("end_date", LocalDateTime::class.java),
-            duration = row.get("duration", String::class.java) ?: "",
-            surveyType = row.get("survey_type", String::class.java) ?: "SURVEY",
-            participantType = row.get("participant_type", String::class.java) ?: "MEMBER",
+            duration = row.get("duration", String::class.java) ?: "0", // Int -> String으로 변경
+            surveyType = row.get("survey_type", String::class.java) ?: "",
+            participantType = row.get("participant_type", String::class.java) ?: "",
             timeLimitEnabled = row.get("time_limit_enabled", Boolean::class.java),
-            timeLimitMinutes = row.get("time_limit_minutes", Number::class.java)?.toInt()
+            timeLimitMinutes = row.get("time_limit_minutes", Int::class.java)
         )
     }
-} 
+}

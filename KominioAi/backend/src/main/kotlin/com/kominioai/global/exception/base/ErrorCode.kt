@@ -2,15 +2,7 @@ package com.kominioai.global.exception.base
 
 import org.springframework.http.HttpStatus
 
-/**
- * 체계적인 에러 코드 정의
- * 
- * @param code 고유한 에러 코드
- * @param httpStatus HTTP 상태 코드
- * @param messageKey 다국어 메시지 키
- * @param severity 에러 심각도
- * @param description 에러 설명
- */
+
 enum class ErrorCode(
     val code: String,
     val httpStatus: HttpStatus,
@@ -18,7 +10,7 @@ enum class ErrorCode(
     val severity: ErrorSeverity,
     val description: String
 ) {
-    // ===== 설문 도메인 에러 (SURVEY_XXX) =====
+
     SURVEY_NOT_FOUND(
         "SURVEY_001",
         HttpStatus.NOT_FOUND,

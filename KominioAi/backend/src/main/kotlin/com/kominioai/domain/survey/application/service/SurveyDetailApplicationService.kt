@@ -2,6 +2,7 @@ package com.kominioai.domain.survey.application.service
 
 import com.kominioai.domain.survey.application.dto.*
 import com.kominioai.domain.survey.application.port.`in`.GetSurveyDetailUseCase
+import com.kominioai.domain.survey.application.port.out.SurveyPersistencePort
 import com.kominioai.domain.survey.application.query.SurveyDetailQuery
 import com.kominioai.domain.survey.domain.model.*
 import com.kominioai.domain.survey.domain.service.SurveyDisplayService
@@ -11,24 +12,26 @@ import java.time.LocalDateTime
 
 @Service
 class SurveyDetailApplicationService(
-    private val loadSurveyDetailPort: LoadSurveyDetailPort
+    private val surveyPersistencePort: SurveyPersistencePort
 ) : GetSurveyDetailUseCase {
 
     override fun getSurveyDetail(query: SurveyDetailQuery): Mono<SurveyDetailResponse> {
         val now = LocalDateTime.now()
-        return loadSurveyDetailPort.loadSurveyDetail(query.surveyId)
-            .map { detail ->
-                val displayInfo = SurveyDisplayService.buildDisplayInfo(detail.survey, now)
-                val previewQuestions = detail.questions.take(5)
-                val hasMore = detail.questions.size > 5
+        return surveyPersistencePort.findById(SurveyId.fromString(query.surveyId.toString()))
+            .map { survey ->
+                val displayInfo = SurveyDisplayService.buildDisplayInfo(survey, now)
+                val questions = survey.getQuestions()
+                val previewQuestions = questions.take(5)
+                val hasMore = questions.size > 5
+
                 SurveyDetailResponse(
-                    id = detail.survey.id.value.toLongOrNull() ?: 0L,
-                    title = detail.survey.getTitle().value,
-                    author = detail.survey.author.name,
-                    status = detail.survey.getStatus().displayName,
-                    type = detail.survey.surveyType.displayName,
-                    createdAt = detail.createdAt.toString(),
-                    updatedAt = detail.updatedAt.toString(),
+                    id = survey.id.value.toLongOrNull() ?: 0L,
+                    title = survey.getTitle().value,
+                    author = survey.author.name,
+                    status = survey.getStatus().displayName,
+                    type = survey.surveyType.displayName,
+                    createdAt = survey.createdAt.toString(),
+                    updatedAt = survey.getUpdatedAt().toString(),
                     displayInfo = displayInfo,
                     questions = previewQuestions.mapIndexed { idx, q ->
                         QuestionPreviewDto(
@@ -43,7 +46,7 @@ class SurveyDetailApplicationService(
                             required = q.getOptions().isNotEmpty()
                         )
                     },
-                    totalQuestionCount = detail.questions.size,
+                    totalQuestionCount = questions.size,
                     hasMoreQuestions = hasMore,
                     navigation = NavigationInfoDto(
                         prevSurveyId = null,

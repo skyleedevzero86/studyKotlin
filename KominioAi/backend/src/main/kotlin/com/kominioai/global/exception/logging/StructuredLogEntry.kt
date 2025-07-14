@@ -1,13 +1,10 @@
 package com.kominioai.global.exception.logging
 
 import com.kominioai.global.exception.base.ErrorCode
+import com.kominioai.global.exception.base.ErrorContext
 import com.kominioai.global.exception.base.ErrorSeverity
-import com.kominioai.global.exception.context.ErrorContext
 import java.time.Instant
 
-/**
- * 구조화된 로그 엔트리
- */
 data class StructuredLogEntry(
     val timestamp: Instant,
     val level: String,
@@ -41,7 +38,7 @@ data class StructuredLogEntry(
                 is com.kominioai.global.exception.base.BaseException -> exception.errorCode
                 else -> ErrorCode.UNEXPECTED_ERROR
             }
-            
+
             return StructuredLogEntry(
                 timestamp = Instant.now(),
                 level = determineLogLevel(errorCode.severity),
@@ -54,11 +51,11 @@ data class StructuredLogEntry(
                 requestId = context.requestId,
                 traceId = context.traceId,
                 spanId = context.spanId,
-                requestPath = context.requestPath,
-                requestMethod = context.requestMethod,
+                requestPath = context.requestPath ?: "unknown",
+                requestMethod = context.requestMethod ?: "unknown",
                 clientIp = context.clientIp,
                 userAgent = context.userAgent,
-                duration = context.duration.toMillis(),
+                duration = context.duration?.toMillis() ?: 0L,
                 environment = context.environment,
                 version = context.version,
                 stackTrace = if (errorCode.severity == ErrorSeverity.CRITICAL) {
@@ -68,7 +65,7 @@ data class StructuredLogEntry(
                 cause = exception.cause?.message
             )
         }
-        
+
         private fun determineLogLevel(severity: ErrorSeverity): String {
             return when (severity) {
                 ErrorSeverity.INFO -> "INFO"
@@ -77,19 +74,18 @@ data class StructuredLogEntry(
                 ErrorSeverity.CRITICAL -> "ERROR"
             }
         }
-        
+
         private fun sanitizeMessage(message: String?): String {
             if (message.isNullOrBlank()) return "Unknown error"
-            
-            // 민감 정보 마스킹
+
             return message
                 .replace(Regex("password\\s*=\\s*[^\\s,}]+", RegexOption.IGNORE_CASE), "password=***")
                 .replace(Regex("token\\s*=\\s*[^\\s,}]+", RegexOption.IGNORE_CASE), "token=***")
                 .replace(Regex("secret\\s*=\\s*[^\\s,}]+", RegexOption.IGNORE_CASE), "secret=***")
         }
-        
+
         private fun getStackTrace(exception: Exception): String {
             return exception.stackTraceToString()
         }
     }
-} 
+}

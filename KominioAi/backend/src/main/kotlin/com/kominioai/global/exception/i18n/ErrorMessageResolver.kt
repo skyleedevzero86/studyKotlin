@@ -1,81 +1,129 @@
 package com.kominioai.global.exception.i18n
 
 import com.kominioai.global.exception.base.ErrorCode
-import org.springframework.context.MessageSource
-import org.springframework.context.i18n.LocaleContextHolder
+import org.springframework.context.support.ResourceBundleMessageSource
 import org.springframework.stereotype.Component
-import java.util.Locale
+import java.util.*
 
-/**
- * 다국어 에러 메시지 해석 컴포넌트
- */
 @Component
 class ErrorMessageResolver(
-    private val messageSource: MessageSource
+    private val messageSource: ResourceBundleMessageSource
 ) {
-    
-    /**
-     * 에러 코드에 따른 다국어 메시지 해석
-     */
-    fun resolveMessage(
-        errorCode: ErrorCode,
-        locale: Locale = LocaleContextHolder.getLocale(),
-        params: Map<String, Any> = emptyMap()
-    ): String {
+    fun resolveMessage(errorCode: ErrorCode, locale: Locale = Locale.getDefault()): String {
         return try {
-            val args = params.values.toTypedArray()
             messageSource.getMessage(
                 errorCode.messageKey,
-                args,
-                errorCode.description, // 기본값으로 영어 설명 사용
+                null,
+                errorCode.description,
                 locale
-            )
+            ) ?: errorCode.description
         } catch (e: Exception) {
-            // 메시지 해석 실패 시 기본 메시지 반환
             errorCode.description
         }
     }
     
-    /**
-     * 필드별 검증 오류 메시지 해석
-     */
-    fun resolveFieldErrorMessage(
-        field: String,
-        errorCode: String,
-        locale: Locale = LocaleContextHolder.getLocale(),
-        params: Map<String, Any> = emptyMap()
+    fun resolveMessage(
+        errorCode: ErrorCode, 
+        args: Array<Any>, 
+        locale: Locale = Locale.getDefault()
     ): String {
-        val messageKey = "validation.field.$field.$errorCode"
         return try {
-            val args = params.values.toTypedArray()
             messageSource.getMessage(
-                messageKey,
+                errorCode.messageKey,
                 args,
-                "필드 '$field'에 오류가 있습니다",
+                errorCode.description,
+                locale
+            ) ?: errorCode.description
+        } catch (e: Exception) {
+            errorCode.description
+        }
+    }
+
+    fun resolveMessageWithFallback(
+        errorCode: ErrorCode,
+        fallbackMessage: String,
+        locale: Locale = Locale.getDefault()
+    ): String {
+        return try {
+            val message = messageSource.getMessage(
+                errorCode.messageKey,
+                null,
+                fallbackMessage,
                 locale
             )
+            if (message == null || message == errorCode.messageKey) {
+                fallbackMessage
+            } else {
+                message
+            }
         } catch (e: Exception) {
-            "필드 '$field'에 오류가 있습니다"
+            fallbackMessage
         }
     }
     
-    /**
-     * 사용자 친화적 에러 메시지 생성
-     */
-    fun createUserFriendlyMessage(
+    fun resolveMessageWithLocale(
         errorCode: ErrorCode,
-        locale: Locale = LocaleContextHolder.getLocale(),
-        params: Map<String, Any> = emptyMap()
+        locale: Locale? = null
     ): String {
-        return when (errorCode.severity) {
-            com.kominioai.global.exception.base.ErrorSeverity.INFO -> 
-                resolveMessage(errorCode, locale, params)
-            com.kominioai.global.exception.base.ErrorSeverity.WARN -> 
-                resolveMessage(errorCode, locale, params)
-            com.kominioai.global.exception.base.ErrorSeverity.ERROR -> 
-                resolveMessage(ErrorCode.UNEXPECTED_ERROR, locale, params)
-            com.kominioai.global.exception.base.ErrorSeverity.CRITICAL -> 
-                resolveMessage(ErrorCode.UNEXPECTED_ERROR, locale, params)
+        val targetLocale = locale ?: Locale.getDefault()
+        return resolveMessage(errorCode, targetLocale)
+    }
+    fun hasMessage(errorCode: ErrorCode, locale: Locale = Locale.getDefault()): Boolean {
+        return try {
+            val message = messageSource.getMessage(
+                errorCode.messageKey,
+                null,
+                null,
+                locale
+            )
+            message != null && message != errorCode.messageKey
+        } catch (e: Exception) {
+            false
         }
     }
-} 
+    fun getSupportedLocales(): List<Locale> {
+        return listOf(
+            Locale.KOREAN,
+            Locale.ENGLISH,
+            Locale.getDefault()
+        )
+    }
+    fun resolveMessageForAllLocales(errorCode: ErrorCode): Map<Locale, String> {
+        return getSupportedLocales().associateWith { locale ->
+            resolveMessage(errorCode, locale)
+        }
+    }
+    fun resolveMessageByKey(
+        messageKey: String,
+        defaultMessage: String,
+        locale: Locale = Locale.getDefault()
+    ): String {
+        return try {
+            messageSource.getMessage(
+                messageKey,
+                null,
+                defaultMessage,
+                locale
+            ) ?: defaultMessage
+        } catch (e: Exception) {
+            defaultMessage
+        }
+    }
+    fun resolveMessageByKey(
+        messageKey: String,
+        args: Array<Any>,
+        defaultMessage: String,
+        locale: Locale = Locale.getDefault()
+    ): String {
+        return try {
+            messageSource.getMessage(
+                messageKey,
+                args,
+                defaultMessage,
+                locale
+            ) ?: defaultMessage
+        } catch (e: Exception) {
+            defaultMessage
+        }
+    }
+}

@@ -4,47 +4,63 @@ import com.kominioai.global.exception.base.BaseException
 import com.kominioai.global.exception.base.ErrorCode
 import com.kominioai.global.exception.base.ErrorType
 
-/**
- * 인가 관련 예외들
- */
 sealed class AuthorizationException(
-    message: String,
     errorCode: ErrorCode,
-    cause: Throwable? = null,
-    requestId: String? = null
-) : BaseException(message, errorCode, ErrorType.AUTHORIZATION, cause, requestId = requestId) {
+    message: String? = null,
+    cause: Throwable? = null
+) : BaseException(errorCode, message, cause) {
 
-    /**
-     * 접근 권한 없음
-     */
     class AccessDeniedException(
         resource: String? = null,
-        requiredRole: String? = null,
-        cause: Throwable? = null,
-        requestId: String? = null
+        requiredPermission: String? = null,
+        cause: Throwable? = null
     ) : AuthorizationException(
+        errorCode = ErrorCode.ACCESS_DENIED,
         message = buildString {
             append("접근 권한이 없습니다")
             resource?.let { append(" (리소스: $it)") }
-            requiredRole?.let { append(" (필요 권한: $it)") }
+            requiredPermission?.let { append(" (필요 권한: $it)") }
         },
-        errorCode = ErrorCode.ACCESS_DENIED,
-        cause = cause,
-        requestId = requestId
+        cause = cause
     )
 
-    /**
-     * 리소스 소유자가 아님
-     */
-    class NotResourceOwnerException(
-        resourceId: String,
-        resourceType: String,
-        cause: Throwable? = null,
-        requestId: String? = null
+    class InsufficientRoleException(
+        requiredRole: String,
+        currentRole: String? = null,
+        cause: Throwable? = null
     ) : AuthorizationException(
-        message = "$resourceType (ID: $resourceId)의 소유자가 아닙니다",
         errorCode = ErrorCode.ACCESS_DENIED,
-        cause = cause,
-        requestId = requestId
+        message = buildString {
+            append("필요한 역할이 없습니다 (필요: $requiredRole)")
+            currentRole?.let { append(", 현재: $it") }
+        },
+        cause = cause
+    )
+
+    class ResourceOwnershipException(
+        resourceType: String,
+        resourceId: String,
+        cause: Throwable? = null
+    ) : AuthorizationException(
+        errorCode = ErrorCode.ACCESS_DENIED,
+        message = "리소스에 대한 소유권이 없습니다 ($resourceType: $resourceId)",
+        cause = cause
+    )
+
+    class SessionExpiredException(
+        cause: Throwable? = null
+    ) : AuthorizationException(
+        errorCode = ErrorCode.TOKEN_EXPIRED,
+        message = "세션이 만료되었습니다",
+        cause = cause
+    )
+
+    class AccountLockedException(
+        reason: String? = null,
+        cause: Throwable? = null
+    ) : AuthorizationException(
+        errorCode = ErrorCode.ACCESS_DENIED,
+        message = "계정이 잠겼습니다${reason?.let { ". 사유: $it" } ?: ""}",
+        cause = cause
     )
 } 

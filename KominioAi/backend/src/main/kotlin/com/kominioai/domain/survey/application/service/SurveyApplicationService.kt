@@ -8,6 +8,7 @@ import com.kominioai.domain.survey.application.port.`in`.UpdateSurveyUseCase
 import com.kominioai.domain.survey.application.port.out.CacheSurveyPort
 import com.kominioai.domain.survey.application.port.out.EventPublisherPort
 import com.kominioai.domain.survey.application.port.out.ExportSurveyPort
+import com.kominioai.domain.survey.application.port.out.SurveyPersistencePort
 import com.kominioai.domain.survey.domain.event.SurveyCreatedEvent
 import com.kominioai.domain.survey.domain.event.SurveyUpdatedEvent
 import com.kominioai.domain.survey.domain.event.SurveyPublishedEvent
@@ -22,8 +23,7 @@ import java.time.LocalDateTime
 
 @Service
 class SurveyApplicationService(
-    private val loadSurveyPort: LoadSurveyPort,
-    private val saveSurveyPort: SaveSurveyPort,
+    private val surveyPersistencePort: SurveyPersistencePort,
     private val cacheSurveyPort: CacheSurveyPort,
     private val eventPublisherPort: EventPublisherPort,
     private val exportSurveyPort: ExportSurveyPort
@@ -51,18 +51,17 @@ class SurveyApplicationService(
             questionDto.options?.forEach { optionContent ->
                 question.addOption(optionContent)
             }
-            
+
             survey.addQuestion(question)
-            }
+        }
 
         val errors = survey.validate()
         if (errors.isNotEmpty()) {
             return Mono.error(IllegalArgumentException(errors.joinToString(", ")))
         }
 
-        return saveSurveyPort.saveSurvey(survey)
-            .flatMap { surveyId ->
-
+        return surveyPersistencePort.save(survey)
+            .flatMap { surveyId: SurveyId ->
                 val surveyWithId = Survey.reconstruct(
                     id = surveyId.value,
                     title = survey.getTitle().value,
@@ -79,7 +78,7 @@ class SurveyApplicationService(
                     createdAt = survey.createdAt,
                     updatedAt = survey.getUpdatedAt()
                 )
-                
+
                 cacheSurveyPort.cacheSurvey(surveyWithId)
                     .then(eventPublisherPort.publish(SurveyCreatedEvent(
                         surveyId = surveyId.value,
@@ -92,8 +91,8 @@ class SurveyApplicationService(
     }
 
     override fun updateSurvey(command: UpdateSurveyCommand): Mono<SurveyId> {
-        return loadSurveyPort.loadSurvey(SurveyId.fromString(command.id.toString()))
-            .flatMap { existingSurvey ->
+        return surveyPersistencePort.findById(SurveyId.fromString(command.id.toString()))
+            .flatMap { existingSurvey: Survey ->
                 if (!existingSurvey.canEdit()) {
                     return@flatMap Mono.error<SurveyId>(IllegalStateException("수정할 수 없는 설문입니다."))
                 }
@@ -112,11 +111,11 @@ class SurveyApplicationService(
                         order = questionDto.order,
                         isRequired = questionDto.options?.isNotEmpty() == true
                     )
-                    
+
                     questionDto.options?.forEach { optionContent ->
                         question.addOption(optionContent)
                     }
-                    
+
                     updatedSurvey.addQuestion(question)
                 }
 
@@ -125,8 +124,8 @@ class SurveyApplicationService(
                     return@flatMap Mono.error<SurveyId>(IllegalArgumentException(errors.joinToString(", ")))
                 }
 
-                saveSurveyPort.updateSurvey(updatedSurvey)
-                    .flatMap { surveyId ->
+                surveyPersistencePort.update(updatedSurvey)
+                    .flatMap { surveyId: SurveyId ->
                         cacheSurveyPort.invalidateSurveyCache(surveyId)
                             .then(eventPublisherPort.publish(SurveyUpdatedEvent(
                                 surveyId = surveyId.value,
@@ -139,16 +138,16 @@ class SurveyApplicationService(
     }
 
     fun publishSurvey(surveyId: SurveyId): Mono<SurveyId> {
-        return loadSurveyPort.loadSurvey(surveyId)
-            .flatMap { survey ->
+        return surveyPersistencePort.findById(surveyId)
+            .flatMap { survey: Survey ->
                 val validationErrors = SurveyDomainService.validateSurveyForPublishing(survey)
                 if (validationErrors.isNotEmpty()) {
                     return@flatMap Mono.error<SurveyId>(IllegalStateException(validationErrors.joinToString(", ")))
                 }
-                
+
                 val publishedSurvey = survey.publish()
-                saveSurveyPort.updateSurvey(publishedSurvey)
-                    .flatMap { id ->
+                surveyPersistencePort.update(publishedSurvey)
+                    .flatMap { id: SurveyId ->
                         cacheSurveyPort.invalidateSurveyCache(id)
                             .then(eventPublisherPort.publish(SurveyPublishedEvent(
                                 surveyId = id.value,
@@ -160,16 +159,16 @@ class SurveyApplicationService(
     }
 
     fun closeSurvey(surveyId: SurveyId): Mono<SurveyId> {
-        return loadSurveyPort.loadSurvey(surveyId)
-            .flatMap { survey ->
+        return surveyPersistencePort.findById(surveyId)
+            .flatMap { survey: Survey ->
                 val validationErrors = SurveyDomainService.validateSurveyForClosing(survey)
                 if (validationErrors.isNotEmpty()) {
                     return@flatMap Mono.error<SurveyId>(IllegalStateException(validationErrors.joinToString(", ")))
                 }
-                
+
                 val closedSurvey = survey.close()
-                saveSurveyPort.updateSurvey(closedSurvey)
-                    .flatMap { id ->
+                surveyPersistencePort.update(closedSurvey)
+                    .flatMap { id: SurveyId ->
                         cacheSurveyPort.invalidateSurveyCache(id)
                             .then(eventPublisherPort.publish(SurveyClosedEvent(
                                 surveyId = id.value,
@@ -177,15 +176,15 @@ class SurveyApplicationService(
                             )))
                             .thenReturn(id)
                     }
-        }
+            }
     }
 
     fun deleteSurveys(ids: List<Long>): Mono<Void> {
         val surveyIds = ids.map { SurveyId.fromString(it.toString()) }
-        return saveSurveyPort.deleteSurveys(surveyIds)
+        return surveyPersistencePort.deleteByIds(surveyIds)
             .flatMap {
                 Flux.fromIterable(surveyIds)
-                    .flatMap { surveyId ->
+                    .flatMap { surveyId: SurveyId ->
                         cacheSurveyPort.invalidateSurveyCache(surveyId)
                             .then(eventPublisherPort.publish(SurveyDeletedEvent(
                                 surveyId = surveyId.value,
@@ -203,15 +202,15 @@ class SurveyApplicationService(
     fun getSurveyList(
         title: String?, author: String?, status: SurveyStatus?, page: Int, size: Int
     ): Mono<SurveyListResult> {
-        return loadSurveyPort.countSurveys(title, author, status)
-            .zipWith(
-                when {
-                    title != null -> loadSurveyPort.loadSurveysByTitle(title, page, size)
-                    author != null -> loadSurveyPort.loadSurveysByAuthor(author, page, size)
-                    status != null -> loadSurveyPort.loadSurveysByStatus(status, page, size)
-                    else -> loadSurveyPort.loadSurveys(page, size)
-                }.collectList()
-            )
+        val criteria = SurveySearchCriteria(
+            title = title?.let { SurveyTitle(it) },
+            author = author?.let { Author(it) },
+            status = status,
+            pagination = Pagination.of(page, size)
+        )
+
+        return surveyPersistencePort.count(criteria)
+            .zipWith(surveyPersistencePort.findAll(criteria).collectList())
             .map { tuple ->
                 SurveyListResult(
                     total = tuple.t1,
