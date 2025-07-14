@@ -1,10 +1,10 @@
 package com.kominioai.domain.survey.domain.model
 
-import java.time.LocalDateTime
+import java.util.UUID
 
-data class ParticipationStatus(
-    val currentCount: Int,
-    val targetCount: Int?,
-    val participationRate: Double,
-    val lastUpdated: LocalDateTime
-)
+enum class ParticipationStatus(val displayName: String) {
+    IN_PROGRESS("진행중"),
+    COMPLETED("완료"),
+    ABANDONED("포기"),
+    INVALID("무효")
+}

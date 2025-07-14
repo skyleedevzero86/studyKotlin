@@ -4,7 +4,7 @@ import com.kominioai.domain.survey.domain.model.*
 import java.time.LocalDateTime
 
 object SurveyDisplayService {
-    
+
     fun generateStatusMessage(survey: Survey, now: LocalDateTime = LocalDateTime.now()): String =
         when {
             survey.isPeriodWaiting(now) -> {
@@ -55,12 +55,7 @@ object SurveyDisplayService {
             statusMessage = generateStatusMessage(survey, now),
             buttonInfo = determineButtonState(survey, now),
             themeInfo = calculateThemeInfo(survey),
-            participationInfo = ParticipationStatus(
-                currentCount = survey.getParticipationCount(),
-                targetCount = null,
-                participationRate = survey.getParticipationRate(),
-                lastUpdated = survey.getUpdatedAt()
-            ),
+            participationInfo = ParticipationStatus.COMPLETED,
             requirementInfo = survey.getRequirementLevel()
         )
 }
