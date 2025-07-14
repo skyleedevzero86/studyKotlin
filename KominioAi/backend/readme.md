@@ -1,3 +1,5 @@
+![img.png](img.png)
+
 # KominioAI Survey System
 
 ## 📋 프로젝트 개요
@@ -628,7 +630,7 @@ GRANT ALL PRIVILEGES ON DATABASE kominioai_survey TO kominioai_user;
 
 ```bash
 # 프로젝트 클론
-git clone https://github.com/your-username/kominioai-survey.git
+git clone https://github.com/skyleedevzero86/studyKotlin/blob/main/KominioAi
 cd kominioai-survey
 
 # 환경 설정
@@ -697,14 +699,6 @@ docker build -t kominioai-survey .
 # Docker 실행
 docker run -p 8080:8080 kominioai-survey
 ```
-
-## 🤝 기여 가이드
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📄 라이선스
 
