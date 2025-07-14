@@ -136,7 +136,7 @@ class ParticipationR2dbcAdapter(
             }
     }
 
-    fun findBySurveyId(surveyId: String): Flux<SurveyParticipation> {
+    override fun findBySurveyId(surveyId: String): Flux<SurveyParticipation> {
         val sql = """
             SELECT p.*, qr.id as response_id, qr.question_id, qr.answer, qr.answer_type
             FROM survey_participations p

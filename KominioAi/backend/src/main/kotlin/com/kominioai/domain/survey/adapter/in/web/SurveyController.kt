@@ -4,8 +4,11 @@ import com.kominioai.domain.survey.adapter.`in`.web.dto.SurveyListResponse
 import com.kominioai.domain.survey.application.dto.CreateSurveyCommand
 import com.kominioai.domain.survey.application.dto.SurveyDetailResponse
 import com.kominioai.domain.survey.application.dto.UpdateSurveyCommand
+import com.kominioai.domain.survey.application.dto.result.SurveyResultDto
 import com.kominioai.domain.survey.application.port.`in`.GetSurveyDetailUseCase
+import com.kominioai.domain.survey.application.port.`in`.GetSurveyResultUseCase
 import com.kominioai.domain.survey.application.query.SurveyDetailQuery
+import com.kominioai.domain.survey.application.query.SurveyResultQuery
 import com.kominioai.domain.survey.application.service.SurveyApplicationService
 import com.kominioai.domain.survey.domain.model.SurveyStatus
 import org.springframework.http.MediaType
@@ -21,12 +24,13 @@ import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
 
 @RestController
-@RequestMapping("/api/surveys")
+@RequestMapping("/api/v1")
 class SurveyController(
     private val surveyService: SurveyApplicationService,
-    private val getSurveyDetailUseCase: GetSurveyDetailUseCase
+    private val getSurveyDetailUseCase: GetSurveyDetailUseCase,
+    private val getSurveyResultUseCase: GetSurveyResultUseCase
 ) {
-    @GetMapping
+    @GetMapping("/surveys")
     fun list(
         @RequestParam(required = false) title: String?,
         @RequestParam(required = false) author: String?,
@@ -37,12 +41,12 @@ class SurveyController(
         surveyService.getSurveyList(title, author, status, page, size)
             .map { SurveyListResponse.from(it) }
 
-    @PostMapping
+    @PostMapping("/surveys")
     fun create(@RequestBody command: CreateSurveyCommand): Mono<Long> =
         surveyService.createSurvey(command)
             .map { it.value.toLongOrNull() ?: 0L }
 
-    @PutMapping("/{id}")
+    @PutMapping("/surveys/{id}")
     fun update(@PathVariable id: Long, @RequestBody command: UpdateSurveyCommand): Mono<Long> =
         surveyService.updateSurvey(command.copy(id = id))
             .map { it.value.toLongOrNull() ?: 0L }
@@ -51,11 +55,11 @@ class SurveyController(
     fun delete(@RequestBody ids: List<Long>): Mono<Void> =
         surveyService.deleteSurveys(ids)
 
-    @GetMapping("/{id}/export", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    @GetMapping("/surveys/{id}/export", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     fun export(@PathVariable id: Long): Mono<ByteArray> =
         surveyService.exportSurveyResults(id)
 
-    @GetMapping("/{surveyId}/detail")
+    @GetMapping("/surveys/{surveyId}/detail")
     fun getSurveyDetail(
         @PathVariable surveyId: Long,
         @RequestParam userId: String
@@ -63,4 +67,12 @@ class SurveyController(
         val query = SurveyDetailQuery(surveyId, userId)
         return getSurveyDetailUseCase.getSurveyDetail(query)
     }
+
+    @GetMapping("/surveys/{surveyId}/results")
+    fun getSurveyResult(
+        @PathVariable surveyId: String,
+        @RequestParam(required = false) userId: String?
+    ): Mono<SurveyResultDto> =
+        getSurveyResultUseCase.getSurveyResult(SurveyResultQuery(surveyId, userId))
+
 }
