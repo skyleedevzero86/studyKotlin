@@ -7,7 +7,7 @@ import java.time.LocalDateTime
 @Table("surveys")
 data class SurveyEntity(
     @Id
-    val id: Long? = null,
+    val id: String? = null,
     val title: String,
     val author: String,
     val status: String,
@@ -22,42 +22,37 @@ data class SurveyEntity(
     val participantType: String
 ) {
     fun toDomain(): com.kominioai.domain.survey.domain.model.Survey =
-        com.kominioai.domain.survey.domain.model.Survey(
-            id = id,
+        com.kominioai.domain.survey.domain.model.Survey.reconstruct(
+            id = id ?: "",
             title = title,
-            author = com.kominioai.domain.survey.domain.model.Author(author),
-            status = com.kominioai.domain.survey.domain.model.SurveyStatus.valueOf(status),
-            createdAt = createdAt,
-            updatedAt = updatedAt,
+            author = author,
+            status = status,
+            startDate = startDate ?: LocalDateTime.now(),
+            endDate = endDate ?: LocalDateTime.now(),
             participantCount = participantCount,
-            targetType = com.kominioai.domain.survey.domain.model.TargetType.valueOf(targetType),
-            startDate = startDate,
-            endDate = endDate,
-            duration = duration,
-            surveyType = com.kominioai.domain.survey.domain.model.SurveyType.valueOf(surveyType),
-            participantType = com.kominioai.domain.survey.domain.model.ParticipantType.valueOf(participantType),
+            targetType = targetType,
+            surveyType = surveyType,
+            participantType = participantType,
             timeLimit = null,
-            period = com.kominioai.domain.survey.domain.model.SurveyPeriod(
-                startDate ?: LocalDateTime.now(),
-                endDate ?: LocalDateTime.now()
-            ),
-            questions = emptyList()
+            questions = emptyList(),
+            createdAt = createdAt,
+            updatedAt = updatedAt
         )
 
     companion object {
         fun fromDomain(survey: com.kominioai.domain.survey.domain.model.Survey): SurveyEntity =
             SurveyEntity(
-                id = survey.id,
-                title = survey.title,
+                id = survey.id.value,
+                title = survey.title.value,
                 author = survey.author.name,
                 status = survey.status.name,
                 createdAt = survey.createdAt,
                 updatedAt = survey.updatedAt,
                 participantCount = survey.participantCount,
                 targetType = survey.targetType.name,
-                startDate = survey.startDate,
-                endDate = survey.endDate,
-                duration = survey.duration,
+                startDate = survey.period.startDate,
+                endDate = survey.period.endDate,
+                duration = survey.period.display(),
                 surveyType = survey.surveyType.name,
                 participantType = survey.participantType.name
             )

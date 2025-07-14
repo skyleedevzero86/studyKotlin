@@ -23,8 +23,8 @@ class SurveyDetailApplicationService(
                 val previewQuestions = detail.questions.take(5)
                 val hasMore = detail.questions.size > 5
                 SurveyDetailResponse(
-                    id = detail.survey.id ?: 0L,
-                    title = detail.survey.title,
+                    id = detail.survey.id.value.toLongOrNull() ?: 0L,
+                    title = detail.survey.title.value,
                     author = detail.survey.author.name,
                     status = detail.survey.status.displayName,
                     type = detail.survey.surveyType.displayName,

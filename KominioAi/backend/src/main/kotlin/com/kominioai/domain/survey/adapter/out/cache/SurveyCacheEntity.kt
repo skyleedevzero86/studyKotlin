@@ -52,43 +52,20 @@ data class SurveyCacheEntity(
     @JsonProperty("period")
     val period: String
 ) {
-    fun toDomain(): com.kominioai.domain.survey.domain.model.Survey =
-        com.kominioai.domain.survey.domain.model.Survey(
-            id = id?.toLong(),
-            title = title,
-            author = com.kominioai.domain.survey.domain.model.Author(author),
-            status = com.kominioai.domain.survey.domain.model.SurveyStatus.valueOf(status),
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            participantCount = participantCount,
-            targetType = com.kominioai.domain.survey.domain.model.TargetType.valueOf(targetType),
-            startDate = startDate,
-            endDate = endDate,
-            duration = duration,
-            surveyType = com.kominioai.domain.survey.domain.model.SurveyType.valueOf(surveyType),
-            participantType = com.kominioai.domain.survey.domain.model.ParticipantType.valueOf(participantType),
-            timeLimit = null,
-            period = com.kominioai.domain.survey.domain.model.SurveyPeriod(
-                startDate ?: LocalDateTime.now(),
-                endDate ?: LocalDateTime.now()
-            ),
-            questions = emptyList()
-        )
-
     companion object {
         fun fromDomain(survey: com.kominioai.domain.survey.domain.model.Survey): SurveyCacheEntity =
             SurveyCacheEntity(
-                id = survey.id?.toString(),
-                title = survey.title,
+                id = survey.id.value,
+                title = survey.title.value,
                 author = survey.author.name,
                 status = survey.status.name,
                 createdAt = survey.createdAt,
                 updatedAt = survey.updatedAt,
                 participantCount = survey.participantCount,
                 targetType = survey.targetType.name,
-                startDate = survey.startDate,
-                endDate = survey.endDate,
-                duration = survey.duration,
+                startDate = survey.period.startDate,
+                endDate = survey.period.endDate,
+                duration = survey.period.display(),
                 surveyType = survey.surveyType.name,
                 participantType = survey.participantType.name,
                 period = survey.period.display()

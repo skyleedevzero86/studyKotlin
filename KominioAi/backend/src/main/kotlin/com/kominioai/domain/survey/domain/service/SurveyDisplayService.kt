@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 object SurveyDisplayService {
     fun generateStatusMessage(survey: Survey, now: LocalDateTime): String =
         when {
-            survey.isWaiting(now) -> "${survey.startDate?.toLocalDate()}에 설문이 진행됩니다. (D-${survey.getDaysUntilStart(now)})"
+            survey.isWaiting(now) -> "${survey.period.startDate.toLocalDate()}에 설문이 진행됩니다. (D-${survey.getDaysUntilStart(now)})"
             survey.isActive(now) -> "현재 참여 인원은 ${survey.participantCount}명입니다."
             survey.isCompleted(now) -> "설문 참여 인원은 ${survey.participantCount}명입니다."
             else -> "설문 상태를 확인할 수 없습니다."
@@ -15,8 +15,8 @@ object SurveyDisplayService {
     fun determineButtonState(survey: Survey, now: LocalDateTime): ButtonInfo =
         when {
             survey.isWaiting(now) -> ButtonInfo("아직 시작되지 않았습니다", false, "btn-disabled")
-            survey.isActive(now) -> ButtonInfo("설문 참여하기", true, "btn-primary", "/surveys/${survey.id}/participate")
-            survey.isCompleted(now) -> ButtonInfo("결과보기", true, "btn-secondary", "/surveys/${survey.id}/result")
+            survey.isActive(now) -> ButtonInfo("설문 참여하기", true, "btn-primary", "/surveys/${survey.id.value}/participate")
+            survey.isCompleted(now) -> ButtonInfo("결과보기", true, "btn-secondary", "/surveys/${survey.id.value}/result")
             else -> ButtonInfo("알 수 없음", false, "btn-disabled")
         }
 

@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Mono
 
-
 @RestController
 @RequestMapping("/api/surveys")
 class SurveyController(
@@ -41,10 +40,12 @@ class SurveyController(
     @PostMapping
     fun create(@RequestBody command: CreateSurveyCommand): Mono<Long> =
         surveyService.createSurvey(command)
+            .map { it.value.toLongOrNull() ?: 0L }
 
     @PutMapping("/{id}")
     fun update(@PathVariable id: Long, @RequestBody command: UpdateSurveyCommand): Mono<Long> =
         surveyService.updateSurvey(command.copy(id = id))
+            .map { it.value.toLongOrNull() ?: 0L }
 
     @DeleteMapping
     fun delete(@RequestBody ids: List<Long>): Mono<Void> =

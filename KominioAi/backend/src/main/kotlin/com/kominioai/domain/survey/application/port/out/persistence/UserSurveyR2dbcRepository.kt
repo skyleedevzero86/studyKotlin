@@ -3,6 +3,7 @@ package com.kominioai.domain.survey.adapter.out.persistence
 import com.kominioai.domain.survey.domain.model.*
 import com.kominioai.domain.survey.domain.repository.UserSurveyRepository
 import org.springframework.r2dbc.core.DatabaseClient
+import io.r2dbc.spi.Row
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -30,32 +31,7 @@ class UserSurveyR2dbcRepository(
         params["offset"] = (page - 1) * size
 
         val spec = bindParams(client.sql(sql.toString()), params)
-        return spec.map { row, _ ->
-            val startDate = row.get("start_date", LocalDateTime::class.java)
-            val endDate = row.get("end_date", LocalDateTime::class.java)
-
-            Survey(
-                id = row.get("id", Number::class.java)?.toLong(),
-                title = row.get("title", String::class.java) ?: "",
-                author = Author(row.get("author", String::class.java) ?: ""),
-                status = SurveyStatus.fromDb(row.get("status", String::class.java) ?: "WAITING"),
-                createdAt = row.get("created_at", LocalDateTime::class.java) ?: LocalDateTime.now(),
-                updatedAt = row.get("updated_at", LocalDateTime::class.java) ?: LocalDateTime.now(),
-                participantCount = row.get("participant_count", Number::class.java)?.toInt() ?: 0,
-                targetType = TargetType.valueOf(row.get("target_type", String::class.java) ?: "ALL"),
-                startDate = startDate,
-                endDate = endDate,
-                duration = row.get("duration", String::class.java) ?: "",
-                surveyType = SurveyType.valueOf(row.get("survey_type", String::class.java) ?: "SURVEY"),
-                participantType = ParticipantType.valueOf(row.get("participant_type", String::class.java) ?: "MEMBER"),
-                timeLimit = null,
-                period = SurveyPeriod(
-                    startDate ?: LocalDateTime.now(),
-                    endDate ?: LocalDateTime.now()
-                ),
-                questions = emptyList()
-            )
-        }.all()
+        return spec.map { row, _ -> mapRowToSurvey(row) }.all()
     }
 
     override fun countSurveys(
@@ -76,10 +52,29 @@ class UserSurveyR2dbcRepository(
             .map { it ?: 0L }
     }
 
+    private fun mapRowToSurvey(row: Row): Survey {
+        return Survey.reconstruct(
+            id = row.get("id", String::class.java) ?: "",
+            title = row.get("title", String::class.java) ?: "",
+            author = row.get("author", String::class.java) ?: "",
+            status = row.get("status", String::class.java) ?: SurveyStatus.DRAFT.name,
+            startDate = row.get("start_date", LocalDateTime::class.java) ?: LocalDateTime.now(),
+            endDate = row.get("end_date", LocalDateTime::class.java) ?: LocalDateTime.now(),
+            participantCount = row.get("participant_count", Number::class.java)?.toInt() ?: 0,
+            targetType = row.get("target_type", String::class.java) ?: "ALL",
+            surveyType = row.get("survey_type", String::class.java) ?: "SURVEY",
+            participantType = row.get("participant_type", String::class.java) ?: "MEMBER",
+            timeLimit = null,
+            questions = emptyList(),
+            createdAt = row.get("created_at", LocalDateTime::class.java) ?: LocalDateTime.now(),
+            updatedAt = row.get("updated_at", LocalDateTime::class.java) ?: LocalDateTime.now()
+        )
+    }
+
     private fun bindParams(
-        spec: org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec,
+        spec: DatabaseClient.GenericExecuteSpec,
         params: Map<String, Any>
-    ): org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec {
+    ): DatabaseClient.GenericExecuteSpec {
         var s = spec
         params.forEach { (k, v) -> s = s.bind(k, v) }
         return s

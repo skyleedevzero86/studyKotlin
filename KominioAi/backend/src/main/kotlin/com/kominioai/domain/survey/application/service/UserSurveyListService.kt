@@ -35,8 +35,8 @@ class UserSurveyListService(
                     surveys = surveys.mapIndexed { idx, s ->
                         UserSurveyListItemDto(
                             number = startNumber - idx,
-                            id = s.id ?: 0L,
-                            title = s.title,
+                            id = s.id.value.toLongOrNull() ?: 0L,
+                            title = s.title.value,
                             author = s.author.name,
                             status = s.status.displayName,
                             surveyType = s.surveyType.displayName,
