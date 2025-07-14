@@ -24,9 +24,9 @@ class SurveyDetailApplicationService(
                 val hasMore = detail.questions.size > 5
                 SurveyDetailResponse(
                     id = detail.survey.id.value.toLongOrNull() ?: 0L,
-                    title = detail.survey.title.value,
+                    title = detail.survey.getTitle().value,
                     author = detail.survey.author.name,
-                    status = detail.survey.status.displayName,
+                    status = detail.survey.getStatus().displayName,
                     type = detail.survey.surveyType.displayName,
                     createdAt = detail.createdAt.toString(),
                     updatedAt = detail.updatedAt.toString(),
@@ -34,14 +34,14 @@ class SurveyDetailApplicationService(
                     questions = previewQuestions.mapIndexed { idx, q ->
                         QuestionPreviewDto(
                             number = idx + 1,
-                            content = q.content,
+                            content = q.getContent(),
                             type = q.type.name,
                             icon = when (q.type) {
                                 QuestionType.MULTIPLE_CHOICE, QuestionType.QUIZ_MULTIPLE_CHOICE -> "☑️"
                                 QuestionType.ESSAY, QuestionType.QUIZ_ESSAY -> "✏️"
                                 QuestionType.SHORT_ANSWER, QuestionType.QUIZ_SHORT_ANSWER -> "💬"
                             },
-                            required = q.options.isNotEmpty()
+                            required = q.getOptions().isNotEmpty()
                         )
                     },
                     totalQuestionCount = detail.questions.size,

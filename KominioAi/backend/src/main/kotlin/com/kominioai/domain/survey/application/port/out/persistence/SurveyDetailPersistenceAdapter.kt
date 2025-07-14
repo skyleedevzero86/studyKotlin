@@ -18,13 +18,13 @@ class SurveyDetailPersistenceAdapter(
                 SurveyDetail(
                     survey = survey,
                     questions = emptyList(),
-                    participantCount = survey.participantCount,
+                    participantCount = survey.getParticipationCount(),
                     viewCount = 0,
                     requirementLevel = survey.getRequirementLevel(),
-                    status = survey.status,
+                    status = survey.getStatus(),
                     theme = survey.getDisplayTheme(),
                     createdAt = survey.createdAt,
-                    updatedAt = survey.updatedAt
+                    updatedAt = survey.getUpdatedAt()
                 )
             }
     }

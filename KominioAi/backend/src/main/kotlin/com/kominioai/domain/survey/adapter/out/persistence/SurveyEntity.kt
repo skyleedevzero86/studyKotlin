@@ -43,16 +43,16 @@ data class SurveyEntity(
         fun fromDomain(survey: com.kominioai.domain.survey.domain.model.Survey): SurveyEntity =
             SurveyEntity(
                 id = survey.id.value,
-                title = survey.title.value,
+                title = survey.getTitle().value,
                 author = survey.author.name,
-                status = survey.status.name,
+                status = survey.getStatus().name,
                 createdAt = survey.createdAt,
-                updatedAt = survey.updatedAt,
-                participantCount = survey.participantCount,
+                updatedAt = survey.getUpdatedAt(),
+                participantCount = survey.getParticipationCount(),
                 targetType = survey.targetType.name,
-                startDate = survey.period.startDate,
-                endDate = survey.period.endDate,
-                duration = survey.period.display(),
+                startDate = survey.getPeriodStartDate(),
+                endDate = survey.getPeriodEndDate(),
+                duration = "${survey.getPeriodStartDate().toLocalDate()} ~ ${survey.getPeriodEndDate().toLocalDate()}",
                 surveyType = survey.surveyType.name,
                 participantType = survey.participantType.name
             )

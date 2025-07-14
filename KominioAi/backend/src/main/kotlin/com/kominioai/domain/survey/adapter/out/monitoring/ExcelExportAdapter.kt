@@ -15,7 +15,7 @@ class ExcelExportAdapter(
     override fun exportSurveyResults(surveyId: SurveyId): Mono<ByteArray> {
         return loadSurveyPort.loadSurvey(surveyId)
             .flatMap { survey ->
-                // 설문결과 엑셀 추구 예정
+                // 설문결과 엑셀 추가 예정
                 val results = emptyList<com.kominioai.domain.survey.application.dto.SurveyResult>()
                 Mono.just(excelExportService.generateSurveyResultsExcel(results))
             }

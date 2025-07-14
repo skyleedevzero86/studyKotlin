@@ -35,25 +35,56 @@ class SurveyApplicationService(
         val survey = Survey.create(
             title = command.title,
             author = command.author,
-            startDate = command.startDate,
-            endDate = command.endDate,
+            startDate = command.startDate ?: LocalDateTime.now().plusDays(1),
+            endDate = command.endDate ?: LocalDateTime.now().plusDays(7),
             surveyType = command.surveyType,
             participantType = command.participantType,
             timeLimit = command.timeLimit
         )
 
+        command.questions.forEach { questionDto ->
+            val question = Question.create(
+                content = questionDto.content,
+                type = questionDto.type,
+                order = questionDto.order,
+                isRequired = questionDto.options?.isNotEmpty() == true
+            )
+
+            questionDto.options?.forEach { optionContent ->
+                question.addOption(optionContent)
+            }
+            
+            survey.addQuestion(question)
+        }
+
         val errors = survey.validate()
         if (errors.isNotEmpty()) {
-            return Mono.error(IllegalArgumentException(errors.joinToString(",")))
+            return Mono.error(IllegalArgumentException(errors.joinToString(", ")))
         }
 
         return saveSurveyPort.saveSurvey(survey)
             .flatMap { surveyId ->
-                val surveyWithId = survey.copy(id = surveyId)
+                val surveyWithId = Survey.reconstruct(
+                    id = surveyId.value,
+                    title = survey.getTitle().value,
+                    author = survey.author.name,
+                    status = survey.getStatus().name,
+                    startDate = survey.getPeriodStartDate(),
+                    endDate = survey.getPeriodEndDate(),
+                    participantCount = survey.getParticipationCount(),
+                    targetType = survey.targetType.name,
+                    surveyType = survey.surveyType.name,
+                    participantType = survey.participantType.name,
+                    timeLimit = survey.timeLimit,
+                    questions = survey.getQuestions(),
+                    createdAt = survey.createdAt,
+                    updatedAt = survey.getUpdatedAt()
+                )
+                
                 cacheSurveyPort.cacheSurvey(surveyWithId)
                     .then(eventPublisherPort.publish(SurveyCreatedEvent(
                         surveyId = surveyId.value,
-                        title = survey.title.value,
+                        title = survey.getTitle().value,
                         author = survey.author.name,
                         createdAt = survey.createdAt
                     )))
@@ -64,21 +95,35 @@ class SurveyApplicationService(
     override fun updateSurvey(command: UpdateSurveyCommand): Mono<SurveyId> {
         return loadSurveyPort.loadSurvey(SurveyId(command.id.toString()))
             .flatMap { existingSurvey ->
-                val updatedSurvey = existingSurvey.copy(
-                    title = SurveyTitle(command.title),
-                    period = SurveyPeriod(
-                        command.startDate ?: LocalDateTime.now(),
-                        command.endDate ?: LocalDateTime.now()
-                    ),
-                    surveyType = command.surveyType,
-                    participantType = command.participantType,
-                    timeLimit = command.timeLimit,
-                    updatedAt = LocalDateTime.now()
-                )
+                if (!existingSurvey.canEdit()) {
+                    return@flatMap Mono.error<SurveyId>(IllegalStateException("수정할 수 없는 설문입니다."))
+                }
+
+                val updatedSurvey = existingSurvey
+                    .updateTitle(command.title)
+                    .updatePeriod(
+                        command.startDate ?: existingSurvey.getPeriodStartDate(),
+                        command.endDate ?: existingSurvey.getPeriodEndDate()
+                    )
+
+                command.questions.forEach { questionDto ->
+                    val question = Question.create(
+                        content = questionDto.content,
+                        type = questionDto.type,
+                        order = questionDto.order,
+                        isRequired = questionDto.options?.isNotEmpty() == true
+                    )
+                    
+                    questionDto.options?.forEach { optionContent ->
+                        question.addOption(optionContent)
+                    }
+                    
+                    updatedSurvey.addQuestion(question)
+                }
 
                 val errors = updatedSurvey.validate()
                 if (errors.isNotEmpty()) {
-                    return@flatMap Mono.error<SurveyId>(IllegalArgumentException(errors.joinToString(",")))
+                    return@flatMap Mono.error<SurveyId>(IllegalArgumentException(errors.joinToString(", ")))
                 }
 
                 saveSurveyPort.updateSurvey(updatedSurvey)
@@ -86,8 +131,8 @@ class SurveyApplicationService(
                         cacheSurveyPort.invalidateSurveyCache(surveyId)
                             .then(eventPublisherPort.publish(SurveyUpdatedEvent(
                                 surveyId = surveyId.value,
-                                title = updatedSurvey.title.value,
-                                updatedAt = updatedSurvey.updatedAt
+                                title = updatedSurvey.getTitle().value,
+                                updatedAt = updatedSurvey.getUpdatedAt()
                             )))
                             .thenReturn(surveyId)
                     }
@@ -97,8 +142,9 @@ class SurveyApplicationService(
     fun publishSurvey(surveyId: SurveyId): Mono<SurveyId> {
         return loadSurveyPort.loadSurvey(surveyId)
             .flatMap { survey ->
-                if (!SurveyDomainService.canPublish(survey)) {
-                    return@flatMap Mono.error<SurveyId>(IllegalStateException("설문을 게시할 수 없습니다."))
+                val validationErrors = SurveyDomainService.validateSurveyForPublishing(survey)
+                if (validationErrors.isNotEmpty()) {
+                    return@flatMap Mono.error<SurveyId>(IllegalStateException(validationErrors.joinToString(", ")))
                 }
                 
                 val publishedSurvey = survey.publish()
@@ -107,7 +153,7 @@ class SurveyApplicationService(
                         cacheSurveyPort.invalidateSurveyCache(id)
                             .then(eventPublisherPort.publish(SurveyPublishedEvent(
                                 surveyId = id.value,
-                                publishedAt = publishedSurvey.updatedAt
+                                publishedAt = publishedSurvey.getUpdatedAt()
                             )))
                             .thenReturn(id)
                     }
@@ -117,8 +163,9 @@ class SurveyApplicationService(
     fun closeSurvey(surveyId: SurveyId): Mono<SurveyId> {
         return loadSurveyPort.loadSurvey(surveyId)
             .flatMap { survey ->
-                if (!SurveyDomainService.canClose(survey)) {
-                    return@flatMap Mono.error<SurveyId>(IllegalStateException("설문을 종료할 수 없습니다."))
+                val validationErrors = SurveyDomainService.validateSurveyForClosing(survey)
+                if (validationErrors.isNotEmpty()) {
+                    return@flatMap Mono.error<SurveyId>(IllegalStateException(validationErrors.joinToString(", ")))
                 }
                 
                 val closedSurvey = survey.close()
@@ -127,7 +174,7 @@ class SurveyApplicationService(
                         cacheSurveyPort.invalidateSurveyCache(id)
                             .then(eventPublisherPort.publish(SurveyClosedEvent(
                                 surveyId = id.value,
-                                closedAt = closedSurvey.updatedAt
+                                closedAt = closedSurvey.getUpdatedAt()
                             )))
                             .thenReturn(id)
                     }

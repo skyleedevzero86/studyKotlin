@@ -36,11 +36,11 @@ class UserSurveyListService(
                         UserSurveyListItemDto(
                             number = startNumber - idx,
                             id = s.id.value.toLongOrNull() ?: 0L,
-                            title = s.title.value,
+                            title = s.getTitle().value,
                             author = s.author.name,
-                            status = s.status.displayName,
+                            status = s.getStatus().displayName,
                             surveyType = s.surveyType.displayName,
-                            period = s.period.display(),
+                            period = s.getPeriodStartDate().toLocalDate().toString() + " ~ " + s.getPeriodEndDate().toLocalDate().toString(),
                             createdAt = s.createdAt.toLocalDate().toString()
                         )
                     }

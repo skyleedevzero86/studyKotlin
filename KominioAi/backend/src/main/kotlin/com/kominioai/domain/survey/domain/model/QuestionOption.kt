@@ -2,8 +2,8 @@ package com.kominioai.domain.survey.domain.model
 
 data class QuestionOption private constructor(
     val id: QuestionOptionId,
-    val content: String,
-    val order: Int
+    private var content: String,
+    private var order: Int
 ) {
     companion object {
         fun create(content: String, order: Int): QuestionOption {
@@ -18,4 +18,20 @@ data class QuestionOption private constructor(
             )
         }
     }
+
+    fun updateContent(newContent: String): QuestionOption {
+        require(newContent.isNotBlank()) { "옵션 내용은 필수입니다." }
+        require(newContent.length <= 200) { "옵션 내용은 200자 이내여야 합니다." }
+        content = newContent
+        return this
+    }
+
+    fun updateOrder(newOrder: Int): QuestionOption {
+        require(newOrder > 0) { "옵션 순서는 1 이상이어야 합니다." }
+        order = newOrder
+        return this
+    }
+
+    fun getContent(): String = content
+    fun getOrder(): Int = order
 }

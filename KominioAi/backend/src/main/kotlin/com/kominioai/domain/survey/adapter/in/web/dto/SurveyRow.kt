@@ -18,15 +18,15 @@ data class SurveyRow(
     companion object {
         fun from(s: Survey) = SurveyRow(
             id = s.id.value.toLongOrNull(),
-            title = s.title.value,
+            title = s.getTitle().value,
             author = s.author.name,
-            participantCount = s.participantCount,
+            participantCount = s.getParticipationCount(),
             targetType = s.targetType.name,
-            status = s.status.name,
+            status = s.getStatus().name,
             createdAt = s.createdAt.toString(),
-            startDate = s.period.startDate.toString(),
-            endDate = s.period.endDate.toString(),
-            duration = s.period.display()
+            startDate = s.getPeriodStartDate().toString(),
+            endDate = s.getPeriodEndDate().toString(),
+            duration = "${s.getPeriodStartDate().toLocalDate()} ~ ${s.getPeriodEndDate().toLocalDate()}"
         )
     }
 }
