@@ -13,19 +13,19 @@ class SurveyDetailPersistenceAdapter(
 ) : LoadSurveyDetailPort {
     
     override fun loadSurveyDetail(surveyId: Long): Mono<SurveyDetail> {
-        return loadSurveyPort.loadSurvey(SurveyId(surveyId.toString()))
+        return loadSurveyPort.loadSurvey(SurveyId.fromString(surveyId.toString()))
             .map { survey ->
-                SurveyDetail(
-                    survey = survey,
+                        SurveyDetail(
+                            survey = survey,
                     questions = emptyList(),
                     participantCount = survey.getParticipationCount(),
-                    viewCount = 0,
-                    requirementLevel = survey.getRequirementLevel(),
+                            viewCount = 0,
+                            requirementLevel = survey.getRequirementLevel(),
                     status = survey.getStatus(),
-                    theme = survey.getDisplayTheme(),
-                    createdAt = survey.createdAt,
+                            theme = survey.getDisplayTheme(),
+                            createdAt = survey.createdAt,
                     updatedAt = survey.getUpdatedAt()
-                )
+                        )
             }
     }
 }

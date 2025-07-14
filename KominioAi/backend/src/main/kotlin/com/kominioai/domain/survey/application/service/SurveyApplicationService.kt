@@ -55,7 +55,7 @@ class SurveyApplicationService(
             }
             
             survey.addQuestion(question)
-        }
+            }
 
         val errors = survey.validate()
         if (errors.isNotEmpty()) {
@@ -64,6 +64,7 @@ class SurveyApplicationService(
 
         return saveSurveyPort.saveSurvey(survey)
             .flatMap { surveyId ->
+
                 val surveyWithId = Survey.reconstruct(
                     id = surveyId.value,
                     title = survey.getTitle().value,
@@ -93,7 +94,7 @@ class SurveyApplicationService(
     }
 
     override fun updateSurvey(command: UpdateSurveyCommand): Mono<SurveyId> {
-        return loadSurveyPort.loadSurvey(SurveyId(command.id.toString()))
+        return loadSurveyPort.loadSurvey(SurveyId.fromString(command.id.toString()))
             .flatMap { existingSurvey ->
                 if (!existingSurvey.canEdit()) {
                     return@flatMap Mono.error<SurveyId>(IllegalStateException("수정할 수 없는 설문입니다."))
@@ -178,11 +179,11 @@ class SurveyApplicationService(
                             )))
                             .thenReturn(id)
                     }
-            }
+        }
     }
 
     fun deleteSurveys(ids: List<Long>): Mono<Void> {
-        val surveyIds = ids.map { SurveyId(it.toString()) }
+        val surveyIds = ids.map { SurveyId.fromString(it.toString()) }
         return saveSurveyPort.deleteSurveys(surveyIds)
             .flatMap {
                 Flux.fromIterable(surveyIds)
@@ -198,7 +199,7 @@ class SurveyApplicationService(
     }
 
     fun exportSurveyResults(id: Long): Mono<ByteArray> {
-        return exportSurveyPort.exportSurveyResults(SurveyId(id.toString()))
+        return exportSurveyPort.exportSurveyResults(SurveyId.fromString(id.toString()))
     }
 
     fun getSurveyList(

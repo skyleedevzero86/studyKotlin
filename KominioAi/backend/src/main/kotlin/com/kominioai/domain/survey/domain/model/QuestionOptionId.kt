@@ -6,5 +6,6 @@ import java.util.UUID
 value class QuestionOptionId(val value: String) {
     companion object {
         fun generate() = QuestionOptionId(UUID.randomUUID().toString())
+        fun fromString(id: String) = QuestionOptionId(id)
     }
 }

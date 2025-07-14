@@ -24,8 +24,8 @@ class UserSurveyR2dbcRepository(
         title?.let { sql.append(" AND title ILIKE :title"); params["title"] = "%$it%" }
         status?.let { sql.append(" AND status = :status"); params["status"] = it.name }
         surveyType?.let { sql.append(" AND survey_type = :surveyType"); params["surveyType"] = it.name }
-        start?.let { sql.append(" AND start_date >= :start"); params["start"] = start }
-        end?.let { sql.append(" AND end_date <= :end"); params["end"] = end }
+        start?.let { sql.append(" AND start_date >= :start"); params["start"] = it }
+        end?.let { sql.append(" AND end_date <= :end"); params["end"] = it }
         sql.append(" ORDER BY id DESC LIMIT :size OFFSET :offset")
         params["size"] = size
         params["offset"] = (page - 1) * size
@@ -43,8 +43,8 @@ class UserSurveyR2dbcRepository(
         title?.let { sql.append(" AND title ILIKE :title"); params["title"] = "%$it%" }
         status?.let { sql.append(" AND status = :status"); params["status"] = it.name }
         surveyType?.let { sql.append(" AND survey_type = :surveyType"); params["surveyType"] = it.name }
-        start?.let { sql.append(" AND start_date >= :start"); params["start"] = start }
-        end?.let { sql.append(" AND end_date <= :end"); params["end"] = end }
+        start?.let { sql.append(" AND start_date >= :start"); params["start"] = it }
+        end?.let { sql.append(" AND end_date <= :end"); params["end"] = it }
 
         val spec = bindParams(client.sql(sql.toString()), params)
         return spec.map { row, _ -> row.get(0, Number::class.java)?.toLong() }

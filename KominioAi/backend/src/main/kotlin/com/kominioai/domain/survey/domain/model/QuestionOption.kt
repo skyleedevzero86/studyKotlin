@@ -17,6 +17,18 @@ data class QuestionOption private constructor(
                 order = order
             )
         }
+
+        fun reconstruct(
+            id: String,
+            content: String,
+            order: Int
+        ): QuestionOption {
+            return QuestionOption(
+                id = QuestionOptionId.fromString(id),
+                content = content,
+                order = order
+            )
+        }
     }
 
     fun updateContent(newContent: String): QuestionOption {

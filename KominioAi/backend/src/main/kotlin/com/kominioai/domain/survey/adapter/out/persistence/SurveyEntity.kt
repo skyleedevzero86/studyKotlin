@@ -19,26 +19,10 @@ data class SurveyEntity(
     val endDate: LocalDateTime?,
     val duration: String,
     val surveyType: String,
-    val participantType: String
+    val participantType: String,
+    val timeLimitEnabled: Boolean? = null,
+    val timeLimitMinutes: Int? = null
 ) {
-    fun toDomain(): com.kominioai.domain.survey.domain.model.Survey =
-        com.kominioai.domain.survey.domain.model.Survey.reconstruct(
-            id = id ?: "",
-            title = title,
-            author = author,
-            status = status,
-            startDate = startDate ?: LocalDateTime.now(),
-            endDate = endDate ?: LocalDateTime.now(),
-            participantCount = participantCount,
-            targetType = targetType,
-            surveyType = surveyType,
-            participantType = participantType,
-            timeLimit = null,
-            questions = emptyList(),
-            createdAt = createdAt,
-            updatedAt = updatedAt
-        )
-
     companion object {
         fun fromDomain(survey: com.kominioai.domain.survey.domain.model.Survey): SurveyEntity =
             SurveyEntity(
@@ -54,7 +38,29 @@ data class SurveyEntity(
                 endDate = survey.getPeriodEndDate(),
                 duration = "${survey.getPeriodStartDate().toLocalDate()} ~ ${survey.getPeriodEndDate().toLocalDate()}",
                 surveyType = survey.surveyType.name,
-                participantType = survey.participantType.name
+                participantType = survey.participantType.name,
+                timeLimitEnabled = survey.timeLimit?.enabled,
+                timeLimitMinutes = survey.timeLimit?.minutes
             )
     }
+
+    fun toDomain(): com.kominioai.domain.survey.domain.model.Survey =
+        com.kominioai.domain.survey.domain.model.Survey.reconstruct(
+            id = id ?: "",
+            title = title,
+            author = author,
+            status = status,
+            startDate = startDate ?: LocalDateTime.now(),
+            endDate = endDate ?: LocalDateTime.now(),
+            participantCount = participantCount,
+            targetType = targetType,
+            surveyType = surveyType,
+            participantType = participantType,
+            timeLimit = if (timeLimitEnabled == true && timeLimitMinutes != null) {
+                com.kominioai.domain.survey.domain.model.TimeLimit(true, timeLimitMinutes)
+            } else null,
+            questions = emptyList(),
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
 }

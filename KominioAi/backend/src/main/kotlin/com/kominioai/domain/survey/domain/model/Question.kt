@@ -51,6 +51,24 @@ class Question private constructor(
                 options = questionOptions.toMutableList()
             )
         }
+
+        fun reconstruct(
+            id: String,
+            content: String,
+            type: String,
+            order: Int,
+            isRequired: Boolean,
+            options: List<QuestionOption>
+        ): Question {
+            return Question(
+                id = QuestionId.fromString(id),
+                content = content,
+                type = QuestionType.valueOf(type),
+                order = order,
+                isRequired = isRequired,
+                options = options.toMutableList()
+            )
+        }
     }
 
     fun updateContent(newContent: String): Question {
