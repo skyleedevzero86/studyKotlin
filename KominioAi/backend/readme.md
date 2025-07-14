@@ -1,530 +1,676 @@
-# KominioAI Survey Management System
+# KominioAI Survey System
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.25-purple.svg)](https://kotlinlang.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-green.svg)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/)
-[![R2DBC](https://img.shields.io/badge/R2DBC-Reactive-blue.svg)](https://r2dbc.io/)
-[![Redis](https://img.shields.io/badge/Redis-Cache-red.svg)](https://redis.io/)
+## 📋 프로젝트 개요
 
-## 📋 목차
+KominioAI Survey System은 현대적인 설문조사 플랫폼으로, Hexagonal Architecture와 Domain-Driven Design을 기반으로 구축된 Spring Boot 3.x + Kotlin 기반의 리액티브 웹 애플리케이션입니다.
 
-- [프로젝트 개요](#프로젝트-개요)
-- [기술 스택](#기술-스택)
-- [아키텍처](#아키텍처)
-- [데이터베이스 설계](#데이터베이스-설계)
-- [설치 및 실행](#설치-및-실행)
-- [API 문서](#api-문서)
-- [개발 가이드](#개발-가이드)
-- [테스트](#테스트)
-- [성능 최적화](#성능-최적화)
-- [모니터링](#모니터링)
-- [배포](#배포)
-- [기여 가이드](#기여-가이드)
+### 🎯 주요 기능
 
-## 🎯 프로젝트 개요
+- **설문 생성 및 관리**: 다양한 유형의 설문 생성, 수정, 삭제
+- **설문 참여**: 실시간 설문 참여 및 응답 수집
+- **결과 분석**: 통계 분석 및 시각화
+- **캐싱 시스템**: Redis 기반 성능 최적화
+- **이벤트 기반 아키텍처**: 비동기 이벤트 처리
+- **다국어 지원**: 한국어/영어 다국어 지원
 
-KominioAI Survey Management System은 **Hexagonal Architecture (Clean Architecture)** 기반의 설문조사 관리 시스템입니다.
+### 🏗️ 아키텍처 특징
 
-### 주요 기능
+- **Hexagonal Architecture**: 도메인 중심의 의존성 역전
+- **CQRS 패턴**: 명령과 조회의 분리
+- **Event Sourcing**: 도메인 이벤트 기반 상태 관리
+- **Reactive Programming**: WebFlux + R2DBC로 비동기 처리
 
-- ✅ 설문조사 생성 및 관리
-- ✅ 다양한 질문 유형 지원 (단답형, 객관식, 다중선택, 평점 등)
-- ✅ 실시간 응답 수집 및 통계
-- ✅ 캐싱을 통한 성능 최적화
-- ✅ 이벤트 기반 아키텍처
-- ✅ 메트릭 수집 및 모니터링
-- ✅ 보안 및 인증
-- ✅ API 문서화
-
-### 비즈니스 도메인
-
-- **Survey Domain**: 설문조사 생명주기 관리
-- **Question Domain**: 질문 및 옵션 관리
-- **Response Domain**: 응답 수집 및 분석
-- **Statistics Domain**: 통계 및 분석
-
-## 🛠 기술 스택
+## 🛠️ 기술 스택
 
 ### Backend
 
-- **Language**: Kotlin 1.9.25
-- **Framework**: Spring Boot 3.4.5 (WebFlux)
-- **Database**: PostgreSQL + R2DBC (Reactive)
-- **Cache**: Redis (Reactive)
-- **Security**: Spring Security + OAuth2
-- **Documentation**: OpenAPI 3.0
+- **Language**: Kotlin 1.9+
+- **Framework**: Spring Boot 3.2+
+- **Web**: Spring WebFlux (Reactive)
+- **Database**: PostgreSQL + R2DBC
+- **Cache**: Redis
+- **Build Tool**: Gradle 8.0+
+- **Java Version**: JDK 17+
 
-### Monitoring & Observability
+### 주요 라이브러리
 
-- **Metrics**: Micrometer + Prometheus
-- **Tracing**: Brave
-- **Logging**: Logback + Logstash Encoder
+```kotlin
+dependencies {
+    // Spring Boot
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-### Testing
+    // Database
+    implementation("org.postgresql:postgresql")
+    implementation("io.r2dbc:r2dbc-postgresql")
 
-- **Unit Testing**: Kotest + MockK
-- **Integration Testing**: Testcontainers
-- **Performance Testing**: JMH
-- **Load Testing**: Custom Load Test Framework
+    // Cache
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
-### Development Tools
+    // Monitoring
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
-- **Build Tool**: Gradle 8.x
-- **Code Quality**: KtLint
-- **Coverage**: JaCoCo
-- **Container**: Docker
+    // Excel Export
+    implementation("org.apache.poi:poi-ooxml")
 
-## 🏗 아키텍처
+    // Testing
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("io.projectreactor:reactor-test")
+}
+```
 
-### Hexagonal Architecture (Clean Architecture)
+### 개발 도구
+
+- **IDE**: IntelliJ IDEA
+- **Database**: PostgreSQL 15+
+- **Cache**: Redis 7+
+- **API Documentation**: OpenAPI 3.0
+- **Testing**: JUnit 5, Testcontainers
+
+## 🏛️ 아키텍처
+
+### Hexagonal Architecture (Port-Adapter Pattern)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Presentation Layer                       │
+│                    Adapter Layer                            │
 ├─────────────────────────────────────────────────────────────┤
-│  Controllers  │  DTOs  │  Validators  │  Exception Handlers │
-└─────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
+│  Web Adapter (REST API)  │  Event Adapter  │  Cache Adapter │
+├─────────────────────────────────────────────────────────────┤
 │                    Application Layer                        │
 ├─────────────────────────────────────────────────────────────┤
-│  Use Cases  │  Application Services  │  Ports (Interfaces)  │
-└─────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
-│                     Domain Layer                            │
+│  Use Cases  │  Application Services  │  Commands/Queries   │
+├─────────────────────────────────────────────────────────────┤
+│                    Domain Layer                             │
 ├─────────────────────────────────────────────────────────────┤
 │  Entities  │  Value Objects  │  Domain Services  │  Events  │
-└─────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
-│                  Infrastructure Layer                       │
 ├─────────────────────────────────────────────────────────────┤
-│  Repositories  │  Cache  │  Event Publishers  │  External APIs │
+│                    Infrastructure Layer                     │
+├─────────────────────────────────────────────────────────────┤
+│  Database  │  Cache  │  External Services  │  Monitoring   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 패키지 구조
 
 ```
-src/main/kotlin/com/kominioai/
-├── domain/
-│   └── survey/
-│       ├── application/           # Application Layer
-│       │   ├── port/
-│       │   │   ├── input/         # Input Ports (Commands, Queries)
-│       │   │   └── output/        # Output Ports (Repositories, EventPublisher)
-│       │   └── service/           # Application Services
-│       ├── domain/                # Domain Layer
-│       │   ├── model/
-│       │   │   ├── domain/        # Domain Entities
-│       │   │   ├── event/         # Domain Events
-│       │   │   └── service/       # Domain Services
-│       │   └── valueobject/       # Value Objects
-│       ├── infrastructure/        # Infrastructure Layer
-│       │   ├── cache/             # Redis Cache Implementation
-│       │   ├── event/             # Event Publishing
-│       │   └── persistence/       # R2DBC Implementation
-│       └── presentation/          # Presentation Layer
-│           └── rest/
-│               ├── controller/    # REST Controllers
-│               └── dto/           # Data Transfer Objects
-└── global/                        # Cross-cutting Concerns
-    ├── config/                    # Configuration
-    ├── controller/                # Global Controllers
-    ├── exception/                 # Exception Handling
-    ├── service/                   # Global Services
-    ├── util/                      # Utilities
-    └── validation/                # Validation
+com.kominioai
+├── config/                    # 설정 클래스들
+├── domain/                    # 도메인 모듈
+│   ├── survey/               # 설문 도메인
+│   │   ├── adapter/          # 어댑터 레이어
+│   │   │   ├── in/          # 인바운드 어댑터
+│   │   │   └── out/         # 아웃바운드 어댑터
+│   │   ├── application/     # 애플리케이션 레이어
+│   │   ├── domain/          # 도메인 레이어
+│   │   └── infrastructure/  # 인프라 레이어
+│   └── member/              # 회원 도메인
+└── global/                   # 공통 모듈
+    ├── common/              # 공통 유틸리티
+    ├── config/              # 글로벌 설정
+    ├── exception/           # 예외 처리
+    └── security/            # 보안
 ```
 
-### 이벤트 기반 아키텍처
+### 도메인 모델
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Domain    │    │   Event     │    │   Event     │
-│   Service   │───▶│  Publisher  │───▶│  Listeners  │
-└─────────────┘    └─────────────┘    └─────────────┘
-                           │
-                    ┌─────────────┐
-                    │   Cache     │
-                    │ Invalidation│
-                    └─────────────┘
+#### Survey Aggregate
+
+```kotlin
+class Survey(
+    val id: SurveyId,
+    private var title: SurveyTitle,
+    val author: Author,
+    private var status: SurveyStatus,
+    private var period: SurveyPeriod,
+    private var participationCount: ParticipationCount,
+    val targetType: TargetType,
+    val surveyType: SurveyType,
+    val participantType: ParticipantType,
+    val timeLimit: TimeLimit?,
+    private val questions: MutableList<Question>,
+    val createdAt: LocalDateTime,
+    private var updatedAt: LocalDateTime
+)
 ```
 
-## 🗄 데이터베이스 설계
+#### Question Entity
+
+```kotlin
+class Question(
+    val id: QuestionId,
+    private var content: String,
+    val type: QuestionType,
+    private var order: Int,
+    private var isRequired: Boolean,
+    private val options: MutableList<QuestionOption>
+)
+```
+
+## 🗄️ 데이터베이스 설계
 
 ### ERD (Entity Relationship Diagram)
 
 ```mermaid
 erDiagram
-    SURVEY {
-        uuid id PK
-        varchar title
-        text description
-        uuid created_by FK
-        timestamp created_at
-        timestamp updated_at
-        enum status
-        jsonb settings
+    surveys {
+        string id PK
+        string title
+        string author
+        string status
+        datetime created_at
+        datetime updated_at
+        int participant_count
+        string target_type
+        datetime start_date
+        datetime end_date
+        string duration
+        string survey_type
+        string participant_type
+        boolean time_limit_enabled
+        int time_limit_minutes
     }
 
-    QUESTION {
-        uuid id PK
-        uuid survey_id FK
+    questions {
+        string id PK
+        string survey_id FK
+        string content
+        string type
         int order
-        varchar text
-        text description
-        enum type
-        boolean required
+        boolean is_required
     }
 
-    QUESTION_OPTION {
-        uuid id PK
-        uuid question_id FK
+    question_options {
+        string id PK
+        string question_id FK
+        string content
         int order
-        varchar text
     }
 
-    SURVEY_RESPONSE {
-        uuid id PK
-        uuid survey_id FK
-        uuid respondent_id FK
-        timestamp submitted_at
-        varchar ip_address
+    survey_participations {
+        string id PK
+        string survey_id FK
+        string user_id
+        string participant_name
+        string participant_phone
+        boolean authenticated
+        string status
+        datetime participated_at
+        datetime created_at
+        datetime updated_at
     }
 
-    RESPONSE_ANSWER {
-        uuid id PK
-        uuid response_id FK
-        uuid question_id FK
-        text answer_text
-        jsonb selected_options
-        timestamp created_at
+    question_responses {
+        string id PK
+        string participation_id FK
+        string question_id FK
+        string answer
+        string answer_type
+        datetime created_at
     }
 
-    SURVEY ||--o{ QUESTION : "contains"
-    QUESTION ||--o{ QUESTION_OPTION : "has"
-    SURVEY ||--o{ SURVEY_RESPONSE : "receives"
-    SURVEY_RESPONSE ||--o{ RESPONSE_ANSWER : "contains"
-    QUESTION ||--o{ RESPONSE_ANSWER : "answered_by"
+    surveys ||--o{ questions : "has"
+    questions ||--o{ question_options : "has"
+    surveys ||--o{ survey_participations : "has"
+    survey_participations ||--o{ question_responses : "has"
+    questions ||--o{ question_responses : "answered_by"
 ```
 
-### 테이블 상세
+### 테이블 명세서
 
-#### SURVEY
+#### 1. surveys (설문 테이블)
 
-- 설문조사의 기본 정보를 저장
-- 상태 관리 (DRAFT, PUBLISHED, CLOSED, COMPLETED)
-- 설정 정보는 JSONB로 저장
+| 컬럼명             | 타입         | NULL     | 기본값            | 설명            |
+| ------------------ | ------------ | -------- | ----------------- | --------------- |
+| id                 | VARCHAR(50)  | NOT NULL | -                 | 설문 ID (PK)    |
+| title              | VARCHAR(200) | NOT NULL | -                 | 설문 제목       |
+| author             | VARCHAR(100) | NOT NULL | -                 | 작성자          |
+| status             | VARCHAR(20)  | NOT NULL | 'DRAFT'           | 설문 상태       |
+| created_at         | TIMESTAMP    | NOT NULL | CURRENT_TIMESTAMP | 생성일시        |
+| updated_at         | TIMESTAMP    | NOT NULL | CURRENT_TIMESTAMP | 수정일시        |
+| participant_count  | INTEGER      | NOT NULL | 0                 | 참여자 수       |
+| target_type        | VARCHAR(20)  | NOT NULL | 'ALL'             | 대상 타입       |
+| start_date         | TIMESTAMP    | NULL     | -                 | 시작일시        |
+| end_date           | TIMESTAMP    | NULL     | -                 | 종료일시        |
+| duration           | VARCHAR(100) | NOT NULL | -                 | 기간 표시       |
+| survey_type        | VARCHAR(20)  | NOT NULL | 'SURVEY'          | 설문 타입       |
+| participant_type   | VARCHAR(20)  | NOT NULL | 'MEMBER'          | 참여자 타입     |
+| time_limit_enabled | BOOLEAN      | NULL     | false             | 시간제한 활성화 |
+| time_limit_minutes | INTEGER      | NULL     | -                 | 시간제한(분)    |
 
-#### QUESTION
+#### 2. questions (질문 테이블)
 
-- 설문조사의 질문 정보
-- 다양한 질문 유형 지원
-- 순서 정보로 정렬 관리
+| 컬럼명      | 타입         | NULL     | 기본값 | 설명         |
+| ----------- | ------------ | -------- | ------ | ------------ |
+| id          | VARCHAR(50)  | NOT NULL | -      | 질문 ID (PK) |
+| survey_id   | VARCHAR(50)  | NOT NULL | -      | 설문 ID (FK) |
+| content     | VARCHAR(500) | NOT NULL | -      | 질문 내용    |
+| type        | VARCHAR(30)  | NOT NULL | -      | 질문 타입    |
+| order       | INTEGER      | NOT NULL | -      | 질문 순서    |
+| is_required | BOOLEAN      | NOT NULL | false  | 필수 여부    |
 
-#### QUESTION_OPTION
+#### 3. question_options (질문 옵션 테이블)
 
-- 객관식 질문의 선택지
-- 순서 정보로 정렬 관리
+| 컬럼명      | 타입         | NULL     | 기본값 | 설명         |
+| ----------- | ------------ | -------- | ------ | ------------ |
+| id          | VARCHAR(50)  | NOT NULL | -      | 옵션 ID (PK) |
+| question_id | VARCHAR(50)  | NOT NULL | -      | 질문 ID (FK) |
+| content     | VARCHAR(200) | NOT NULL | -      | 옵션 내용    |
+| order       | INTEGER      | NOT NULL | -      | 옵션 순서    |
 
-#### SURVEY_RESPONSE
+#### 4. survey_participations (설문 참여 테이블)
 
-- 설문조사 응답의 메타데이터
-- 응답자 정보 및 제출 시간
+| 컬럼명            | 타입         | NULL     | 기본값            | 설명            |
+| ----------------- | ------------ | -------- | ----------------- | --------------- |
+| id                | VARCHAR(50)  | NOT NULL | -                 | 참여 ID (PK)    |
+| survey_id         | VARCHAR(50)  | NOT NULL | -                 | 설문 ID (FK)    |
+| user_id           | VARCHAR(50)  | NULL     | -                 | 사용자 ID       |
+| participant_name  | VARCHAR(100) | NULL     | -                 | 참여자 이름     |
+| participant_phone | VARCHAR(20)  | NULL     | -                 | 참여자 전화번호 |
+| authenticated     | BOOLEAN      | NOT NULL | false             | 인증 여부       |
+| status            | VARCHAR(20)  | NOT NULL | 'COMPLETED'       | 참여 상태       |
+| participated_at   | TIMESTAMP    | NOT NULL | CURRENT_TIMESTAMP | 참여일시        |
+| created_at        | TIMESTAMP    | NOT NULL | CURRENT_TIMESTAMP | 생성일시        |
+| updated_at        | TIMESTAMP    | NOT NULL | CURRENT_TIMESTAMP | 수정일시        |
 
-#### RESPONSE_ANSWER
+#### 5. question_responses (질문 응답 테이블)
 
-- 개별 질문에 대한 답변
-- 텍스트 답변과 선택된 옵션을 모두 저장
+| 컬럼명           | 타입        | NULL     | 기본값            | 설명         |
+| ---------------- | ----------- | -------- | ----------------- | ------------ |
+| id               | VARCHAR(50) | NOT NULL | -                 | 응답 ID (PK) |
+| participation_id | VARCHAR(50) | NOT NULL | -                 | 참여 ID (FK) |
+| question_id      | VARCHAR(50) | NOT NULL | -                 | 질문 ID (FK) |
+| answer           | TEXT        | NULL     | -                 | 응답 내용    |
+| answer_type      | VARCHAR(20) | NOT NULL | 'STRING'          | 응답 타입    |
+| created_at       | TIMESTAMP   | NOT NULL | CURRENT_TIMESTAMP | 생성일시     |
 
-## 🚀 설치 및 실행
-
-### 필수 요구사항
-
-- Java 21+
-- Kotlin 1.9.25+
-- PostgreSQL 15+
-- Redis 7+
-- Gradle 8.x+
-
-### 환경 설정
-
-1. **Repository 클론**
-
-```bash
-git clone https://github.com/kominioai/survey-backend.git
-cd survey-backend
-```
-
-2. **환경 변수 설정**
-
-```bash
-cp .env.example .env
-```
-
-`.env` 파일 설정:
-
-```properties
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=survey_db
-DB_USERNAME=survey_user
-DB_PASSWORD=survey_password
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# Application
-SERVER_PORT=8080
-SPRING_PROFILES_ACTIVE=dev
-```
-
-3. **데이터베이스 설정**
+### 인덱스 설계
 
 ```sql
-CREATE DATABASE survey_db;
-CREATE USER survey_user WITH PASSWORD 'survey_password';
-GRANT ALL PRIVILEGES ON DATABASE survey_db TO survey_user;
+-- 설문 조회 성능 최적화
+CREATE INDEX idx_surveys_status ON surveys(status);
+CREATE INDEX idx_surveys_author ON surveys(author);
+CREATE INDEX idx_surveys_created_at ON surveys(created_at);
+CREATE INDEX idx_surveys_period ON surveys(start_date, end_date);
+
+-- 질문 조회 성능 최적화
+CREATE INDEX idx_questions_survey_id ON questions(survey_id);
+CREATE INDEX idx_questions_order ON questions(survey_id, "order");
+
+-- 참여 조회 성능 최적화
+CREATE INDEX idx_participations_survey_id ON survey_participations(survey_id);
+CREATE INDEX idx_participations_user_id ON survey_participations(user_id);
+CREATE INDEX idx_participations_participated_at ON survey_participations(participated_at);
+
+-- 응답 조회 성능 최적화
+CREATE INDEX idx_responses_participation_id ON question_responses(participation_id);
+CREATE INDEX idx_responses_question_id ON question_responses(question_id);
 ```
 
-4. **애플리케이션 실행**
+## 🔌 API 문서
+
+### Base URL
+
+```
+http://localhost:8080/api/v1
+```
+
+### 인증
+
+```
+Basic Authentication
+Username: user
+Password: password
+```
+
+### 1. 설문 관리 API
+
+#### 1.1 설문 목록 조회
+
+```http
+GET /surveys?title={title}&author={author}&status={status}&page={page}&size={size}
+```
+
+**Request Parameters:**
+
+- `title` (optional): 설문 제목 검색
+- `author` (optional): 작성자 검색
+- `status` (optional): 설문 상태 (DRAFT, PUBLISHED, COMPLETED, CLOSED)
+- `page` (default: 1): 페이지 번호
+- `size` (default: 10): 페이지 크기
+
+**Response:**
+
+```json
+{
+  "total": 100,
+  "surveys": [
+    {
+      "id": 1,
+      "title": "고객 만족도 조사",
+      "author": "김철수",
+      "participantCount": 150,
+      "targetType": "ALL",
+      "status": "PUBLISHED",
+      "createdAt": "2024-01-15T10:00:00",
+      "startDate": "2024-01-16T00:00:00",
+      "endDate": "2024-01-31T23:59:59",
+      "duration": "2024-01-16 ~ 2024-01-31"
+    }
+  ]
+}
+```
+
+#### 1.2 설문 생성
+
+```http
+POST /surveys
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "title": "신제품 만족도 조사",
+  "author": "김철수",
+  "startDate": "2024-01-16T00:00:00",
+  "endDate": "2024-01-31T23:59:59",
+  "surveyType": "SURVEY",
+  "participantType": "ALL",
+  "timeLimit": {
+    "enabled": true,
+    "minutes": 30
+  },
+  "questions": [
+    {
+      "content": "신제품에 대한 전반적인 만족도는 어떠신가요?",
+      "type": "MULTIPLE_CHOICE",
+      "order": 1,
+      "options": ["매우 만족", "만족", "보통", "불만족", "매우 불만족"]
+    },
+    {
+      "content": "추가로 개선하고 싶은 부분이 있다면 자유롭게 작성해주세요.",
+      "type": "ESSAY",
+      "order": 2
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": 123
+}
+```
+
+#### 1.3 설문 수정
+
+```http
+PUT /surveys/{id}
+Content-Type: application/json
+```
+
+**Request Body:** (CreateSurveyCommand와 동일)
+
+#### 1.4 설문 삭제
+
+```http
+DELETE /surveys
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+[1, 2, 3]
+```
+
+#### 1.5 설문 상세 조회
+
+```http
+GET /surveys/{surveyId}/detail?userId={userId}
+```
+
+**Response:**
+
+```json
+{
+  "id": 1,
+  "title": "신제품 만족도 조사",
+  "author": "김철수",
+  "status": "PUBLISHED",
+  "type": "설문",
+  "createdAt": "2024-01-15T10:00:00",
+  "updatedAt": "2024-01-15T10:00:00",
+  "displayInfo": {
+    "statusMessage": "현재 참여 인원은 150명입니다. (참여율: 75.0%)",
+    "buttonInfo": {
+      "text": "설문 참여하기",
+      "enabled": true,
+      "cssClass": "btn-primary",
+      "action": "/surveys/1/participate"
+    },
+    "themeInfo": {
+      "primaryColor": "#1976d2",
+      "secondaryColor": "#90caf9",
+      "iconType": "chart",
+      "cssClassName": "survey-type-survey",
+      "animationType": "fade-in"
+    },
+    "participationInfo": "COMPLETED",
+    "requirementInfo": "REQUIRED"
+  },
+  "questions": [
+    {
+      "number": 1,
+      "content": "신제품에 대한 전반적인 만족도는 어떠신가요?",
+      "type": "MULTIPLE_CHOICE",
+      "icon": "☑️",
+      "required": true
+    }
+  ],
+  "totalQuestionCount": 2,
+  "hasMoreQuestions": false,
+  "navigation": {
+    "prevSurveyId": null,
+    "nextSurveyId": null,
+    "breadcrumb": ["홈", "설문 목록", "설문 상세보기"]
+  }
+}
+```
+
+### 2. 설문 참여 API
+
+#### 2.1 설문 참여
+
+```http
+POST /surveys/{surveyId}/participate
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "surveyId": "1",
+  "participant": {
+    "userId": "user123",
+    "name": "홍길동",
+    "phone": "010-1234-5678",
+    "authenticated": true
+  },
+  "responses": [
+    {
+      "questionId": "q1",
+      "answer": "매우 만족"
+    },
+    {
+      "questionId": "q2",
+      "answer": "가격이 조금 비싸다고 생각합니다."
+    }
+  ]
+}
+```
+
+### 3. 설문 결과 API
+
+#### 3.1 설문 결과 조회
+
+```http
+GET /surveys/{surveyId}/results?userId={userId}
+```
+
+**Response:**
+
+```json
+{
+  "surveyId": "1",
+  "totalParticipants": 150,
+  "questions": [
+    {
+      "questionId": "q1",
+      "type": "MULTIPLE_CHOICE",
+      "content": "신제품에 대한 전반적인 만족도는 어떠신가요?",
+      "choices": [
+        {
+          "optionId": "opt1",
+          "content": "매우 만족",
+          "selectedCount": 45,
+          "percentage": 30.0,
+          "rank": 1
+        },
+        {
+          "optionId": "opt2",
+          "content": "만족",
+          "selectedCount": 60,
+          "percentage": 40.0,
+          "rank": 2
+        }
+      ]
+    },
+    {
+      "questionId": "q2",
+      "type": "ESSAY",
+      "content": "추가로 개선하고 싶은 부분이 있다면 자유롭게 작성해주세요.",
+      "subjectiveAnswers": [
+        "가격이 조금 비싸다고 생각합니다.",
+        "디자인이 더 예쁘면 좋겠어요.",
+        "기능이 너무 복잡해요."
+      ]
+    }
+  ],
+  "calculatedAt": "2024-01-15T15:30:00"
+}
+```
+
+#### 3.2 설문 결과 엑셀 다운로드
+
+```http
+GET /surveys/{id}/export
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+```
+
+### 4. 사용자 설문 목록 API
+
+#### 4.1 사용자 설문 목록 조회
+
+```http
+GET /surveys/user?title={title}&status={status}&surveyType={surveyType}&start={start}&end={end}&page={page}&size={size}
+```
+
+**Response:**
+
+```json
+{
+  "totalCount": 50,
+  "surveys": [
+    {
+      "number": 50,
+      "id": 1,
+      "title": "고객 만족도 조사",
+      "author": "김철수",
+      "status": "게시",
+      "surveyType": "설문",
+      "period": "2024-01-16 ~ 2024-01-31",
+      "createdAt": "2024-01-15"
+    }
+  ]
+}
+```
+
+## 🚀 실행 방법
+
+### 1. 환경 요구사항
+
+- JDK 17+
+- PostgreSQL 15+
+- Redis 7+
+- Gradle 8.0+
+
+### 2. 데이터베이스 설정
+
+```sql
+-- PostgreSQL 데이터베이스 생성
+CREATE DATABASE kominioai_survey;
+
+-- 사용자 생성 (선택사항)
+CREATE USER kominioai_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE kominioai_survey TO kominioai_user;
+```
+
+### 3. 애플리케이션 실행
 
 ```bash
-# 개발 모드
+# 프로젝트 클론
+git clone https://github.com/your-username/kominioai-survey.git
+cd kominioai-survey
+
+# 환경 설정
+cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
+# application-local.yml 파일에서 데이터베이스 연결 정보 수정
+
+# 애플리케이션 실행
 ./gradlew bootRun
-
-# 또는 특정 프로파일로 실행
-./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
-### Docker 실행
+### 4. 환경별 설정
 
-```bash
-# Docker Compose로 전체 환경 실행
-docker-compose up -d
+- **Local**: `application-local.yml`
+- **Development**: `application-dev.yml`
+- **Production**: `application-prod.yml`
+- **Test**: `application-test.yml`
 
-# 애플리케이션만 실행
-docker run -p 8080:8080 kominioai/survey-backend:latest
-```
+## 📊 모니터링
 
-## 📚 API 문서
+### Actuator Endpoints
 
-### OpenAPI 문서
+- **Health Check**: `GET /actuator/health`
+- **Metrics**: `GET /actuator/metrics`
+- **Redis Health**: `GET /actuator/health/redis`
+- **Database Health**: `GET /actuator/health/db`
 
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+### 주요 메트릭
 
-### 주요 API 엔드포인트
+- 설문 생성/수정/삭제 횟수
+- 설문 참여율
+- API 응답 시간
+- 캐시 히트율
+- 데이터베이스 연결 상태
 
-#### 설문조사 관리
+## 🔧 개발 가이드
 
-```http
-POST   /api/surveys                    # 설문조사 생성
-GET    /api/surveys                    # 설문조사 목록 조회
-GET    /api/surveys/{id}               # 설문조사 상세 조회
-PUT    /api/surveys/{id}/publish       # 설문조사 게시
-DELETE /api/surveys/{id}               # 설문조사 삭제
-```
+### 코드 컨벤션
 
-#### 질문 관리
-
-```http
-POST   /api/surveys/{id}/questions     # 질문 추가
-PUT    /api/surveys/{id}/questions/{questionId}  # 질문 수정
-DELETE /api/surveys/{id}/questions/{questionId}  # 질문 삭제
-```
-
-#### 응답 관리
-
-```http
-POST   /api/surveys/{id}/responses     # 응답 제출
-GET    /api/surveys/{id}/responses     # 응답 목록 조회
-GET    /api/surveys/{id}/statistics    # 통계 조회
-```
-
-#### 캐시 관리
-
-```http
-GET    /api/cache/stats                # 캐시 통계
-POST   /api/cache/invalidate           # 캐시 무효화
-```
-
-#### 메트릭
-
-```http
-GET    /api/metrics/summary            # 메트릭 요약
-GET    /api/metrics/performance        # 성능 메트릭
-GET    /api/metrics/business           # 비즈니스 메트릭
-```
-
-### API 사용 예시
-
-#### 설문조사 생성
-
-```bash
-curl -X POST http://localhost:8080/api/surveys \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "고객 만족도 조사",
-    "description": "서비스 개선을 위한 고객 만족도 조사입니다.",
-    "settings": {
-      "allowAnonymous": true,
-      "allowMultipleResponses": false,
-      "requireLogin": false,
-      "collectIpAddress": true
-    }
-  }'
-```
-
-#### 질문 추가
-
-```bash
-curl -X POST http://localhost:8080/api/surveys/{surveyId}/questions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "서비스에 만족하시나요?",
-    "type": "SINGLE_CHOICE",
-    "required": true,
-    "options": ["매우 만족", "만족", "보통", "불만족", "매우 불만족"]
-  }'
-```
-
-#### 응답 제출
-
-```bash
-curl -X POST http://localhost:8080/api/surveys/{surveyId}/responses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "answers": [
-      {
-        "questionId": "question-id",
-        "answerText": null,
-        "selectedOptionIds": ["option-id-1"]
-      }
-    ]
-  }'
-```
-
-## 👨‍💻 개발 가이드
-
-### 개발 환경 설정
-
-1. **IDE 설정**
-
-   - IntelliJ IDEA 또는 VS Code 권장
-   - Kotlin 플러그인 설치
-   - Spring Boot 플러그인 설치
-
-2. **코드 스타일**
-
-   - KtLint 사용
-   - Kotlin 코딩 컨벤션 준수
-   - 4칸 들여쓰기
-
-3. **Git 설정**
-
-```bash
-# 커밋 메시지 컨벤션
-feat: 새로운 기능 추가
-fix: 버그 수정
-docs: 문서 수정
-style: 코드 스타일 변경
-refactor: 코드 리팩토링
-test: 테스트 추가/수정
-chore: 빌드 설정 변경
-```
-
-### 아키텍처 패턴
-
-#### 1. Use Case 패턴
-
-```kotlin
-@Service
-class CreateSurveyUseCase(
-    private val surveyRepository: SurveyRepository
-) {
-    fun execute(command: CreateSurveyCommand): Mono<SurveyId> {
-        val survey = Survey.create(
-            title = command.title,
-            description = command.description,
-            createdBy = command.createdBy,
-            settings = command.settings
-        )
-        return surveyRepository.save(survey).map { it.id }
-    }
-}
-```
-
-#### 2. Domain Event 패턴
-
-```kotlin
-// Domain Event 정의
-data class SurveyCreated(
-    val surveyId: SurveyId,
-    val title: String,
-    val createdBy: UserId
-) : SurveyEvent
-
-// Event Publisher 사용
-eventPublisher.publishReactive(SurveyCreated(survey.id, survey.title, survey.createdBy))
-```
-
-#### 3. Repository 패턴
-
-```kotlin
-interface SurveyRepository {
-    fun save(survey: Survey): Mono<Survey>
-    fun findById(id: SurveyId): Mono<Survey>
-    fun findAll(): Flux<Survey>
-}
-```
-
-### 테스트 작성
-
-#### Unit Test
-
-```kotlin
-@Test
-fun `설문조사 생성 성공`() {
-    // Given
-    val command = CreateSurveyCommand(
-        title = "테스트 설문",
-        description = "테스트용 설문조사",
-        createdBy = UserId.generate(),
-        settings = SurveySettings()
-    )
-
-    // When
-    val result = createSurveyUseCase.execute(command).block()
-
-    // Then
-    assertThat(result).isNotNull()
-    assertThat(result).isInstanceOf(SurveyId::class.java)
-}
-```
-
-#### Integration Test
-
-```kotlin
-@SpringBootTest
-@Testcontainers
-class SurveyIntegrationTest {
-    @Container
-    val postgres = PostgreSQLContainer("postgres:15")
-
-    @Test
-    fun `설문조사 생성 및 조회 통합 테스트`() {
-        // 테스트 로직
-    }
-}
-```
-
-## 🧪 테스트
+- **Kotlin**: Kotlin 코딩 컨벤션 준수
+- **Naming**: camelCase 사용
+- **Package**: 도메인 중심 패키지 구조
+- **Documentation**: KDoc 사용
 
 ### 테스트 실행
 
@@ -532,297 +678,42 @@ class SurveyIntegrationTest {
 # 전체 테스트 실행
 ./gradlew test
 
-# 특정 테스트 클래스 실행
-./gradlew test --tests SurveyServiceTest
+# 특정 테스트 실행
+./gradlew test --tests SurveyApplicationServiceTest
 
 # 통합 테스트 실행
 ./gradlew integrationTest
-
-# 성능 테스트 실행
-./gradlew jmh
-
-# 커버리지 리포트 생성
-./gradlew jacocoTestReport
 ```
 
-### 테스트 구조
-
-```
-src/test/kotlin/
-├── unit/                    # 단위 테스트
-├── integration/             # 통합 테스트
-├── performance/             # 성능 테스트
-└── load/                    # 부하 테스트
-```
-
-### 테스트 커버리지
-
-- **목표**: 80% 이상
-- **도구**: JaCoCo
-- **리포트**: `build/reports/jacoco/test/html/index.html`
-
-## ⚡ 성능 최적화
-
-### 캐싱 전략
-
-1. **Redis 캐싱**
-
-   - 설문조사 조회: 30분 TTL
-   - 통계 데이터: 1시간 TTL
-   - 게시된 설문 목록: 15분 TTL
-
-2. **캐시 무효화**
-   - 설문 수정 시 관련 캐시 무효화
-   - 응답 제출 시 통계 캐시 무효화
-
-### 데이터베이스 최적화
-
-1. **인덱스**
-
-```sql
--- 설문조사 조회 최적화
-CREATE INDEX idx_survey_status ON survey(status);
-CREATE INDEX idx_survey_created_by ON survey(created_by);
-
--- 응답 조회 최적화
-CREATE INDEX idx_response_survey_id ON survey_response(survey_id);
-CREATE INDEX idx_response_submitted_at ON survey_response(submitted_at);
-```
-
-2. **쿼리 최적화**
-   - N+1 문제 방지를 위한 JOIN 사용
-   - 페이징 처리로 대용량 데이터 처리
-
-### 비동기 처리
-
-1. **이벤트 처리**
-
-   - 이벤트 리스너를 통한 비동기 처리
-   - 백그라운드 작업 분리
-
-2. **Reactive 스트림**
-   - WebFlux를 통한 비동기 HTTP 처리
-   - 백프레셔 지원
-
-## 📊 모니터링
-
-### 메트릭 수집
-
-1. **애플리케이션 메트릭**
-
-   - API 응답 시간
-   - 에러율
-   - 처리량
-
-2. **비즈니스 메트릭**
-
-   - 설문조사 생성 수
-   - 응답 제출 수
-   - 캐시 히트율
-
-3. **시스템 메트릭**
-   - JVM 메모리 사용량
-   - 스레드 수
-   - 데이터베이스 연결 풀
-
-### 로깅
-
-1. **구조화된 로깅**
-
-```kotlin
-StructuredLogging.logInfo(
-    logger,
-    "Survey created successfully",
-    "surveyId" to survey.id.value,
-    "title" to survey.title,
-    "createdBy" to survey.createdBy.value
-)
-```
-
-2. **로그 레벨**
-   - ERROR: 시스템 오류
-   - WARN: 경고 상황
-   - INFO: 중요 비즈니스 이벤트
-   - DEBUG: 디버깅 정보
-
-### 알림
-
-1. **성능 알림**
-
-   - 응답 시간 임계값 초과
-   - 에러율 임계값 초과
-   - 메모리 사용량 임계값 초과
-
-2. **비즈니스 알림**
-   - 설문조사 마일스톤 달성
-   - 응답 수 임계값 달성
-
-## 🚀 배포
-
-### Docker 배포
+### 빌드 및 배포
 
 ```bash
-# 이미지 빌드
-./gradlew bootBuildImage
+# JAR 파일 빌드
+./gradlew build
 
-# 컨테이너 실행
-docker run -d \
-  -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=prod \
-  -e DB_HOST=your-db-host \
-  -e REDIS_HOST=your-redis-host \
-  kominioai/survey-backend:latest
-```
+# Docker 이미지 빌드
+docker build -t kominioai-survey .
 
-### Kubernetes 배포
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: survey-backend
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: survey-backend
-  template:
-    metadata:
-      labels:
-        app: survey-backend
-    spec:
-      containers:
-        - name: survey-backend
-          image: kominioai/survey-backend:latest
-          ports:
-            - containerPort: 8080
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: "prod"
-```
-
-### CI/CD 파이프라인
-
-```yaml
-# GitHub Actions 예시
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: ./gradlew test
-      - name: Generate coverage report
-        run: ./gradlew jacocoTestReport
-
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Build Docker image
-        run: ./gradlew bootBuildImage
-      - name: Push to registry
-        run: docker push kominioai/survey-backend:latest
+# Docker 실행
+docker run -p 8080:8080 kominioai-survey
 ```
 
 ## 🤝 기여 가이드
 
-### 기여 프로세스
-
-1. **Fork & Clone**
-
-```bash
-git clone https://github.com/your-username/survey-backend.git
-cd survey-backend
-```
-
-2. **브랜치 생성**
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-3. **개발 및 테스트**
-
-```bash
-# 코드 작성
-./gradlew test
-./gradlew ktlintCheck
-```
-
-4. **커밋 및 푸시**
-
-```bash
-git add .
-git commit -m "feat: 새로운 기능 추가"
-git push origin feature/your-feature-name
-```
-
-5. **Pull Request 생성**
-   - GitHub에서 Pull Request 생성
-   - 리뷰어 지정
-   - 코드 리뷰 후 머지
-
-### 코딩 컨벤션
-
-1. **Kotlin 컨벤션**
-
-   - 함수명: camelCase
-   - 클래스명: PascalCase
-   - 상수: UPPER_SNAKE_CASE
-
-2. **주석 작성**
-
-```kotlin
-/**
- * 설문조사를 생성합니다.
- *
- * @param command 설문조사 생성 명령
- * @return 생성된 설문조사 ID
- * @throws SurveyValidationException 유효하지 않은 데이터인 경우
- */
-fun createSurvey(command: CreateSurveyCommand): Mono<SurveyId>
-```
-
-3. **예외 처리**
-
-```kotlin
-try {
-    // 비즈니스 로직
-} catch (e: Exception) {
-    logger.error("Error occurred: ${e.message}", e)
-    throw BusinessException("처리 중 오류가 발생했습니다.")
-}
-```
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 📞 연락처
+## 📞 문의
 
-- **프로젝트 관리자**: KominioAI Team
-- **이메일**: contact@kominioai.com
-- **GitHub**: https://github.com/kominioai/survey-backend
-- **문서**: https://docs.kominioai.com
-
-## 🙏 감사의 말
-
-이 프로젝트는 다음과 같은 오픈소스 프로젝트들의 도움을 받았습니다:
-
-- [Spring Boot](https://spring.io/projects/spring-boot)
-- [Kotlin](https://kotlinlang.org/)
-- [R2DBC](https://r2dbc.io/)
-- [Redis](https://redis.io/)
-- [Micrometer](https://micrometer.io/)
+프로젝트에 대한 문의사항이 있으시면 이슈를 생성해주세요.
 
 ---
 
-**KominioAI Survey Management System** - 설문조사 관리의 새로운 패러다임 🚀
+**KominioAI Survey System** - 현대적인 설문조사 플랫폼

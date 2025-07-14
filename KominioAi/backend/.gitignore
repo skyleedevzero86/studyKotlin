@@ -1,4 +1,4 @@
-*.md
+readme_back.md
 application.properties
 *.log
 logs/
