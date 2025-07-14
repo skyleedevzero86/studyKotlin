@@ -7,8 +7,6 @@ import com.kominioai.domain.survey.application.port.`in`.CreateSurveyUseCase
 import com.kominioai.domain.survey.application.port.`in`.UpdateSurveyUseCase
 import com.kominioai.domain.survey.application.port.out.CacheSurveyPort
 import com.kominioai.domain.survey.application.port.out.EventPublisherPort
-import com.kominioai.domain.survey.application.port.out.LoadSurveyPort
-import com.kominioai.domain.survey.application.port.out.SaveSurveyPort
 import com.kominioai.domain.survey.application.port.out.ExportSurveyPort
 import com.kominioai.domain.survey.domain.event.SurveyCreatedEvent
 import com.kominioai.domain.survey.domain.event.SurveyUpdatedEvent

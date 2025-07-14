@@ -2,7 +2,6 @@ package com.kominioai.domain.survey.application.service
 
 import com.kominioai.domain.survey.application.dto.*
 import com.kominioai.domain.survey.application.port.`in`.GetSurveyDetailUseCase
-import com.kominioai.domain.survey.application.port.out.LoadSurveyDetailPort
 import com.kominioai.domain.survey.application.query.SurveyDetailQuery
 import com.kominioai.domain.survey.domain.model.*
 import com.kominioai.domain.survey.domain.service.SurveyDisplayService
