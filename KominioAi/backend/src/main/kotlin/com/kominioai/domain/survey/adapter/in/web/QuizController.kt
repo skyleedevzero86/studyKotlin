@@ -1,0 +1,103 @@
+package com.kominioai.domain.survey.adapter.`in`.web
+
+import com.kominioai.domain.survey.adapter.`in`.web.dto.ParticipateQuizRequest
+import com.kominioai.domain.survey.application.dto.ParticipateQuizCommand
+import com.kominioai.domain.survey.application.dto.QuizDetailResponse
+import com.kominioai.domain.survey.application.port.`in`.GetQuizDetailUseCase
+import com.kominioai.domain.survey.application.port.`in`.ParticipateQuizUseCase
+import com.kominioai.domain.survey.application.query.QuizDetailQuery
+import com.kominioai.domain.survey.domain.model.ParticipantInfo
+import com.kominioai.domain.survey.domain.model.QuestionId
+import com.kominioai.domain.survey.domain.model.QuestionResponse
+import com.kominioai.domain.survey.domain.model.SurveyId
+import com.kominioai.global.common.Result
+import org.slf4j.LoggerFactory
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+import reactor.core.publisher.Mono
+
+@RestController
+@RequestMapping("/api/v1")
+class QuizController(
+    private val getQuizDetailUseCase: GetQuizDetailUseCase,
+    private val participateQuizUseCase: ParticipateQuizUseCase
+) {
+
+    private val logger = LoggerFactory.getLogger(QuizController::class.java)
+
+    @GetMapping("/quiz/{surveyId}")
+    fun getQuizDetail(@PathVariable surveyId: String): Mono<ResponseEntity<Result<QuizDetailResponse>>> {
+        val query = QuizDetailQuery(SurveyId.fromString(surveyId))
+
+        return getQuizDetailUseCase.getQuizDetail(query)
+            .map { quizDetail ->
+                ResponseEntity.ok(Result.Success(quizDetail))
+            }
+            .onErrorResume { error ->
+                logger.error("퀴즈 상세 조회 실패: surveyId={}, error={}", surveyId, error.message)
+                Mono.just(ResponseEntity.badRequest().body(Result.Failure(error)))
+            }
+    }
+
+    @PostMapping("/quiz/{surveyId}/participate")
+    fun participateQuiz(
+        @PathVariable surveyId: String,
+        @RequestBody request: ParticipateQuizRequest
+    ): Mono<ResponseEntity<Result<Unit>>> {
+
+        val command = ParticipateQuizCommand(
+            surveyId = SurveyId.fromString(surveyId),
+            participantInfo = ParticipantInfo(
+                userId = request.userId,
+                name = request.name,
+                phone = request.phone,
+                authenticated = request.authenticated
+            ),
+            responses = request.responses.map { response ->
+                QuestionResponse(
+                    questionId = QuestionId.fromString(response.questionId),
+                    answer = response.answer
+                )
+            }
+        )
+
+        return participateQuizUseCase.participate(command)
+            .map {
+                ResponseEntity.ok(Result.Success(Unit))
+            }
+            .onErrorResume { error ->
+                logger.error("퀴즈 참여 실패: surveyId={}, error={}", surveyId, error.message)
+                Mono.just(ResponseEntity.badRequest().body(Result.Failure(error)))
+            }
+    }
+
+    @GetMapping("/quiz/{surveyId}")
+    fun getQuizDetail(@PathVariable surveyId: String): Mono<QuizDetailResponse> {
+        val query = QuizDetailQuery(SurveyId.fromString(surveyId))
+        return getQuizDetailUseCase.getQuizDetail(query)
+    }
+
+    @PostMapping("/quiz/{surveyId}/participate")
+    fun participateQuiz(
+        @PathVariable surveyId: String,
+        @RequestBody request: ParticipateQuizRequest
+    ): Mono<Unit> {
+        val command = ParticipateQuizCommand(
+            surveyId = SurveyId.fromString(surveyId),
+            participantInfo = ParticipantInfo(
+                userId = request.userId,
+                name = request.name,
+                phone = request.phone,
+                authenticated = request.authenticated
+            ),
+            responses = request.responses.map { response ->
+                QuestionResponse(
+                    questionId = QuestionId.fromString(response.questionId),
+                    answer = response.answer
+                )
+            }
+        )
+        return participateQuizUseCase.participate(command)
+    }
+
+}
