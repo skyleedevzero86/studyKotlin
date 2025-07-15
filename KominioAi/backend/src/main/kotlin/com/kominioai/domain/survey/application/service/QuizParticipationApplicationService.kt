@@ -16,8 +16,7 @@ import reactor.core.publisher.Mono
 @Service
 class QuizParticipationApplicationService(
     private val participationR2dbcAdapter: ParticipationR2dbcAdapter,
-    private val eventPublisher: ApplicationEventPublisher,
-    private val quizRealtimeService: QuizRealtimeService
+    private val eventPublisher: ApplicationEventPublisher
 ) : ParticipateQuizUseCase {
 
     private val logger = LoggerFactory.getLogger(QuizParticipationApplicationService::class.java)
@@ -40,8 +39,6 @@ class QuizParticipationApplicationService(
                         participantId = command.participantInfo.userId ?: "anonymous"
                     )
                 )
-
-                quizRealtimeService.updateParticipantCount(command.surveyId)
 
                 logger.info("퀴즈 참여 성공: surveyId={}, participant={}",
                     command.surveyId.value, command.participantInfo.name)

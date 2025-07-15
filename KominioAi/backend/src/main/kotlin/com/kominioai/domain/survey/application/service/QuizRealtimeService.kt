@@ -2,6 +2,7 @@ package com.kominioai.domain.survey.application.service
 
 import com.kominioai.domain.survey.domain.model.SurveyId
 import com.kominioai.domain.survey.infrastructure.persistence.ParticipationR2dbcAdapter
+import com.kominioai.global.util.QuizWebSocketHandler
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
@@ -10,7 +11,7 @@ import reactor.core.publisher.Mono
 @Service
 class QuizRealtimeService(
     private val participationR2dbcAdapter: ParticipationR2dbcAdapter,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val webSocketHandler: QuizWebSocketHandler
 ) {
 
     private val logger = LoggerFactory.getLogger(QuizRealtimeService::class.java)
@@ -18,13 +19,15 @@ class QuizRealtimeService(
     fun updateParticipantCount(surveyId: SurveyId) {
         participationR2dbcAdapter.countBySurveyId(surveyId.value)
             .subscribe { count ->
-                val message = mapOf(
-                    "surveyId" to surveyId.value,
-                    "participantCount" to count,
-                    "timestamp" to System.currentTimeMillis()
-                )
+                val message = """
+                    {
+                        "surveyId": "${surveyId.value}",
+                        "participantCount": $count,
+                        "timestamp": ${System.currentTimeMillis()}
+                    }
+                """.trimIndent()
 
-                messagingTemplate.convertAndSend("/topic/quiz/${surveyId.value}/participants", message)
+                webSocketHandler.sendToSurvey(surveyId.value, message)
                 logger.info("실시간 참여자 수 업데이트: surveyId={}, count={}", surveyId.value, count)
             }
     }

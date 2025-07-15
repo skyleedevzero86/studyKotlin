@@ -53,7 +53,9 @@ data class QuizDetailResponse(
                     cssClassName = displayInfo.themeInfo.cssClassName,
                     animationType = displayInfo.themeInfo.animationType
                 ),
-                questions = questions.map { QuestionPreviewDto.from(it) },
+                questions = questions.mapIndexed { index, question ->
+                    QuestionPreviewDto.from(question, index + 1)
+                },
                 createdAt = survey.createdAt,
                 updatedAt = survey.getUpdatedAt()
             )

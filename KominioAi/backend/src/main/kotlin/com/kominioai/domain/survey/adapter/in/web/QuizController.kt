@@ -31,11 +31,11 @@ class QuizController(
 
         return getQuizDetailUseCase.getQuizDetail(query)
             .map { quizDetail ->
-                ResponseEntity.ok(Result.Success(quizDetail))
+                ResponseEntity.ok(Result.success(quizDetail))
             }
             .onErrorResume { error ->
                 logger.error("퀴즈 상세 조회 실패: surveyId={}, error={}", surveyId, error.message)
-                Mono.just(ResponseEntity.badRequest().body(Result.Failure(error)))
+                Mono.just(ResponseEntity.badRequest().body(Result.failure<QuizDetailResponse>(error)))
             }
     }
 
@@ -63,41 +63,11 @@ class QuizController(
 
         return participateQuizUseCase.participate(command)
             .map {
-                ResponseEntity.ok(Result.Success(Unit))
+                ResponseEntity.ok(Result.success(Unit))
             }
             .onErrorResume { error ->
                 logger.error("퀴즈 참여 실패: surveyId={}, error={}", surveyId, error.message)
-                Mono.just(ResponseEntity.badRequest().body(Result.Failure(error)))
+                Mono.just(ResponseEntity.badRequest().body(Result.failure<Unit>(error)))
             }
     }
-
-    @GetMapping("/quiz/{surveyId}")
-    fun getQuizDetail(@PathVariable surveyId: String): Mono<QuizDetailResponse> {
-        val query = QuizDetailQuery(SurveyId.fromString(surveyId))
-        return getQuizDetailUseCase.getQuizDetail(query)
-    }
-
-    @PostMapping("/quiz/{surveyId}/participate")
-    fun participateQuiz(
-        @PathVariable surveyId: String,
-        @RequestBody request: ParticipateQuizRequest
-    ): Mono<Unit> {
-        val command = ParticipateQuizCommand(
-            surveyId = SurveyId.fromString(surveyId),
-            participantInfo = ParticipantInfo(
-                userId = request.userId,
-                name = request.name,
-                phone = request.phone,
-                authenticated = request.authenticated
-            ),
-            responses = request.responses.map { response ->
-                QuestionResponse(
-                    questionId = QuestionId.fromString(response.questionId),
-                    answer = response.answer
-                )
-            }
-        )
-        return participateQuizUseCase.participate(command)
-    }
-
 }
