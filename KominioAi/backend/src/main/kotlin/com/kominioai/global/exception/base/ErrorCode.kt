@@ -67,8 +67,7 @@ enum class ErrorCode(
         ErrorSeverity.WARN,
         "질문 수가 제한을 초과했습니다"
     ),
-    
-    // ===== 질문 도메인 에러 (QUESTION_XXX) =====
+
     QUESTION_NOT_FOUND(
         "QUESTION_001",
         HttpStatus.NOT_FOUND,
@@ -90,8 +89,72 @@ enum class ErrorCode(
         ErrorSeverity.WARN,
         "질문 옵션 수가 제한을 초과했습니다"
     ),
-    
-    // ===== 인증/인가 에러 (AUTH_XXX) =====
+
+    // ===== 퀴즈 참여 도메인 에러 (QUIZ_XXX) =====
+    QUIZ_PARTICIPATION_NOT_ALLOWED(
+        "QUIZ_001",
+        HttpStatus.FORBIDDEN,
+        "quiz.participation.not.allowed",
+        ErrorSeverity.WARN,
+        "퀴즈 참여가 허용되지 않습니다"
+    ),
+    QUIZ_PARTICIPATION_TIME_EXPIRED(
+        "QUIZ_002",
+        HttpStatus.BAD_REQUEST,
+        "quiz.participation.time.expired",
+        ErrorSeverity.WARN,
+        "퀴즈 참여 시간이 만료되었습니다"
+    ),
+    QUIZ_QUESTION_NOT_FOUND(
+        "QUIZ_003",
+        HttpStatus.NOT_FOUND,
+        "quiz.question.not.found",
+        ErrorSeverity.WARN,
+        "존재하지 않는 질문입니다"
+    ),
+    QUIZ_INVALID_ANSWER(
+        "QUIZ_004",
+        HttpStatus.BAD_REQUEST,
+        "quiz.invalid.answer",
+        ErrorSeverity.WARN,
+        "유효하지 않은 답변입니다"
+    ),
+    QUIZ_REQUIRED_ANSWER_MISSING(
+        "QUIZ_005",
+        HttpStatus.BAD_REQUEST,
+        "quiz.required.answer.missing",
+        ErrorSeverity.WARN,
+        "필수 답변이 누락되었습니다"
+    ),
+    QUIZ_INVALID_QUESTION_TYPE(
+        "QUIZ_006",
+        HttpStatus.BAD_REQUEST,
+        "quiz.invalid.question.type",
+        ErrorSeverity.WARN,
+        "지원하지 않는 질문 타입입니다"
+    ),
+    QUIZ_PARTICIPATION_NOT_FOUND(
+        "QUIZ_007",
+        HttpStatus.NOT_FOUND,
+        "quiz.participation.not.found",
+        ErrorSeverity.WARN,
+        "존재하지 않는 참여 기록입니다"
+    ),
+    QUIZ_DUPLICATE_PARTICIPATION(
+        "QUIZ_008",
+        HttpStatus.CONFLICT,
+        "quiz.duplicate.participation",
+        ErrorSeverity.WARN,
+        "이미 참여한 퀴즈입니다"
+    ),
+    QUIZ_SURVEY_NOT_ACTIVE(
+        "QUIZ_009",
+        HttpStatus.BAD_REQUEST,
+        "quiz.survey.not.active",
+        ErrorSeverity.WARN,
+        "활성화되지 않은 퀴즈입니다"
+    ),
+
     AUTHENTICATION_FAILED(
         "AUTH_001",
         HttpStatus.UNAUTHORIZED,
@@ -120,8 +183,7 @@ enum class ErrorCode(
         ErrorSeverity.WARN,
         "잘못된 인증 정보입니다"
     ),
-    
-    // ===== 검증 에러 (VALIDATION_XXX) =====
+
     VALIDATION_FAILED(
         "VALIDATION_001",
         HttpStatus.BAD_REQUEST,
@@ -143,8 +205,7 @@ enum class ErrorCode(
         ErrorSeverity.WARN,
         "잘못된 형식입니다"
     ),
-    
-    // ===== 시스템 에러 (SYS_XXX) =====
+
     DATABASE_CONNECTION_FAILED(
         "SYS_001",
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -173,6 +234,8 @@ enum class ErrorCode(
         ErrorSeverity.ERROR,
         "파일 작업에 실패했습니다"
     ),
+
+
     UNEXPECTED_ERROR(
         "SYS_999",
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -180,10 +243,12 @@ enum class ErrorCode(
         ErrorSeverity.CRITICAL,
         "예상치 못한 오류가 발생했습니다"
     );
-    
+
+
+
     companion object {
         fun fromCode(code: String): ErrorCode? {
             return values().find { it.code == code }
         }
     }
-} 
+}

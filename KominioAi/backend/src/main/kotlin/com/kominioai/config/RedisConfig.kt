@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.kominioai.domain.survey.adapter.out.cache.QuizParticipationCacheEntity
 import com.kominioai.domain.survey.adapter.out.cache.SurveyCacheEntity
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
@@ -98,4 +99,33 @@ class RedisConfig {
 
         return ReactiveRedisTemplate(factory, serializationContext)
     }
+
+    @Bean("quizParticipationRedisTemplate")
+    fun quizParticipationRedisTemplate(factory: ReactiveRedisConnectionFactory): ReactiveRedisTemplate<String, QuizParticipationCacheEntity> {
+        logger.info("Quiz Participation RedisTemplate 빈 생성")
+
+        val keySerializer = StringRedisSerializer()
+
+        val objectMapper = ObjectMapper()
+        objectMapper.registerModule(JavaTimeModule())
+        objectMapper.activateDefaultTyping(
+            LaissezFaireSubTypeValidator.instance,
+            ObjectMapper.DefaultTyping.NON_FINAL,
+            JsonTypeInfo.As.PROPERTY
+        )
+
+        val valueSerializer = Jackson2JsonRedisSerializer(QuizParticipationCacheEntity::class.java)
+        valueSerializer.setObjectMapper(objectMapper)
+
+        val serializationContext = RedisSerializationContext
+            .newSerializationContext<String, QuizParticipationCacheEntity>()
+            .key(keySerializer)
+            .value(valueSerializer)
+            .hashKey(keySerializer)
+            .hashValue(valueSerializer)
+            .build()
+
+        return ReactiveRedisTemplate(factory, serializationContext)
+    }
+
 }
