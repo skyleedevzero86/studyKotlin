@@ -20,9 +20,12 @@ class SecurityConfiguration {
             .authorizeExchange { exchanges ->
                 exchanges
                     .pathMatchers("/actuator/**").permitAll()
+                    .pathMatchers("/ws/**").permitAll()
+                    .pathMatchers("/topic/**").permitAll()
                     .anyExchange().authenticated()
             }
             .httpBasic { it.authenticationManager(authenticationManager) }
+            .csrf { it.disable() }
             .build()
     }
 

@@ -2,21 +2,19 @@ package com.kominioai.domain.survey.application.service
 
 import com.kominioai.domain.survey.application.dto.ParticipateQuizCommand
 import com.kominioai.domain.survey.application.port.`in`.ParticipateQuizUseCase
+import com.kominioai.domain.survey.application.port.out.EventPublisherPort
+import com.kominioai.domain.survey.application.port.out.ParticipationPersistencePort
 import com.kominioai.domain.survey.domain.event.QuizParticipatedEvent
 import com.kominioai.domain.survey.domain.model.SurveyParticipation
-import com.kominioai.domain.survey.domain.service.ParticipationDomainService
-import com.kominioai.domain.survey.infrastructure.persistence.ParticipationR2dbcAdapter
-import com.kominioai.global.exception.domain.SurveyDomainException
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 
 @Service
 class QuizParticipationApplicationService(
-    private val participationR2dbcAdapter: ParticipationR2dbcAdapter,
-    private val eventPublisher: ApplicationEventPublisher
+    private val participationPersistencePort: ParticipationPersistencePort,
+    private val eventPublisherPort: EventPublisherPort
 ) : ParticipateQuizUseCase {
 
     private val logger = LoggerFactory.getLogger(QuizParticipationApplicationService::class.java)
@@ -30,10 +28,10 @@ class QuizParticipationApplicationService(
                 responses = command.responses
             )
 
-            participationR2dbcAdapter.saveParticipation(participation)
+            participationPersistencePort.saveParticipation(participation)
         }
             .doOnSuccess {
-                eventPublisher.publishEvent(
+                eventPublisherPort.publish(
                     QuizParticipatedEvent(
                         surveyId = command.surveyId.value,
                         participantId = command.participantInfo.userId ?: "anonymous"

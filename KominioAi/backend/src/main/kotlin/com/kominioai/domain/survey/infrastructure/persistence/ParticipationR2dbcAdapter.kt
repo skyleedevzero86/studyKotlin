@@ -2,9 +2,7 @@ package com.kominioai.domain.survey.infrastructure.persistence
 
 import com.kominioai.domain.survey.application.port.out.ParticipationPersistencePort
 import com.kominioai.domain.survey.domain.model.SurveyParticipation
-import com.kominioai.global.exception.infrastructure.InfrastructureException
 import io.r2dbc.spi.Row
-import io.r2dbc.spi.R2dbcException
 import org.slf4j.LoggerFactory
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Component
@@ -23,10 +21,10 @@ class ParticipationR2dbcAdapter(
     @Transactional
     override fun saveParticipation(participation: SurveyParticipation): Mono<Void> {
         val participationEntity = ParticipationEntity.fromDomain(participation)
-        
-        val insertParticipationSql = """
+
+        val participationSql = """
             INSERT INTO survey_participations (
-                id, survey_id, user_id, participant_name, participant_phone, 
+                id, survey_id, user_id, participant_name, participant_phone,
                 authenticated, status, participated_at, created_at, updated_at
             ) VALUES (
                 :id, :surveyId, :userId, :participantName, :participantPhone,
@@ -34,7 +32,7 @@ class ParticipationR2dbcAdapter(
             )
         """.trimIndent()
 
-        return client.sql(insertParticipationSql)
+        return client.sql(participationSql)
             .bind("id", participationEntity.id ?: "")
             .bind("surveyId", participationEntity.surveyId)
             .bind("userId", participationEntity.userId ?: "")
@@ -47,102 +45,30 @@ class ParticipationR2dbcAdapter(
             .bind("updatedAt", participationEntity.updatedAt)
             .then()
             .flatMap {
-                saveQuestionResponses(participation.responses, participation.id.value)
-            }
-            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
-                InfrastructureException.DatabaseConnectionFailedException(ex)
+                val responses = participation.responses
+                if (responses.isNotEmpty()) {
+                    saveQuestionResponses(responses, participation.id.value)
+                } else {
+                    Mono.empty<Void>()
+                }
             }
             .doOnSuccess {
-                logger.info("설문 참여 저장 성공: participationId={}", participation.id.value)
+                logger.info("참여 저장 성공: participationId={}, surveyId={}",
+                    participation.id.value, participation.surveyId.value)
             }
             .doOnError { error ->
-                logger.error("설문 참여 저장 실패: participationId={}, error={}", participation.id.value, error.message)
-            }
-    }
-
-    private fun saveQuestionResponses(
-        responses: List<com.kominioai.domain.survey.domain.model.QuestionResponse>,
-        participationId: String
-    ): Mono<Void> {
-        if (responses.isEmpty()) return Mono.empty()
-
-        return Mono.defer {
-            val insertResponseSql = """
-                INSERT INTO question_responses (
-                    id, participation_id, question_id, answer, answer_type, created_at
-                ) VALUES (
-                    :id, :participationId, :questionId, :answer, :answerType, :createdAt
-                )
-            """.trimIndent()
-
-            val responseEntities = responses.map { response ->
-                QuestionResponseEntity.fromDomain(response, participationId)
-            }
-
-            Flux.fromIterable(responseEntities)
-                .flatMap { entity ->
-                    client.sql(insertResponseSql)
-                        .bind("id", entity.id ?: "")
-                        .bind("participationId", entity.participationId)
-                        .bind("questionId", entity.questionId)
-                        .bind("answer", entity.answer ?: "")
-                        .bind("answerType", entity.answerType)
-                        .bind("createdAt", entity.createdAt)
-                        .then()
-                }
-                .then()
-        }
-    }
-
-    fun findByParticipationId(participationId: String): Mono<SurveyParticipation> {
-        val sql = """
-            SELECT p.*, qr.id as response_id, qr.question_id, qr.answer, qr.answer_type
-            FROM survey_participations p
-            LEFT JOIN question_responses qr ON p.id = qr.participation_id
-            WHERE p.id = :participationId
-        """.trimIndent()
-
-        return client.sql(sql)
-            .bind("participationId", participationId)
-            .map { row, _ -> mapRowToParticipationWithResponses(row) }
-            .all()
-            .collectList()
-            .map { participationWithResponses ->
-                if (participationWithResponses.isEmpty()) {
-                    throw com.kominioai.global.exception.domain.SurveyDomainException.SurveyNotFoundException(
-                        com.kominioai.domain.survey.domain.model.SurveyId.fromString(participationId)
-                    )
-                }
-
-                val participation = participationWithResponses.first().first
-                val responses = participationWithResponses.mapNotNull { it.second?.toDomain() }
-
-                com.kominioai.domain.survey.domain.model.SurveyParticipation.reconstruct(
-                    id = participation.id ?: "",
-                    surveyId = participation.surveyId,
-                    participant = com.kominioai.domain.survey.domain.model.ParticipantInfo(
-                        userId = participation.userId,
-                        name = participation.participantName,
-                        phone = participation.participantPhone,
-                        authenticated = participation.authenticated
-                    ),
-                    responses = responses,
-                    status = participation.status,
-                    participatedAt = participation.participatedAt
-                )
-            }
-            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
-                InfrastructureException.DatabaseConnectionFailedException(ex)
+                logger.error("참여 저장 실패: participationId={}, error={}",
+                    participation.id.value, error.message)
             }
     }
 
     override fun findBySurveyId(surveyId: String): Flux<SurveyParticipation> {
         val sql = """
-            SELECT p.*, qr.id as response_id, qr.question_id, qr.answer, qr.answer_type
-            FROM survey_participations p
-            LEFT JOIN question_responses qr ON p.id = qr.participation_id
-            WHERE p.survey_id = :surveyId
-            ORDER BY p.participated_at DESC
+            SELECT sp.*, qr.id as response_id, qr.question_id, qr.answer, qr.answer_type
+            FROM survey_participations sp
+            LEFT JOIN question_responses qr ON sp.id = qr.participation_id
+            WHERE sp.survey_id = :surveyId
+            ORDER BY sp.participated_at DESC, qr.question_id
         """.trimIndent()
 
         return client.sql(sql)
@@ -154,7 +80,7 @@ class ParticipationR2dbcAdapter(
                 group.collectList()
                     .map { participationWithResponses ->
                         val participation = participationWithResponses.first().first
-                        val responses = participationWithResponses.mapNotNull { it.second?.toDomain() }
+                        val responses = participationWithResponses.mapNotNull { it.second }
 
                         com.kominioai.domain.survey.domain.model.SurveyParticipation.reconstruct(
                             id = participation.id ?: "",
@@ -171,12 +97,48 @@ class ParticipationR2dbcAdapter(
                         )
                     }
             }
-            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
-                InfrastructureException.DatabaseConnectionFailedException(ex)
+            .doOnError { error ->
+                logger.error("참여 목록 조회 실패: surveyId={}, error={}", surveyId, error.message)
             }
     }
 
-    private fun mapRowToParticipationWithResponses(row: Row): Pair<ParticipationEntity, QuestionResponseEntity?> {
+    override fun countBySurveyId(surveyId: String): Mono<Long> {
+        val sql = "SELECT COUNT(*) FROM survey_participations WHERE survey_id = :surveyId"
+
+        return client.sql(sql)
+            .bind("surveyId", surveyId)
+            .map { row, _ -> row.get(0, Number::class.java)?.toLong() ?: 0L }
+            .one()
+            .doOnError { error ->
+                logger.error("참여자 수 조회 실패: surveyId={}, error={}", surveyId, error.message)
+            }
+    }
+
+    private fun saveQuestionResponses(responses: List<com.kominioai.domain.survey.domain.model.QuestionResponse>, participationId: String): Mono<Void> {
+        return Flux.fromIterable(responses)
+            .flatMap { response ->
+                val responseEntity = QuestionResponseEntity.fromDomain(response, participationId)
+                val sql = """
+                    INSERT INTO question_responses (
+                        id, participation_id, question_id, answer, answer_type, created_at
+                    ) VALUES (
+                        :id, :participationId, :questionId, :answer, :answerType, :createdAt
+                    )
+                """.trimIndent()
+
+                client.sql(sql)
+                    .bind("id", responseEntity.id ?: "")
+                    .bind("participationId", responseEntity.participationId)
+                    .bind("questionId", responseEntity.questionId)
+                    .bind("answer", responseEntity.answer ?: "")
+                    .bind("answerType", responseEntity.answerType)
+                    .bind("createdAt", responseEntity.createdAt)
+                    .then()
+            }
+            .then()
+    }
+
+    private fun mapRowToParticipationWithResponses(row: Row): Pair<ParticipationEntity, com.kominioai.domain.survey.domain.model.QuestionResponse?> {
         val participation = ParticipationEntity(
             id = row.get("id", String::class.java),
             surveyId = row.get("survey_id", String::class.java) ?: "",
@@ -191,8 +153,8 @@ class ParticipationR2dbcAdapter(
         )
 
         val responseId = row.get("response_id", String::class.java)
-        val questionResponse = if (responseId != null) {
-            QuestionResponseEntity(
+        val response = if (responseId != null) {
+            val questionResponseEntity = QuestionResponseEntity(
                 id = responseId,
                 participationId = participation.id ?: "",
                 questionId = row.get("question_id", String::class.java) ?: "",
@@ -200,34 +162,9 @@ class ParticipationR2dbcAdapter(
                 answerType = row.get("answer_type", String::class.java) ?: "STRING",
                 createdAt = row.get("created_at", LocalDateTime::class.java) ?: LocalDateTime.now()
             )
+            questionResponseEntity.toDomain()
         } else null
 
-        return Pair(participation, questionResponse)
-    }
-
-    fun countBySurveyId(surveyId: String): Mono<Long> {
-        val sql = "SELECT COUNT(*) FROM survey_participations WHERE survey_id = :surveyId"
-
-        return client.sql(sql)
-            .bind("surveyId", surveyId)
-            .map { row, _ -> row.get(0, Number::class.java)?.toLong() ?: 0L }
-            .one()
-            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
-                InfrastructureException.DatabaseConnectionFailedException(ex)
-            }
-    }
-
-    fun existsBySurveyIdAndUserId(surveyId: String, userId: String): Mono<Boolean> {
-        val sql = "SELECT COUNT(*) FROM survey_participations WHERE survey_id = :surveyId AND user_id = :userId"
-
-        return client.sql(sql)
-            .bind("surveyId", surveyId)
-            .bind("userId", userId)
-            .map { row, _ -> row.get(0, Number::class.java)?.toLong() ?: 0L }
-            .one()
-            .map { count -> count > 0 }
-            .onErrorMap(R2dbcException::class.java) { ex: R2dbcException ->
-                InfrastructureException.DatabaseConnectionFailedException(ex)
-            }
+        return Pair(participation, response)
     }
 }

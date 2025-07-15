@@ -2,6 +2,7 @@ package com.kominioai.global.util
 
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.socket.WebSocketHandler
+import org.springframework.web.reactive.socket.WebSocketMessage
 import org.springframework.web.reactive.socket.WebSocketSession
 import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
@@ -17,7 +18,7 @@ class QuizWebSocketHandler : WebSocketHandler {
 
         return session.receive()
             .doOnNext { message ->
-              
+                println("Received message: ${message.payloadAsText}")
             }
             .doFinally {
                 sessions.remove(session.id)
@@ -28,7 +29,8 @@ class QuizWebSocketHandler : WebSocketHandler {
     fun sendToSurvey(surveyId: String, message: String) {
         sessions.values.forEach { session ->
             if (session.isOpen) {
-                session.send(Mono.just(session.textMessage(message))).subscribe()
+                val webSocketMessage = session.textMessage(message)
+                session.send(Mono.just(webSocketMessage)).subscribe()
             }
         }
     }

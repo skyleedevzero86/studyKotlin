@@ -7,4 +7,5 @@ import reactor.core.publisher.Flux
 interface ParticipationPersistencePort {
     fun saveParticipation(participation: SurveyParticipation): Mono<Void>
     fun findBySurveyId(surveyId: String): Flux<SurveyParticipation>
+    fun countBySurveyId(surveyId: String): Mono<Long>
 }
