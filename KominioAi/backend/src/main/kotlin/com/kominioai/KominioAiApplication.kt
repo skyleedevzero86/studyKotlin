@@ -16,8 +16,11 @@ import org.springframework.context.annotation.ComponentScan
         )
     ]
 )
-class KominioAiApplication
-
-fun main(args: Array<String>) {
-    runApplication<KominioAiApplication>(*args)
+class KominioAiApplication {
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) {
+            runApplication<KominioAiApplication>(*args)
+        }
+    }
 }
