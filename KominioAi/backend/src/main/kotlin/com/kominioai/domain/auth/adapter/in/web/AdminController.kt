@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Mono
 import jakarta.validation.Valid
+import com.kominioai.domain.auth.domain.repository.UserSecurityLogRepository
+import com.kominioai.domain.auth.domain.repository.UserStatisticsRepository
 
 @RestController
 @RequestMapping("/api/admin")

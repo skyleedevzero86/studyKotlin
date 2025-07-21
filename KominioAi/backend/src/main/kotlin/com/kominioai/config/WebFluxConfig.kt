@@ -2,27 +2,22 @@ package com.kominioai.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.web.cors.CorsConfiguration
-import org.springframework.web.cors.reactive.CorsWebFilter
-import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
-import org.springframework.web.reactive.config.EnableWebFlux
+import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.web.reactive.config.WebFluxConfigurer
+import org.springframework.web.reactive.function.server.RouterFunction
+import org.springframework.web.reactive.function.server.ServerResponse
+import org.springframework.web.reactive.function.server.router
 
 @Configuration
-@EnableWebFlux
 class WebFluxConfig : WebFluxConfigurer {
 
     @Bean
-    fun corsWebFilter(): CorsWebFilter {
-        val corsConfig = CorsConfiguration()
-        corsConfig.allowCredentials = true
-        corsConfig.addAllowedOriginPattern("*")
-        corsConfig.addAllowedHeader("*")
-        corsConfig.addAllowedMethod("*")
+    fun apiRoutes(): RouterFunction<ServerResponse> = router {
+        GET("/health") { ServerResponse.ok().bodyValue("OK") }
+    }
 
-        val source = UrlBasedCorsConfigurationSource()
-        source.registerCorsConfiguration("/**", corsConfig)
+    override fun configureHttpMessageCodecs(configurer: ServerCodecConfigurer) {
 
-        return CorsWebFilter(source)
+        configurer.defaultCodecs().maxInMemorySize(1024 * 1024)
     }
 }
