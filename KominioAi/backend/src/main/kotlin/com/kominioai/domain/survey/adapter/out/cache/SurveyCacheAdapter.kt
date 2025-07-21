@@ -3,6 +3,7 @@ package com.kominioai.domain.survey.adapter.out.cache
 import com.kominioai.domain.survey.application.port.out.CacheSurveyPort
 import com.kominioai.domain.survey.domain.model.Survey
 import com.kominioai.domain.survey.domain.model.SurveyId
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.ReactiveRedisTemplate
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Flux
@@ -11,6 +12,7 @@ import java.time.LocalDateTime
 
 @Component
 class SurveyCacheAdapter(
+    @Qualifier("reactiveSurveyCacheRedisTemplate")
     private val redisTemplate: ReactiveRedisTemplate<String, SurveyCacheEntity>
 ) : CacheSurveyPort {
 
@@ -23,6 +25,8 @@ class SurveyCacheAdapter(
         redisTemplate.opsForValue()
             .get("survey:${surveyId.value}")
             .map { entity -> entity.toDomain() }
+            .onErrorResume { Mono.empty<Survey>() }
+            .switchIfEmpty(Mono.empty<Survey>())
 
     override fun invalidateSurveyCache(surveyId: SurveyId): Mono<Boolean> =
         redisTemplate.delete("survey:${surveyId.value}")
@@ -46,6 +50,7 @@ class SurveyCacheAdapter(
             .map { entities ->
                 entities.mapNotNull { it.toDomain() }
             }
+            .onErrorResume { Mono.empty<List<Survey>>() }
 
     private fun SurveyCacheEntity.toDomain(): Survey? {
         return try {
@@ -69,4 +74,4 @@ class SurveyCacheAdapter(
             null
         }
     }
-} 
+}

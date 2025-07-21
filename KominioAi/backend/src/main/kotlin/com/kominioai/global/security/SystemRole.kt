@@ -1,6 +1,6 @@
 package com.kominioai.global.security
 
-enum class UserRole {
+enum class SystemRole {
     ANONYMOUS,
     USER,
     ADMIN,

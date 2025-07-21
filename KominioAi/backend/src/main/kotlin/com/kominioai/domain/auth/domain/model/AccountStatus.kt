@@ -1,4 +1,8 @@
 package com.kominioai.domain.auth.domain.model
 
-class AccountStatus {
+enum class AccountStatus {
+    ACTIVE,
+    INACTIVE,
+    SUSPENDED,
+    DELETED
 }

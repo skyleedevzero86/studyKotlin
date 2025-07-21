@@ -1,4 +1,6 @@
 package com.kominioai.domain.auth.domain.model
 
-class TokenType {
+enum class TokenType {
+    ACCESS,
+    REFRESH
 }

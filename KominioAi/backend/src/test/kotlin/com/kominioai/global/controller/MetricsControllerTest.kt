@@ -14,12 +14,6 @@ import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.web.reactive.server.WebTestClient
 import reactor.core.publisher.Mono
 
-/**
- * MetricsController 테스트
- * 
- * @author KominioAI Team
- * @since 1.0.0
- */
 @WebFluxTest(MetricsController::class)
 class MetricsControllerTest {
 
@@ -40,14 +34,12 @@ class MetricsControllerTest {
         meterRegistry = SimpleMeterRegistry()
         metricsUtils = MetricsUtils(meterRegistry)
         
-        // 테스트용 메트릭 데이터 생성
         setupTestMetrics()
     }
 
     @Test
     @WithMockUser(roles = ["ADMIN"])
     fun `메트릭 요약 조회 테스트`() {
-        // When & Then
         webTestClient.get()
             .uri("/api/admin/metrics/summary")
             .accept(MediaType.APPLICATION_JSON)
@@ -65,7 +57,6 @@ class MetricsControllerTest {
     @Test
     @WithMockUser(roles = ["ADMIN"])
     fun `API 성능 메트릭 조회 테스트`() {
-        // When & Then
         webTestClient.get()
             .uri("/api/admin/metrics/api/performance")
             .accept(MediaType.APPLICATION_JSON)
@@ -79,7 +70,6 @@ class MetricsControllerTest {
     @Test
     @WithMockUser(roles = ["ADMIN"])
     fun `비즈니스 메트릭 조회 테스트`() {
-        // When & Then
         webTestClient.get()
             .uri("/api/admin/metrics/business")
             .accept(MediaType.APPLICATION_JSON)
@@ -96,7 +86,6 @@ class MetricsControllerTest {
     @Test
     @WithMockUser(roles = ["ADMIN"])
     fun `시스템 메트릭 조회 테스트`() {
-        // When & Then
         webTestClient.get()
             .uri("/api/admin/metrics/system")
             .accept(MediaType.APPLICATION_JSON)
@@ -113,10 +102,8 @@ class MetricsControllerTest {
     @Test
     @WithMockUser(roles = ["SUPER_ADMIN"])
     fun `메트릭 카운터 리셋 테스트`() {
-        // Given
         val resetRequest = mapOf<String, String>()
 
-        // When & Then
         webTestClient.post()
             .uri("/api/admin/metrics/reset")
             .contentType(MediaType.APPLICATION_JSON)
@@ -130,10 +117,8 @@ class MetricsControllerTest {
     @Test
     @WithMockUser(roles = ["ADMIN"])
     fun `메트릭 카운터 리셋 권한 부족 테스트`() {
-        // Given
         val resetRequest = mapOf<String, String>()
 
-        // When & Then
         webTestClient.post()
             .uri("/api/admin/metrics/reset")
             .contentType(MediaType.APPLICATION_JSON)
@@ -144,7 +129,6 @@ class MetricsControllerTest {
 
     @Test
     fun `인증되지 않은 사용자 메트릭 조회 테스트`() {
-        // When & Then
         webTestClient.get()
             .uri("/api/admin/metrics/summary")
             .accept(MediaType.APPLICATION_JSON)
@@ -152,17 +136,12 @@ class MetricsControllerTest {
             .expectStatus().isUnauthorized
     }
 
-    /**
-     * 테스트용 메트릭 데이터 설정
-     */
     private fun setupTestMetrics() {
-        // API 메트릭
         repeat(10) { index ->
             val statusCode = if (index < 8) 200 else 500
             metricsUtils.recordApiResponseTime("/api/surveys", "GET", statusCode, 100L + index)
         }
 
-        // 비즈니스 메트릭
         repeat(5) { index ->
             metricsUtils.recordBusinessMetric("surveys.created", 1.0, 
                 mapOf("surveyId" to "test-$index", "userId" to "user-$index"))
@@ -173,7 +152,6 @@ class MetricsControllerTest {
                 mapOf("surveyId" to "test-${index % 5}", "responseId" to "response-$index"))
         }
 
-        // 캐시 메트릭
         repeat(100) { index ->
             metricsUtils.recordCacheHit("survey", "survey-$index")
         }
@@ -182,11 +160,10 @@ class MetricsControllerTest {
             metricsUtils.recordCacheMiss("survey", "survey-$index")
         }
 
-        // 시스템 메트릭
         metricsUtils.recordSystemMetric("heap.usage.percent", 75.0)
         metricsUtils.recordSystemMetric("threads.current", 25.0)
         metricsUtils.recordSystemMetric("requests.total", 10.0)
         metricsUtils.recordSystemMetric("errors.total", 2.0)
         metricsUtils.recordSystemMetric("error.rate", 20.0)
     }
-} 
+}

@@ -5,7 +5,7 @@ import com.kominioai.global.exception.base.ErrorCode
 import com.kominioai.global.exception.base.ErrorSeverity
 import com.kominioai.global.exception.response.ErrorResponse
 import com.kominioai.global.exception.response.RestApiErrorResponse
-import com.kominioai.global.security.UserRole
+import com.kominioai.global.security.SystemRole
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -21,7 +21,7 @@ class SecurityAwareErrorHandler {
 
     fun createSecureErrorResponse(
         exception: Exception,
-        userRole: UserRole,
+        userRole: SystemRole,
         requestId: String?,
         path: String
     ): ErrorResponse {

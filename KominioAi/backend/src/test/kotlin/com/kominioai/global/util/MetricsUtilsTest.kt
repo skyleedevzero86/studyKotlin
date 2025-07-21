@@ -8,12 +8,6 @@ import org.junit.jupiter.api.assertAll
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-/**
- * MetricsUtils 테스트
- * 
- * @author KominioAI Team
- * @since 1.0.0
- */
 class MetricsUtilsTest {
 
     private lateinit var meterRegistry: MeterRegistry
@@ -27,16 +21,13 @@ class MetricsUtilsTest {
 
     @Test
     fun `API 응답 시간 메트릭 기록 테스트`() {
-        // Given
         val endpoint = "/api/surveys"
         val method = "GET"
         val statusCode = 200
         val durationMs = 150L
 
-        // When
         metricsUtils.recordApiResponseTime(endpoint, method, statusCode, durationMs)
 
-        // Then
         val responseTimeSummary = meterRegistry.find("api.response.time").summary()
         val requestCounter = meterRegistry.find("api.requests.total").counter()
         val errorCounter = meterRegistry.find("api.errors.total").counter()
@@ -54,16 +45,13 @@ class MetricsUtilsTest {
 
     @Test
     fun `API 에러 메트릭 기록 테스트`() {
-        // Given
         val endpoint = "/api/surveys"
         val method = "POST"
         val statusCode = 500
         val durationMs = 200L
 
-        // When
         metricsUtils.recordApiResponseTime(endpoint, method, statusCode, durationMs)
 
-        // Then
         val responseTimeSummary = meterRegistry.find("api.response.time").summary()
         val requestCounter = meterRegistry.find("api.requests.total").counter()
         val errorCounter = meterRegistry.find("api.errors.total").counter()
@@ -81,15 +69,12 @@ class MetricsUtilsTest {
 
     @Test
     fun `비즈니스 메트릭 기록 테스트`() {
-        // Given
         val metricName = "survey.created"
         val value = 1.0
         val tags = mapOf("surveyId" to "test-123", "userId" to "user-456")
 
-        // When
         metricsUtils.recordBusinessMetric(metricName, value, tags)
 
-        // Then
         val businessMetric = meterRegistry.find("business.survey.created").summary()
         assertAll(
             { assertNotNull(businessMetric) },
@@ -100,15 +85,12 @@ class MetricsUtilsTest {
 
     @Test
     fun `시스템 메트릭 기록 테스트`() {
-        // Given
         val metricName = "active.users"
         val value = 100.0
         val tags = mapOf("environment" to "test")
 
-        // When
         metricsUtils.recordSystemMetric(metricName, value, tags)
 
-        // Then
         val systemMetric = meterRegistry.find("system.active.users").gauge()
         assertAll(
             { assertNotNull(systemMetric) },
@@ -118,15 +100,12 @@ class MetricsUtilsTest {
 
     @Test
     fun `카운터 증가 테스트`() {
-        // Given
         val counterName = "test.counter"
         val tags = mapOf("tag1" to "value1")
 
-        // When
         metricsUtils.incrementCounter(counterName, tags)
         metricsUtils.incrementCounter(counterName, tags, 2.0)
 
-        // Then
         val counter = meterRegistry.find("test.counter").counter()
         assertAll(
             { assertNotNull(counter) },
@@ -136,15 +115,12 @@ class MetricsUtilsTest {
 
     @Test
     fun `분포 요약 기록 테스트`() {
-        // Given
         val summaryName = "test.summary"
         val value = 50.0
         val tags = mapOf("tag1" to "value1")
 
-        // When
         metricsUtils.recordDistributionSummary(summaryName, value, tags)
 
-        // Then
         val summary = meterRegistry.find("test.summary").summary()
         assertAll(
             { assertNotNull(summary) },
@@ -155,16 +131,13 @@ class MetricsUtilsTest {
 
     @Test
     fun `타이머 사용 테스트`() {
-        // Given
         val timerName = "test.timer"
         val tags = mapOf("operation" to "test")
 
-        // When
         val sample = metricsUtils.startTimer(timerName, tags)
-        Thread.sleep(10) // 10ms 대기
+        Thread.sleep(10)
         metricsUtils.stopTimer(sample, timerName, tags)
 
-        // Then
         val timer = meterRegistry.find("test.timer").timer()
         assertAll(
             { assertNotNull(timer) },
@@ -172,4 +145,4 @@ class MetricsUtilsTest {
             { assert(timer.totalTime() > 0) }
         )
     }
-} 
+}

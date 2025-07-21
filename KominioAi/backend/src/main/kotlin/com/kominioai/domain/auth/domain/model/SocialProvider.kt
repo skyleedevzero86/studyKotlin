@@ -1,4 +1,9 @@
 package com.kominioai.domain.auth.domain.model
 
-class SocialProvider {
+enum class SocialProvider {
+    GOOGLE,
+    KAKAO,
+    NAVER,
+    FACEBOOK,
+    TWITTER
 }

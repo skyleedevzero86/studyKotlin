@@ -13,7 +13,7 @@ import com.kominioai.global.exception.response.RestApiErrorResponse
 import com.kominioai.global.exception.response.ValidationErrorResponse
 import com.kominioai.global.exception.security.SecurityAwareErrorHandler
 import com.kominioai.global.exception.validation.ValidationException
-import com.kominioai.global.security.UserRole
+import com.kominioai.global.security.SystemRole
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
@@ -191,8 +191,8 @@ class ReactiveGlobalExceptionHandler(
         }
     }
 
-    private fun determineUserRole(exchange: ServerWebExchange): UserRole {
+    private fun determineUserRole(exchange: ServerWebExchange): SystemRole {
 
-        return exchange.getAttribute("userRole") ?: UserRole.ANONYMOUS
+        return exchange.getAttribute("userRole") ?: SystemRole.ANONYMOUS
     }
 } 
