@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE 스트리밍 대화</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f9;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background-color: #4a90e2;
+            color: white;
+            padding: 16px;
+            font-size: 1.2em;
+            text-align: center;
+            font-weight: bold;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 75%;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #dcf8c6;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            background-color: #e9e9eb;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #f9f9f9;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            resize: none;
+            font-size: 1em;
+            margin-right: 10px;
+            font-family: inherit;
+        }
+        #send-button {
+            padding: 12px 25px;
+            border: none;
+            background-color: #4a90e2;
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        #send-button:hover:not(:disabled) {
+            background-color: #357abd;
+        }
+        #send-button:disabled {
+            background-color: #a0c7ff;
+            cursor: not-allowed;
+        }
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            padding: 12px 18px;
+            background-color: #e9e9eb;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            max-width: 75%;
+        }
+        .typing-indicator.show {
+            display: block;
+        }
+        .typing-dots {
+            display: inline-block;
+        }
+        .typing-dots::after {
+            content: '';
+            animation: typing 1.4s infinite;
+        }
+        @keyframes typing {
+            0%, 60% { content: ''; }
+            20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        🤖 AI 실시간 대화 챗봇
+        <small style="font-size: 0.8em; display: block; margin-top: 4px;">Ollama + Kotlin SSE</small>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+        <div class="message bot-message">
+            안녕하세요! 무엇을 도와드릴까요? 😊
+        </div>
+        <div class="typing-indicator" id="typing-indicator">
+            <span class="typing-dots">AI가 생각 중</span>
+        </div>
+    </div>
+    <div class="chat-input-area">
+        <textarea id="message-input" placeholder="질문을 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)" rows="1"></textarea>
+        <button id="send-button">전송</button>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const chatMessages = document.getElementById('chat-messages');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    let eventSource = null;
+    let currentBotMessageElement = null;
+
+    function connectSSE() {
+        if (eventSource) {
+            eventSource.close();
+        }
+
+        console.log('SSE 연결 시도 중...', userId);
+        eventSource = new EventSource(`/sse/connect?userId=${userId}`);
+
+        eventSource.addEventListener('add', (event) => {
+            console.log('받은 데이터:', event.data);
+            hideTypingIndicator();
+
+            if (!currentBotMessageElement) {
+                currentBotMessageElement = createMessageElement('bot-message');
+                chatMessages.appendChild(currentBotMessageElement);
+            }
+
+            if (event.data && event.data.toLowerCase() !== 'null' && event.data.trim() !== '') {
+                currentBotMessageElement.textContent += event.data;
+            }
+            scrollToBottom();
+        });
+
+        eventSource.addEventListener('finish', (event) => {
+            console.log('스트림 완료:', event.data);
+            hideTypingIndicator();
+            currentBotMessageElement = null;
+            sendButton.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+            eventSource.close();
+        });
+
+        eventSource.onopen = (event) => {
+            console.log('SSE 연결 성공');
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('SSE 오류:', error);
+            hideTypingIndicator();
+            sendButton.disabled = false;
+            messageInput.disabled = false;
+
+            if (!currentBotMessageElement) {
+                const errorMessage = createMessageElement('bot-message', '연결 오류가 발생했습니다. 다시 시도해주세요.');
+                chatMessages.appendChild(errorMessage);
+                scrollToBottom();
+            }
+
+            eventSource.close();
+        };
+    }
+
+    async function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        const userMessageElement = createMessageElement('user-message', message);
+        chatMessages.appendChild(userMessageElement);
+        messageInput.value = '';
+
+        showTypingIndicator();
+        scrollToBottom();
+
+        sendButton.disabled = true;
+        messageInput.disabled = true;
+
+        connectSSE();
+
+        try {
+            const response = await fetch('/chat/ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    currentUserName: userId,
+                    message: message,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('메시지 전송 실패:', error);
+            hideTypingIndicator();
+            const errorMessage = createMessageElement('bot-message', '죄송합니다. 메시지 전송에 실패했습니다. 네트워크를 확인해주세요.');
+            chatMessages.appendChild(errorMessage);
+            sendButton.disabled = false;
+            messageInput.disabled = false;
+            messageInput.focus();
+            scrollToBottom();
+        }
+    }
+
+    function createMessageElement(className, text = '') {
+        const div = document.createElement('div');
+        div.className = `message ${className}`;
+        div.textContent = text;
+        return div;
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+        typingIndicator.classList.add('show');
+        scrollToBottom();
+    }
+
+    function hideTypingIndicator() {
+        typingIndicator.classList.remove('show');
+    }
+
+    sendButton.addEventListener('click', sendMessage);
+
+    messageInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+
+    window.addEventListener('load', () => {
+        messageInput.focus();
+    });
+</script>
+</body>
+</html>

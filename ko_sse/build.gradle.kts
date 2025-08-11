@@ -22,22 +22,19 @@ repositories {
 extra["springAiVersion"] = "1.0.0-M1"
 
 dependencies {
-    
+
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
-    implementation("org.springframework.ai:spring-ai-ollama-spring-boot-starter")
     implementation("org.springframework.ai:spring-ai-transformers-spring-boot-starter")
-    implementation("com.microsoft.onnxruntime:onnxruntime:1.17.1")
-    implementation("ai.djl.huggingface:tokenizers:0.28.0")
     implementation("org.springframework.boot:spring-boot-starter-logging")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+
 }
 
 dependencyManagement {
