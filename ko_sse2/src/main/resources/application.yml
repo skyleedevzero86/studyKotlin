@@ -17,6 +17,16 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
+      stream:
+        poll-timeout: 1000ms
+        batch-size: 100
+      listener:
+        pool-size: 10
+        max-connections: 50
+      cluster:
+        nodes:
+          - 127.0.0.1:9379
+        max-redirects: 3
   devtools:
     livereload:
       enabled: true
@@ -62,3 +72,20 @@ logging:
 
 server:
   port: 8080
+
+sse:
+  redis:
+    streams:
+      enabled: true
+      retention: 24h
+      max-length: 10000
+    pubsub:
+      enabled: true
+      channels:
+        - "sse:user:*"
+        - "sse:broadcast"
+        - "sse:system"
+    monitoring:
+      enabled: true
+      health-check-interval: 30s
+      metrics-interval: 60s

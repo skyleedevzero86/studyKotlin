@@ -1,5 +1,6 @@
 package com.sleekydz86.rag.config
 
+import com.sleekydz86.rag.infrastructure.external.RedisBasedSSEServer
 import com.sleekydz86.rag.presentation.controller.SseController
 import org.springframework.ai.vectorstore.VectorStore
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -15,12 +16,13 @@ import org.springframework.data.redis.serializer.StringRedisSerializer
 class ApplicationConfig {
 
     @Bean
-    fun sseController(): SseController = SseController()
+    fun sseController(redisBasedSSEServer: RedisBasedSSEServer): SseController =
+        SseController(redisBasedSSEServer)
 
     @Bean
     fun redisTemplate(connectionFactory: RedisConnectionFactory): RedisTemplate<String, Any> {
         val template = RedisTemplate<String, Any>()
-        template.connectionFactory = connectionFactory
+        template.setConnectionFactory(connectionFactory)
 
         template.keySerializer = StringRedisSerializer()
         template.hashKeySerializer = StringRedisSerializer()
@@ -35,5 +37,6 @@ class ApplicationConfig {
     @Bean
     @Primary
     @ConditionalOnMissingBean
-    fun vectorStore(redisTemplate: RedisTemplate<String, Any>): VectorStore = RedisVectorStore(redisTemplate)
+    fun vectorStore(redisTemplate: RedisTemplate<String, Any>): VectorStore =
+        RedisVectorStore(redisTemplate)
 }

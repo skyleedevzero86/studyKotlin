@@ -1,6 +1,7 @@
 package com.sleekydz86.rag.application.service
 
 import com.sleekydz86.rag.domain.model.ChatEntity
+import com.sleekydz86.rag.infrastructure.external.RedisBasedSSEServer
 import com.sleekydz86.rag.infrastructure.external.SSEServer
 import com.sleekydz86.rag.infrastructure.external.sse.SSEMsgType
 import org.slf4j.LoggerFactory
@@ -12,7 +13,8 @@ import org.springframework.stereotype.Service
 @Service
 class ChatServiceImpl(
     private val chatClient: ChatClient,
-    private val documentService: DocumentService
+    private val documentService: DocumentService,
+    private val redisBasedSSEServer: RedisBasedSSEServer
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -58,21 +60,23 @@ class ChatServiceImpl(
             if (content.isNotEmpty()) {
                 val chunks = content.chunked(100)
                 chunks.forEach { chunk ->
-                    SSEServer.sendMsg(userId, chunk, SSEMsgType.ADD)
+                    redisBasedSSEServer.sendMsg(userId, chunk, SSEMsgType.ADD)
                     Thread.sleep(50)
                 }
             }
 
             logger.info("【사용자: $userId】응답이 성공적으로 완료되었습니다.")
-            SSEServer.sendMsg(userId, "done", SSEMsgType.FINISH)
-            SSEServer.close(userId)
+            redisBasedSSEServer.sendMsg(userId, "done", SSEMsgType.FINISH)
+            redisBasedSSEServer.close(userId)
 
         } catch (error: Exception) {
             logger.error("【사용자: $userId】AI 처리 중 오류 발생: ${error.message}", error)
-            SSEServer.sendMsg(userId, "죄송합니다. 서비스에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.", SSEMsgType.FINISH)
-            SSEServer.close(userId)
+            redisBasedSSEServer.sendMsg(userId, "죄송합니다. 서비스에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.", SSEMsgType.FINISH)
+            redisBasedSSEServer.close(userId)
         }
     }
+
+
 
     private fun createRAGPrompt(question: String): Prompt {
         val searchResults = documentService.doSearch(question)
