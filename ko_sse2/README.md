@@ -1,3 +1,5 @@
+<img width="707" height="888" alt="image" src="https://github.com/user-attachments/assets/f078f3f5-0ac5-4465-bb75-50af221222d1" />
+
 # RAG 강화 스트리밍 채팅 시스템
 
 ## 📖 프로젝트 개요
