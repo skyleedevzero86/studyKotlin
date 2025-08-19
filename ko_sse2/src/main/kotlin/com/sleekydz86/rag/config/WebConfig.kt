@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import org.springframework.web.servlet.config.annotation.CorsRegistry
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry
 
 @Configuration
 class WebConfig : WebMvcConfigurer {
@@ -19,5 +20,10 @@ class WebConfig : WebMvcConfigurer {
             .allowedOrigins("*")
             .allowedMethods("*")
             .allowedHeaders("*")
+    }
+
+    override fun addViewControllers(registry: ViewControllerRegistry) {
+        registry.addViewController("/").setViewName("index")
+        registry.addViewController("/index").setViewName("index")
     }
 }
