@@ -1,0 +1,23 @@
+package com.sleekydz86.rag.config
+
+import org.springframework.context.annotation.Configuration
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
+import org.springframework.web.servlet.config.annotation.CorsRegistry
+
+@Configuration
+class WebConfig : WebMvcConfigurer {
+
+    override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
+        registry.addResourceHandler("/**")
+            .addResourceLocations("classpath:/templates/")
+            .setCachePeriod(0)
+    }
+
+    override fun addCorsMappings(registry: CorsRegistry) {
+        registry.addMapping("/**")
+            .allowedOrigins("http://localhost:8080")
+            .allowedMethods("*")
+    }
+
+}

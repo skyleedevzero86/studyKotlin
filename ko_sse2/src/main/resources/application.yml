@@ -1,0 +1,60 @@
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 9379
+      password: 123456
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+  devtools:
+    livereload:
+      enabled: true
+    restart:
+      enabled: true
+
+  web:
+    resources:
+      static-locations: classpath:/templates/
+      cache-period: 0
+
+  ai:
+    vectorstore:
+      redis:
+        initialize-schema: true
+        index-name: lee-vectorstore
+        prefix: "lee:"
+
+    openai:
+      api-key: ${OPENAI_API_KEY:your-api-key-here}
+      chat:
+        model: gpt-3.5-turbo
+        temperature: 0.7
+        max-tokens: 1000
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.function.context.config.ContextFunctionCatalogAutoConfiguration
+      - org.springframework.cloud.function.context.config.ContextFunctionCatalogAutoConfiguration$PlainFunctionScanConfiguration
+
+logging:
+  level:
+    com.cc: DEBUG
+    org.springframework.ai: DEBUG
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
