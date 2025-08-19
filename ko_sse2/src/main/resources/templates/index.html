@@ -239,18 +239,23 @@
     const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
     let eventSource = null;
     let currentBotMessageElement = null;
+
     async function handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
+
         uploadButton.classList.add('loading');
         uploadButton.style.pointerEvents = 'none';
+
         const formData = new FormData();
         formData.append('file', file);
+
         try {
             const response = await fetch('/rag/upload', {
                 method: 'POST',
                 body: formData,
             });
+
             const result = await response.json();
             if (response.ok && result.status === 200) {
                 showToast(`문서 "${file.name}" 업로드 성공!`, 'success');
@@ -266,6 +271,7 @@
             fileInput.value = '';
         }
     }
+
     function showToast(message, type = 'success') {
         toast.textContent = message;
         toast.className = 'show';
@@ -274,11 +280,14 @@
             toast.className = toast.className.replace('show', '');
         }, 3000);
     }
+
     function connectSSE() {
         if (eventSource) {
             eventSource.close();
         }
+
         eventSource = new EventSource(`/sse/connect?userId=${userId}`);
+
         eventSource.addEventListener('add', (event) => {
             if (!currentBotMessageElement) {
                 currentBotMessageElement = createMessageElement('bot-message');
@@ -289,6 +298,7 @@
             }
             scrollToBottom();
         });
+
         eventSource.addEventListener('finish', (event) => {
             console.log('스트림 완료:', event.data);
             currentBotMessageElement = null;
@@ -296,6 +306,7 @@
             messageInput.disabled = false;
             eventSource.close();
         });
+
         eventSource.onerror = (error) => {
             console.error('SSE 오류:', error);
             if (currentBotMessageElement) {
@@ -306,21 +317,25 @@
             eventSource.close();
         };
     }
+
     async function sendMessage() {
         const message = messageInput.value.trim();
         if (!message) return;
+
         displayUserMessage(message);
         messageInput.value = '';
         messageInput.focus();
         sendButton.disabled = true;
         messageInput.disabled = true;
+
         connectSSE();
+
         const useKnowledgeBase = knowledgeToggle.checked;
         updatePlaceholder();
+
         try {
             await fetch('/chat/send', {
                 method: 'POST',
-                headersენ
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -337,25 +352,30 @@
             messageInput.disabled = false;
         }
     }
+
     function createMessageElement(className, htmlContent = '') {
         const div = document.createElement('div');
         div.className = `message ${className}`;
         div.innerHTML = htmlContent;
         return div;
     }
+
     function displayUserMessage(message) {
         const userMessageElement = createMessageElement('user-message', message);
         chatMessages.appendChild(userMessageElement);
         scrollToBottom();
     }
+
     function displayBotMessage(message) {
         const botMessageElement = createMessageElement('bot-message', message);
         chatMessages.appendChild(botMessageElement);
         scrollToBottom();
     }
+
     function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
     function updatePlaceholder() {
         if (knowledgeToggle.checked) {
             messageInput.placeholder = '업로드된 지식베이스를 기반으로 질문하세요...';
@@ -363,6 +383,7 @@
             messageInput.placeholder = '자유롭게 대화해보세요...';
         }
     }
+
     sendButton.addEventListener('click', sendMessage);
     messageInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -372,6 +393,7 @@
     });
     fileInput.addEventListener('change', handleFileUpload);
     knowledgeToggle.addEventListener('change', updatePlaceholder);
+
     updatePlaceholder();
 </script>
 </body>

@@ -10,14 +10,14 @@ class WebConfig : WebMvcConfigurer {
 
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
         registry.addResourceHandler("/**")
-            .addResourceLocations("classpath:/templates/")
+            .addResourceLocations("classpath:/templates/", "classpath:/static/")
             .setCachePeriod(0)
     }
 
     override fun addCorsMappings(registry: CorsRegistry) {
         registry.addMapping("/**")
-            .allowedOrigins("http://localhost:8080")
+            .allowedOrigins("*")
             .allowedMethods("*")
+            .allowedHeaders("*")
     }
-
 }

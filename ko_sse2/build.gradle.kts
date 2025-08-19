@@ -33,14 +33,11 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 
-    // Spring AI 의존성들 (Spring Cloud Function 제외)
+    // Spring AI 의존성들
     implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter") {
         exclude(group = "org.springframework.cloud", module = "spring-cloud-function-context")
     }
-    implementation("org.springframework.ai:spring-ai-starter-vector-store-redis") {
-        exclude(group = "org.springframework.cloud", module = "spring-cloud-function-context")
-    }
-    implementation("org.springframework.ai:spring-ai-starter-model-transformers") {
+    implementation("org.springframework.ai:spring-ai-redis-store-spring-boot-starter") {
         exclude(group = "org.springframework.cloud", module = "spring-cloud-function-context")
     }
     implementation("org.springframework.ai:spring-ai-tika-document-reader") {
@@ -54,8 +51,10 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.jetbrains.kotlin:mockk:1.13.8")
+    testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("com.ninja-squad:springmockk:4.0.2")
+
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 }
 
 dependencyManagement {
@@ -68,7 +67,7 @@ configurations.all {
     resolutionStrategy {
         force("ch.qos.logback:logback-classic:1.5.18")
         force("ch.qos.logback:logback-core:1.5.18")
-        // Spring Cloud Function 완전 제외
+
         exclude(group = "org.springframework.cloud", module = "spring-cloud-function-context")
     }
 }

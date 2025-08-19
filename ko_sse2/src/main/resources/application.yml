@@ -1,4 +1,10 @@
 spring:
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false  # 개발 중에는 false
   data:
     redis:
       host: 127.0.0.1
@@ -19,7 +25,7 @@ spring:
 
   web:
     resources:
-      static-locations: classpath:/templates/
+      static-locations: classpath:/templates/,classpath:/static/
       cache-period: 0
 
   ai:
@@ -30,7 +36,7 @@ spring:
         prefix: "lee:"
 
     openai:
-      api-key: ${OPENAI_API_KEY:your-api-key-here}
+      api-key: ${서비스 키}
       chat:
         model: gpt-3.5-turbo
         temperature: 0.7
@@ -48,7 +54,7 @@ spring:
 
 logging:
   level:
-    com.cc: DEBUG
+    com.sleekydz86: DEBUG
     org.springframework.ai: DEBUG
     root: INFO
   pattern:
@@ -56,5 +62,3 @@ logging:
 
 server:
   port: 8080
-  servlet:
-    context-path: /api
