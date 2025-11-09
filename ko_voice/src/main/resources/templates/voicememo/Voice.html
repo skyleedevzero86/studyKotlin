@@ -275,7 +275,6 @@
 </div>
 
 <script>
-    // 폼 검증 함수들
     function validateTranscribeForm() {
         const audioInput = document.getElementById('audioInput');
         if (!audioInput.files || audioInput.files.length === 0) {
@@ -283,7 +282,6 @@
             return false;
         }
 
-        // 파일 크기 체크 (25MB)
         const file = audioInput.files[0];
         if (file.size > 25 * 1024 * 1024) {
             alert('음성 파일이 너무 큽니다. 25MB 이하의 파일을 사용해주세요.');
@@ -308,7 +306,6 @@
         return true;
     }
 
-    // 텍스트 길이 카운터
     document.getElementById('text').addEventListener('input', function() {
         const text = this.value;
         const remaining = 4096 - text.length;
@@ -324,11 +321,10 @@
         }
     });
 
-    // 음성 선택 시 정보 업데이트 (현재는 PlayAI 음성만 있으므로 간소화)
     document.getElementById('voice').addEventListener('change', function() {
         const voiceInfo = this.parentElement.querySelector('.voice-info');
         voiceInfo.textContent = 'Groq PlayAI 음성을 사용합니다.';
-        voiceInfo.style.color = '#7f8c8d'; // 기본 색상 유지
+        voiceInfo.style.color = '#7f8c8d';
     });
 </script>
 </body>
