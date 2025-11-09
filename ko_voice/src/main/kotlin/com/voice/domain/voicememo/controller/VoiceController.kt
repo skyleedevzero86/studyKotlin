@@ -79,7 +79,7 @@ class VoiceController(
         try {
             if (text.isBlank()) {
                 model.addAttribute("error", "텍스트를 입력해주세요.")
-            } else if (voice !in supportedVoices) { // 선택된 목소리가 지원 목록에 있는지 확인
+            } else if (voice !in supportedVoices) {
                 model.addAttribute("error", "선택하신 음성(${voice})은 PlayAI 모델에서 지원하지 않습니다. 목록에서 선택해주세요.")
             } else {
                 val audioFileName = voiceService.processTextToSpeech(text, voice)
