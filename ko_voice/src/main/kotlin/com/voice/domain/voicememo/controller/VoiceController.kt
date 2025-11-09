@@ -50,7 +50,9 @@ class VoiceController(
             if (audio == null || audio.isEmpty) {
                 model.addAttribute("error", "음성 파일이 제공되지 않았습니다.")
             } else {
-                val transcript = voiceService.processSpeechToText(audio.bytes, language)
+                val originalFilename = audio.originalFilename ?: "audio"
+                val extension = originalFilename.substringAfterLast('.', "wav")
+                val transcript = voiceService.processSpeechToText(audio.bytes, language, extension)
                 model.addAttribute("transcript", transcript)
                 model.addAttribute("success", "음성이 성공적으로 텍스트로 변환되었습니다.")
             }

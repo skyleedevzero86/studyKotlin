@@ -21,7 +21,7 @@ class VoiceService(
         private const val MAX_TEXT_LENGTH = 4096
     }
 
-    fun processSpeechToText(audioData: ByteArray, language: String): String {
+    fun processSpeechToText(audioData: ByteArray, language: String, extension: String = "wav"): String {
         if (audioData.size > MAX_FILE_SIZE) {
             throw IllegalArgumentException("음성 파일이 너무 큽니다. 최대 25MB까지 지원됩니다.")
         }
@@ -31,7 +31,8 @@ class VoiceService(
         }
 
         val timestamp = LocalDateTime.now().format(TIMESTAMP_FORMATTER)
-        val audioFile = File(uploadDir, "input_$timestamp.wav")
+        val safeExtension = if (extension.isNotBlank() && extension.length <= 10) extension else "wav"
+        val audioFile = File(uploadDir, "input_$timestamp.$safeExtension")
 
         return try {
             if (!uploadDir.exists()) {

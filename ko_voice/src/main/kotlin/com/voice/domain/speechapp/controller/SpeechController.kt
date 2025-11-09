@@ -1,6 +1,7 @@
 package com.voice.domain.speechapp.controller
 
 import com.voice.domain.global.util.KoreanRomanizer
+import org.apache.commons.io.FileUtils
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.*
@@ -14,10 +15,14 @@ import org.springframework.web.multipart.MultipartFile
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @Controller
-class SpeechController {
+class SpeechController(
+    private val uploadDir: File
+) {
 
     @Value("\${groq.api.key}")
     private lateinit var apiKey: String
@@ -40,6 +45,28 @@ class SpeechController {
         @RequestParam("language", defaultValue = "ko") language: String
     ): Map<String, Any?> {
         return try {
+            if (audioFile.isEmpty) {
+                return mapOf(
+                    "success" to false,
+                    "error" to "음성 파일이 비어있습니다."
+                )
+            }
+
+            println("STT Request - File: ${audioFile.originalFilename}, Size: ${audioFile.size} bytes, Model: $model, Language: $language")
+
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs()
+            }
+
+            val originalFilename = audioFile.originalFilename ?: "audio.wav"
+            val extension = originalFilename.substringAfterLast('.', "wav")
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+            val safeExtension = if (extension.isNotBlank() && extension.length <= 10) extension else "wav"
+            val savedFile = File(uploadDir, "input_$timestamp.$safeExtension")
+
+            FileUtils.writeByteArrayToFile(savedFile, audioFile.bytes)
+            println("Saved input file: ${savedFile.absolutePath}, size: ${savedFile.length()} bytes")
+
             val headers = HttpHeaders().apply {
                 set("Authorization", "Bearer $apiKey")
                 contentType = MediaType.MULTIPART_FORM_DATA
@@ -47,7 +74,7 @@ class SpeechController {
 
             val body: MultiValueMap<String, Any> = LinkedMultiValueMap<String, Any>().apply {
                 add("file", object : ByteArrayResource(audioFile.bytes) {
-                    override fun getFilename(): String = audioFile.originalFilename ?: "audio.wav"
+                    override fun getFilename(): String = originalFilename
                 })
                 add("model", model)
                 add("language", language)
@@ -61,19 +88,35 @@ class SpeechController {
                 Map::class.java
             )
 
+            println("STT API Response - Status: ${response.statusCode}")
+
             @Suppress("UNCHECKED_CAST")
             val responseBody = response.body as? Map<String, Any> ?: emptyMap()
 
+            val text = responseBody["text"] as? String ?: ""
+            println("STT Result - Text length: ${text.length}, Preview: ${text.take(100)}")
+
+            if (text.isBlank()) {
+                return mapOf(
+                    "success" to false,
+                    "error" to "음성에서 텍스트를 인식할 수 없습니다. 음성이 명확한지 확인해주세요."
+                )
+            }
+
             mapOf(
                 "success" to true,
-                "text" to (responseBody["text"] ?: ""),
+                "text" to text,
                 "segments" to (responseBody["segments"] ?: emptyList<Any>()),
-                "words" to (responseBody["words"] ?: emptyList<Any>())
+                "words" to (responseBody["words"] ?: emptyList<Any>()),
+                "savedFile" to savedFile.name,
+                "savedPath" to savedFile.absolutePath
             )
         } catch (e: Exception) {
+            println("STT Error: ${e.message}")
+            e.printStackTrace()
             mapOf(
                 "success" to false,
-                "error" to e.message
+                "error" to (e.message ?: "음성 변환 중 오류가 발생했습니다.")
             )
         }
     }
@@ -108,6 +151,19 @@ class SpeechController {
                 ByteArray::class.java
             )
 
+            if (response.body != null && response.body!!.isNotEmpty()) {
+                if (!uploadDir.exists()) {
+                    uploadDir.mkdirs()
+                }
+
+                val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                val safeVoice = voice.replace("-", "_").take(20)
+                val outputFile = File(uploadDir, "output_${safeVoice}_$timestamp.wav")
+
+                FileUtils.writeByteArrayToFile(outputFile, response.body!!)
+                println("Saved output file: ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
+            }
+
             val responseHeaders = HttpHeaders().apply {
                 contentType = MediaType.parseMediaType("audio/wav")
                 setContentDispositionFormData("attachment", "speech.wav")
@@ -115,6 +171,8 @@ class SpeechController {
 
             ResponseEntity(response.body, responseHeaders, HttpStatus.OK)
         } catch (e: Exception) {
+            println("TTS Error: ${e.message}")
+            e.printStackTrace()
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
