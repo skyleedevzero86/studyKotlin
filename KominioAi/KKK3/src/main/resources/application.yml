@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: kominioai-bulletin
+
+  profiles:
+    active: dev
+
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/kominioai_bulletin
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+    pool:
+      initial-size: 5
+      max-size: 20
+      max-idle-time: 30m
+      max-acquire-time: 30s
+      max-create-connection-time: 30s
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  webflux:
+    base-path: /api
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: openid,profile,email
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+
+server:
+  port: 8080
+  servlet:
+    context-path: /bulletin
+
+logging:
+  level:
+    com.kominioai.domain.bulletin: DEBUG
+    org.springframework.r2dbc: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+bulletin:
+  config:
+    max-post-length: 5000
+    max-comment-length: 1000
+    max-title-length: 200
+    max-reply-depth: 2
+    pagination:
+      default-size: 20
+      max-size: 100
+    cache:
+      post-ttl: 300s
+      comment-ttl: 300s
+    rate-limit:
+      post-creation: 10
+      comment-creation: 30
+      window-duration: 1h
