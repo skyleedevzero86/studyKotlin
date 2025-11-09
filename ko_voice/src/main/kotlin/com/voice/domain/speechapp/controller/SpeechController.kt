@@ -1,5 +1,6 @@
 package com.voice.domain.speechapp.controller
 
+import com.voice.domain.global.util.KoreanRomanizer
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.*
@@ -31,7 +32,6 @@ class SpeechController {
         return "audioprocessor/speechapp"
     }
 
-    // 음성을 텍스트로 변환 (Speech-to-Text)
     @PostMapping("/speech-to-text")
     @ResponseBody
     fun speechToText(
@@ -52,10 +52,6 @@ class SpeechController {
                 add("model", model)
                 add("language", language)
                 add("response_format", "verbose_json")
-                // --- FIX IS HERE: Removed timestamp_granularities parameters ---
-                // add("timestamp_granularities", "word")
-                // add("timestamp_granularities", "segment")
-                // --- END FIX ---
             }
 
             val request = HttpEntity(body, headers)
@@ -82,7 +78,6 @@ class SpeechController {
         }
     }
 
-    // 텍스트를 음성으로 변환 (Text-to-Speech)
     @PostMapping("/text-to-speech")
     @ResponseBody
     fun textToSpeech(
@@ -94,13 +89,14 @@ class SpeechController {
                 contentType = MediaType.APPLICATION_JSON
             }
 
-            val text = requestBodyMap["text"] as? String ?: ""
+            val originalText = requestBodyMap["text"] as? String ?: ""
             val voice = requestBodyMap["voice"] as? String ?: "Fritz-PlayAI"
             val model = requestBodyMap["model"] as? String ?: "playai-tts"
+            val processedText = KoreanRomanizer.preprocessTextForTTS(originalText)
 
             val requestBody = mapOf(
                 "model" to model,
-                "input" to text,
+                "input" to processedText,
                 "voice" to voice,
                 "response_format" to "wav"
             )
@@ -123,7 +119,6 @@ class SpeechController {
         }
     }
 
-    // 음성 파일 저장
     @PostMapping("/save-audio")
     @ResponseBody
     fun saveAudio(
@@ -153,7 +148,6 @@ class SpeechController {
         }
     }
 
-    // 저장된 음성 파일 목록 조회
     @GetMapping("/audio-files")
     @ResponseBody
     fun getAudioFiles(): Map<String, Any?> {
@@ -177,7 +171,6 @@ class SpeechController {
         }
     }
 
-    // 저장된 음성 파일 재생
     @GetMapping("/play-audio/{filename}")
     fun playAudio(@PathVariable filename: String): ResponseEntity<ByteArray> {
         return try {

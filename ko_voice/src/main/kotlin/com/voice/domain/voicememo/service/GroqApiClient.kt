@@ -32,9 +32,6 @@ class GroqApiClient(
         private const val RETRY_DELAY_MS = 1000L
     }
 
-    /**
-     * 음성을 텍스트로 변환 (STT) - 재시도 로직 포함
-     */
     fun transcribe(request: TranscriptionRequest): TranscriptionResponse {
         val url = "$baseUrl$sttEndpoint"
 
@@ -57,7 +54,7 @@ class GroqApiClient(
 
                 val result = httpClient.execute(httpPost) { response ->
                     val status = response.code
-                    val responseBody = EntityUtils.toString(response.entity) // STT는 항상 JSON 응답이므로 OK
+                    val responseBody = EntityUtils.toString(response.entity)
 
                     println("STT API Response - Status: $status")
 
@@ -80,7 +77,7 @@ class GroqApiClient(
                             if (attempt < MAX_RETRIES - 1) {
                                 println("Server error, retrying... (attempt ${attempt + 1})")
                                 Thread.sleep(RETRY_DELAY_MS * (attempt + 1))
-                                null // 재시도를 위해 null 반환
+                                null
                             } else {
                                 throw IllegalStateException("서버 오류가 발생했습니다")
                             }
@@ -92,7 +89,7 @@ class GroqApiClient(
                 }
 
                 if (result != null) {
-                    return result // 성공 시 결과 반환
+                    return result
                 }
             } catch (e: SocketTimeoutException) {
                 if (attempt < MAX_RETRIES - 1) {
@@ -114,9 +111,6 @@ class GroqApiClient(
         throw IllegalStateException("STT API 호출이 최대 재시도 횟수를 초과했습니다")
     }
 
-    /**
-     * 텍스트를 음성으로 변환 (TTS) - 다중 모델 지원 및 재시도 로직
-     */
     fun generateSpeech(request: SpeechRequest): ByteArray {
         val url = "$baseUrl$ttsEndpoint"
 
@@ -138,7 +132,6 @@ class GroqApiClient(
 
                     when (status) {
                         HttpStatus.SC_OK -> {
-                            // 성공 시에는 에러 바디를 읽지 않고 바로 오디오 데이터를 읽습니다.
                             val data = EntityUtils.toByteArray(response.entity)
                             println("TTS response data size: ${data.size} bytes")
 
@@ -149,15 +142,12 @@ class GroqApiClient(
                             data
                         }
                         else -> {
-                            // 에러 응답일 경우에만 바디를 String으로 읽습니다.
                             val errorBody = EntityUtils.toString(response.entity)
                             val errorMessage = parseErrorMessage(errorBody)
 
-                            // PlayAI 모델 약관 동의 필요 메시지 처리
                             if (errorBody.contains("model_terms_required")) {
                                 throw IllegalStateException("PlayAI 모델 사용을 위해 약관 동의가 필요합니다. Groq 콘솔에서 약관에 동의하거나 다른 음성을 선택해주세요.")
                             }
-                            // 잘못된 모델 또는 음성 처리
                             else if (errorBody.contains("voice must be one of the following voices")) {
                                 throw IllegalArgumentException("잘못된 요청: " + errorMessage)
                             }
@@ -193,9 +183,6 @@ class GroqApiClient(
         throw IllegalStateException("TTS API 호출이 최대 재시도 횟수를 초과했습니다")
     }
 
-    /**
-     * TTS 요청 본문 생성
-     */
     private fun createTtsRequestBody(request: SpeechRequest): String {
         val requestMap = mutableMapOf<String, Any>(
             "model" to request.model,
@@ -206,18 +193,13 @@ class GroqApiClient(
 
         when (request.model) {
             "playai-tts" -> {
-                requestMap["speed"] = 1.0 // speed는 유효한 파라미터
-
+                requestMap["speed"] = 1.0
             }
-
         }
 
         return mapper.writeValueAsString(requestMap)
     }
 
-    /**
-     * API 오류 메시지 파싱
-     */
     private fun parseErrorMessage(responseBody: String): String {
         return try {
             val errorResponse = mapper.readTree(responseBody)
