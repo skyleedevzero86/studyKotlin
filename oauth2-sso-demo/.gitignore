@@ -4,9 +4,9 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-build.gradle.kts
 *.yml
 *.properties
+build.gradle.kts
 
 ### STS ###
 .apt_generated

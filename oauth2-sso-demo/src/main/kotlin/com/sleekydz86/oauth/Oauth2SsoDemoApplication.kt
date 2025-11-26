@@ -1,4 +1,4 @@
-package com.sleekydz86
+package com.sleekydz86.oauth
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class Oauth2SsoDemoApplication
 
 fun main(args: Array<String>) {
-    runApplication<Oauth2SsoDemoApplication>(*args)
+	runApplication<Oauth2SsoDemoApplication>(*args)
 }
