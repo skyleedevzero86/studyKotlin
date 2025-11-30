@@ -135,6 +135,7 @@ class VoiceController(
                 "wav" -> MediaType.parseMediaType("audio/wav")
                 "mp3" -> MediaType.parseMediaType("audio/mpeg")
                 "ogg" -> MediaType.parseMediaType("audio/ogg")
+                "m4a" -> MediaType.parseMediaType("audio/mp4")
                 else -> MediaType.APPLICATION_OCTET_STREAM
             }
 
