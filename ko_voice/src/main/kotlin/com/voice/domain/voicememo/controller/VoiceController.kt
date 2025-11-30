@@ -95,7 +95,6 @@ class VoiceController(
             println("TTS error: ${e.message}")
             e.printStackTrace()
 
-
             val errorMessage = when {
                 e.message?.contains("model_terms_required") == true ->
                     "PlayAI 모델 사용을 위해 약관 동의가 필요합니다. Groq 콘솔에서 약관에 동의하거나 다른 PlayAI 음성을 선택해주세요."

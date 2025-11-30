@@ -58,6 +58,7 @@ class VoiceService(
         } finally {
             try {
                 if (audioFile.exists()) {
+                    audioFile.delete()
                 }
             } catch (e: Exception) {
                 println("Failed to delete temp file: ${e.message}")
