@@ -1,4 +1,4 @@
-./.idea/
+.idea
 build.gradle.kts
 applicaiton.yml
 application.properties
