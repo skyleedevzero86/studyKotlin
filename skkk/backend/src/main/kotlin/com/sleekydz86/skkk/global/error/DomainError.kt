@@ -1,4 +1,4 @@
-package com.sleekydz86.skkk.global.config.error
+package com.sleekydz86.skkk.global.error
 
 sealed class DomainError(message: String, cause: Throwable? = null) : RuntimeException(message, cause) {
     data class FetchFailed(val url: String, override val cause: Throwable? = null) : DomainError("수집 실패: $url", cause)
