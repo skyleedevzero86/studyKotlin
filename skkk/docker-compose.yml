@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: tei-embedding
+    ports:
+      - "8080:80"
+    environment:
+      - MODEL_ID=sentence-transformers/all-MiniLM-L6-v2
+      - MAX_BATCH_SIZE=32
+      - MAX_CLIENT_BATCH_SIZE=32
+    command: --model-id sentence-transformers/all-MiniLM-L6-v2 --port 80
+    networks:
+      - skkk-network
+
+volumes:
+  chroma_data:
+
+networks:
+  skkk-network:
+    driver: bridge
