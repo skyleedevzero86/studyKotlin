@@ -1,7 +1,10 @@
 
 
 일반 사이트 시맨틱 검색. 벡터 검색 기반.
+<br/>
+<img width="649" height="258" alt="image" src="https://github.com/user-attachments/assets/803fcde9-c986-4e63-b962-dee92cd18d38" />
 
+<br/>
 ---
 
 ## 프로젝트 소개
