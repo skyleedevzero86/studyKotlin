@@ -39,18 +39,57 @@ function emptyPage<T>(): Page<T> {
   }
 }
 
-export function pagedModelToPage<T>(p: PagedModel<T> | null | undefined): Page<T> {
-  if (!p?.metadata) return emptyPage<T>()
-  const m = p.metadata
+export type PageResponse<T> =
+  | PagedModel<T>
+  | (Partial<Page<T>> & { content?: T[] })
+
+function toNum(v: unknown): number {
+  const num = Number(v)
+  return Number.isNaN(num) ? 0 : num
+}
+
+export function pagedModelToPage<T>(p: PageResponse<T> | null | undefined): Page<T> {
+  if (!p) return emptyPage<T>()
   const content = Array.isArray(p.content) ? p.content : []
+  const hasMetadata = p && 'metadata' in p && p.metadata != null
+  let totalElements: number
+  let totalPages: number
+  let size: number
+  let number: number
+  let first: boolean
+  let last: boolean
+
+  if (hasMetadata) {
+    const m = (p as PagedModel<T>).metadata as Record<string, unknown>
+    totalElements = toNum(m.totalElements ?? m.total_elements)
+    totalPages = toNum(m.totalPages ?? m.total_pages)
+    size = toNum(m.size) || 10
+    number = toNum(m.number)
+    first = number === 0
+    last = (totalPages <= 1) || (number >= totalPages - 1)
+  } else {
+    const flat = p as Partial<Page<T>>
+    totalElements = toNum(flat.totalElements)
+    totalPages = Math.max(0, toNum(flat.totalPages)) || 1
+    size = toNum(flat.size) || 10
+    number = Math.max(0, toNum(flat.number))
+    first = flat.first ?? true
+    last = flat.last ?? true
+  }
+
+  if (content.length > 0 && totalElements === 0) {
+    totalElements = content.length
+    if (totalPages === 0) totalPages = 1
+  }
+
   return {
     content,
-    totalElements: Number(m.totalElements) || 0,
-    totalPages: Number(m.totalPages) || 0,
-    size: Number(m.size) || 10,
-    number: Number(m.number) || 0,
-    first: m.number === 0,
-    last: (m.totalPages <= 1) || (m.number >= m.totalPages - 1),
+    totalElements,
+    totalPages,
+    size,
+    number,
+    first,
+    last,
     numberOfElements: content.length,
   }
 }

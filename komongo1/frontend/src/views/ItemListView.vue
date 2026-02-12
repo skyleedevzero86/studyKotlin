@@ -89,7 +89,7 @@ const delState = computed(() => ({
             <td>{{ item.description }}</td>
             <td>{{ new Date(item.createdAt).toLocaleDateString('ko-KR') }}</td>
             <td class="actions">
-              <button type="button" class="btn-sm" @click="form.openEdit(item)">수정</button>
+              <button type="button" class="btn-sm success" @click="form.openEdit(item)">수정</button>
               <button type="button" class="btn-sm danger" @click="del.confirm(item)">삭제</button>
             </td>
           </tr>
@@ -233,8 +233,14 @@ th {
   background: var(--bg);
   cursor: pointer;
 }
+.btn-sm.success {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
 .btn-sm.danger {
-  color: var(--danger);
+  background: var(--danger);
+  color: white;
   border-color: var(--danger);
 }
 .empty {

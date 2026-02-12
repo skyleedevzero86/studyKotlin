@@ -1,6 +1,6 @@
 import { get, post, put, del } from './client'
 import type { Item } from '@/domain/item/Item'
-import type { Page, Pageable, PagedModel } from '@/domain/item/types'
+import type { Page, Pageable, PageResponse } from '@/domain/item/types'
 import { pagedModelToPage } from '@/domain/item/types'
 
 const PATH = '/items'
@@ -14,8 +14,8 @@ export const itemRepository = {
       sortDir: pageable.sortDir,
     }
     if (keyword != null && keyword.trim() !== '') params.keyword = keyword.trim()
-    const res = await get<PagedModel<Item>>(PATH, params)
-    return pagedModelToPage(res ?? undefined)
+    const res = await get<PageResponse<Item>>(PATH, params)
+    return pagedModelToPage(res)
   },
 
   getById(id: string): Promise<Item> {
