@@ -1,5 +1,15 @@
 import { createApp } from 'vue'
-import './style.css'
+import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
+import ItemListView from './views/ItemListView.vue'
 
-createApp(App).mount('#app')
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', name: 'Home', component: ItemListView },
+  ],
+})
+
+const app = createApp(App)
+app.use(router)
+app.mount('#app')

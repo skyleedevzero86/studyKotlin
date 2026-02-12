@@ -35,16 +35,25 @@ class ItemService(private val itemRepository: ItemRepository) {
 
     fun findById(id: String): Item? = itemRepository.findById(id).orElse(null)
 
-    fun create(item: Item): Item = itemRepository.save(item)
+    fun create(item: Item): Item {
+        val now = java.time.Instant.now()
+        val toSave = item.copy(createdAt = item.createdAt ?: now, updatedAt = item.updatedAt ?: now)
+        return itemRepository.save(toSave)
+    }
 
-    fun createAll(items: List<Item>): List<Item> = itemRepository.saveAll(items).toList()
+    fun createAll(items: List<Item>): List<Item> {
+        val now = java.time.Instant.now()
+        val toSave = items.map { it.copy(createdAt = it.createdAt ?: now, updatedAt = it.updatedAt ?: now) }
+        return itemRepository.saveAll(toSave).toList()
+    }
 
     fun update(id: String, item: Item): Item? {
         val existing = itemRepository.findById(id).orElse(null) ?: return null
+        val now = java.time.Instant.now()
         val updated = existing.copy(
             name = item.name,
             description = item.description,
-            updatedAt = java.time.Instant.now()
+            updatedAt = now
         )
         return itemRepository.save(updated)
     }

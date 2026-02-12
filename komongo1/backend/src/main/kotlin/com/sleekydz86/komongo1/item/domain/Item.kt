@@ -12,6 +12,6 @@ data class Item(
     val name: String,
     val description: String = "",
     @Indexed
-    val createdAt: Instant = Instant.now(),
-    val updatedAt: Instant = Instant.now()
+    val createdAt: Instant? = null,
+    val updatedAt: Instant? = null
 )

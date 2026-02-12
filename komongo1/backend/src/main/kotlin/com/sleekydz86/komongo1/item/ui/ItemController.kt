@@ -32,15 +32,18 @@ class ItemController(private val itemService: ItemService) {
     }
 
     @PostMapping
-    fun create(@RequestBody item: Item): ResponseEntity<Item> {
-        val created = itemService.create(item.copy(createdAt = java.time.Instant.now(), updatedAt = java.time.Instant.now()))
+    fun create(@RequestBody dto: ItemCreateDto): ResponseEntity<Item> {
+        val now = java.time.Instant.now()
+        val created = itemService.create(Item(name = dto.name, description = dto.description, createdAt = now, updatedAt = now))
         return ResponseEntity.status(HttpStatus.CREATED).body(created)
     }
 
     @PostMapping("/bulk")
-    fun createBulk(@RequestBody items: List<Item>): ResponseEntity<List<Item>> {
+    fun createBulk(@RequestBody items: List<ItemCreateDto>): ResponseEntity<List<Item>> {
         val now = java.time.Instant.now()
-        val toSave = items.map { it.copy(createdAt = now, updatedAt = now) }
+        val toSave = items.map { dto ->
+            Item(name = dto.name, description = dto.description, createdAt = now, updatedAt = now)
+        }
         val created = itemService.createAll(toSave)
         return ResponseEntity.status(HttpStatus.CREATED).body(created)
     }
