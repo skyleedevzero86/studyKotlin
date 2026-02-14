@@ -18,7 +18,6 @@
 <div class="login-card ott-card">
   <h1>매직 링크 로그인</h1>
   {#if token}
-    <p class="subtitle">아래 버튼을 눌러 로그인하세요.</p>
     <form
       id="ott-form"
       method="post"
@@ -35,6 +34,9 @@
 </div>
 
 <style>
+  .ott-card h1 {
+    text-align: center;
+  }
   .ott-card .btn-secondary {
     width: 100%;
     padding: 0.6rem 1rem;
