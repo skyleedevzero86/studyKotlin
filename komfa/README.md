@@ -1,7 +1,9 @@
 # Komfa
+
 <br/>
 
 ## 실행화면
+
 <img width="494" height="597" alt="image" src="https://github.com/user-attachments/assets/3a37158a-beaf-41fa-9ade-7f1ba12898c5" />
 <br/>
 ## 메일발송 화면
