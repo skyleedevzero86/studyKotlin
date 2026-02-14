@@ -127,6 +127,98 @@
 .user-card .btn-sm:hover {
   background: #3f3f46;
 }
+.user-card .user-table .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.user-card .btn-sm.warn {
+  background: #b45309;
+  border-color: #b45309;
+}
+.user-card .btn-sm.danger {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+.user-card .message {
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+.user-card .message[data-type="ok"] {
+  color: #22c55e;
+}
+.user-card .message[data-type="error"] {
+  color: #ef4444;
+}
+.user-card .admin-health {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #27272a;
+  border-radius: 8px;
+  border: 1px solid #3f3f46;
+}
+.user-card .admin-health h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: #e4e4e7;
+}
+.user-card .health-loading,
+.user-card .health-error {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+}
+.user-card .health-error {
+  color: #ef4444;
+}
+.user-card .health-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+}
+.user-card .health-dl dt {
+  color: #a1a1aa;
+}
+.user-card .health-dl dd {
+  margin: 0;
+  color: #e4e4e7;
+}
+.user-card .health-status {
+  color: #22c55e;
+}
+.user-card .health-status.status-down {
+  color: #ef4444;
+}
+.user-card .admin-health button {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.user-card .admin-health button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.user-card .history-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #a1a1aa;
+}
+.user-card .history-pagination button {
+  padding: 0.25rem 0.5rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
 
 .user-modal {
   position: fixed;

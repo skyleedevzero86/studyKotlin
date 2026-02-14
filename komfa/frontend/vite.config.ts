@@ -32,11 +32,22 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         bypass(req) {
-          if (req.method !== 'POST') return '/index.html'
+          if (req.method === 'POST') return undefined
+          const u = (req.url ?? '').split('?')[0]
+          if (u === '/login/ott') return undefined
+          return '/index.html'
         },
         configure(proxy) {
           proxy.on('proxyRes', (proxyRes) => {
             rewriteSetCookie(proxyRes)
+            const loc = proxyRes.headers['location']
+            if (proxyRes.statusCode === 302 && loc) {
+              try {
+                const u = new URL(loc, 'http://localhost:8080')
+                if (u.origin === 'http://localhost:8080')
+                  proxyRes.headers['location'] = `http://localhost:5173${u.pathname}${u.search}`
+              } catch (_) {}
+            }
           })
         },
       },

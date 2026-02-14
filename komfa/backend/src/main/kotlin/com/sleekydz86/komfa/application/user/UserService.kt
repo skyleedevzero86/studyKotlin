@@ -29,6 +29,7 @@ class UserService(
     private val passwordEncoder: PasswordEncoder,
     private val passwordChangeHistoryRepository: PasswordChangeHistoryRepository,
     private val passwordResetTokenRepository: PasswordResetTokenRepository,
+    private val passwordResetTokenPersistence: PasswordResetTokenPersistence,
     private val authMailPort: AuthMailPort,
     private val aes256Service: Aes256Service,
     @Value("\${komfa.auth.reset-password-base-url:http://localhost:8080}") private val resetPasswordBaseUrl: String,
@@ -132,15 +133,19 @@ class UserService(
         val plainEmail = decryptEmail(user) ?: return true
         val tokenValue = UUID.randomUUID().toString()
         val expiresAt = Instant.now().plusSeconds(resetTokenValidMinutes * 60)
-        passwordResetTokenRepository.save(
+        passwordResetTokenPersistence.saveAndFlush(
             com.sleekydz86.komfa.domain.user.PasswordResetTokenEntity(
                 tokenValue = tokenValue,
                 user = user,
                 expiresAt = expiresAt,
-            )
+            ),
         )
         val resetLink = "$resetPasswordBaseUrl/reset-password?token=$tokenValue"
-        return authMailPort.sendResetPasswordEmail(requireNotNull(plainEmail) { "이메일" }, resetLink)
+        return try {
+            authMailPort.sendResetPasswordEmail(requireNotNull(plainEmail) { "이메일" }, resetLink)
+        } catch (_: Exception) {
+            true
+        }
     }
 
     @Transactional

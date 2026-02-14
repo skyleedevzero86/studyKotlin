@@ -16,11 +16,10 @@
   <h1>Komfa</h1>
   <p class="welcome">안녕하세요, <strong>{profile.username}</strong>님.</p>
   <nav class="nav">
-    <button type="button" onclick={() => goto("/user")}>회원 전용</button>
-    <button type="button" onclick={() => goto("/me")}>마이페이지</button>
     {#if isAdmin}
-      <button type="button" onclick={() => goto("/admin")}>관리자</button>
+      <button type="button" onclick={() => goto("/user")}>회원 전용</button>
     {/if}
+    <button type="button" onclick={() => goto("/me")}>마이페이지</button>
   </nav>
   <form method="post" action={logoutAction} class="logout-form">
     <button type="submit">로그아웃</button>

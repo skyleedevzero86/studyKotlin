@@ -65,7 +65,16 @@ class MfaSecurityConfig {
                 logout.logoutSuccessUrl(url.trimEnd('/') + "/")
             }
         }
-        .oneTimeTokenLogin(Customizer.withDefaults())
+        .oneTimeTokenLogin { ott ->
+            ott.showDefaultSubmitPage(false)
+            frontendBaseUrl.trim().ifEmpty { null }?.let { url ->
+                val successUrl = url.trimEnd('/') + "/"
+                ott.authenticationSuccessHandler(SimpleUrlAuthenticationSuccessHandler().apply {
+                    setDefaultTargetUrl(successUrl)
+                    setAlwaysUseDefaultTargetUrl(true)
+                })
+            }
+        }
         .build()
 
     @Bean

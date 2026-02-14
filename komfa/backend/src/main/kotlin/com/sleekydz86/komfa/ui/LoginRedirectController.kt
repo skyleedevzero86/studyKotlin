@@ -21,4 +21,22 @@ class LoginRedirectController(
         val location = builder.build().toUri()
         return ResponseEntity.status(HttpStatus.FOUND).location(location).build()
     }
+
+    @GetMapping("/login/ott")
+    fun redirectToFrontendLoginOtt(request: HttpServletRequest): ResponseEntity<Void> {
+        val queryString = request.queryString
+        val builder = UriComponentsBuilder.fromUriString("$frontendBaseUrl/login/ott")
+        if (!queryString.isNullOrBlank()) builder.replaceQuery(queryString)
+        val location = builder.build().toUri()
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build()
+    }
+
+    @GetMapping("/reset-password")
+    fun redirectToFrontendResetPassword(request: HttpServletRequest): ResponseEntity<Void> {
+        val queryString = request.queryString
+        val builder = UriComponentsBuilder.fromUriString("$frontendBaseUrl/reset-password")
+        if (!queryString.isNullOrBlank()) builder.replaceQuery(queryString)
+        val location = builder.build().toUri()
+        return ResponseEntity.status(HttpStatus.FOUND).location(location).build()
+    }
 }

@@ -154,13 +154,19 @@ export interface AdminUserListResponse {
   size: number
 }
 
-export async function adminUsersList(page: number, size: number, search: string | null): Promise<AdminUserListResponse | null> {
+export type AdminUsersListResult =
+  | { ok: true; data: AdminUserListResponse }
+  | { ok: false; status: number }
+
+export async function adminUsersList(page: number, size: number, search: string | null): Promise<AdminUsersListResult> {
   const q = search?.trim() || ''
   const params = new URLSearchParams({ page: String(page), size: String(size) })
   if (q) params.set('search', q)
   const res = await apiFetch(`${base()}/api/admin/users?${params}`)
-  if (res.type === 'opaqueredirect' || res.status === 302 || !res.ok) return null
-  return res.json()
+  if (res.type === 'opaqueredirect' || res.status === 302) return { ok: false, status: 302 }
+  if (!res.ok) return { ok: false, status: res.status }
+  const data = await res.json()
+  return { ok: true, data }
 }
 
 export interface PasswordHistoryItem {

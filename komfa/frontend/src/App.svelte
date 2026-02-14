@@ -10,8 +10,9 @@
   import Home from "./ui/svelte/Home.svelte";
   import Me from "./ui/svelte/Me.svelte";
   import User from "./ui/svelte/User.svelte";
-  import Admin from "./ui/svelte/Admin.svelte";
+  import LoginOtt from "./ui/svelte/LoginOtt.svelte";
   import * as api from "./infrastructure/http/api";
+  import { apiOrigin } from "./infrastructure/http/api";
 
   let path = $state(
     typeof window !== "undefined" ? window.location.pathname : "/",
@@ -34,7 +35,11 @@
   });
 
   $effect(() => {
-    if (path === "/" || path === "/login" || path === "/user" || path === "/admin" || path === "/me") {
+    if (path === "/admin") {
+      goto("/user");
+      return;
+    }
+    if (path === "/" || path === "/login" || path === "/user" || path === "/me") {
       api.me().then((p) => {
         profile = p;
         if (p)
@@ -122,17 +127,17 @@
         goto("/");
       }}>홈</a
     >
-  {:else if path === "/admin"}
-    <Admin />
+  {:else if path === "/login/ott" || path.startsWith("/login/ott?")}
+    <LoginOtt {goto} />
     <a
       href="/"
       class="app-link"
       onclick={(e) => {
         e.preventDefault();
         goto("/");
-      }}>홈</a
+      }}>홈으로</a
     >
-  {:else if path === "/" || path === "/login"}
+  {:else if path === "/login" || path === "/"}
     {#if profile}
       <Home {profile} {isAdmin} {goto} />
     {:else}

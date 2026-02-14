@@ -52,3 +52,25 @@
 .app .app-nav .app-link {
   margin-top: 0;
 }
+
+.app-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.app-card h1,
+.app-card h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.app-card p {
+  margin: 0 0 1rem 0;
+  color: #a1a1aa;
+  font-size: 0.875rem;
+}
+.app-card .app-link {
+  margin-top: 0.5rem;
+}

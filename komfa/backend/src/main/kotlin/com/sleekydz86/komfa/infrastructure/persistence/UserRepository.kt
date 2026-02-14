@@ -11,6 +11,10 @@ interface UserRepository : JpaRepository<UserEntity, Long> {
     fun findFirstByEmailHash(emailHash: String): UserEntity?
     fun existsByEmailHash(emailHash: String): Boolean
 
-    @Query("SELECT u FROM UserEntity u WHERE :q IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))")
+    @Query(
+        value = "SELECT * FROM public.users u WHERE :q IS NULL OR LOWER(u.username) LIKE LOWER('%' || CAST(:q AS text) || '%')",
+        countQuery = "SELECT COUNT(*) FROM public.users u WHERE :q IS NULL OR LOWER(u.username) LIKE LOWER('%' || CAST(:q AS text) || '%')",
+        nativeQuery = true,
+    )
     fun findAllBySearch(q: String?, pageable: Pageable): Page<UserEntity>
 }

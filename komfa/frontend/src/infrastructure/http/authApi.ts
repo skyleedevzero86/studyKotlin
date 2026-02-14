@@ -33,7 +33,7 @@ export const authApi: RequestOttPort = {
 export const healthApi: HealthPort = {
   async check(): Promise<HealthResult> {
     const res = await fetch(`${base()}/api/health`, { credentials: 'include' })
-    if (!res.ok) throw new Error(`상태 확인 실패: ${res.status}`)
+    if (!res.ok) throw new Error('서버 상태를 확인할 수 없습니다.')
     return res.json()
   },
 }
