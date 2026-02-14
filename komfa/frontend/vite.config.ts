@@ -34,7 +34,7 @@ export default defineConfig({
         bypass(req) {
           if (req.method === 'POST') return undefined
           const u = (req.url ?? '').split('?')[0]
-          if (u === '/login/ott') return undefined
+          if (u === '/login/ott') return '/index.html'
           return '/index.html'
         },
         configure(proxy) {
