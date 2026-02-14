@@ -1,6 +1,7 @@
 package com.sleekydz86.komfa.infrastructure.security
 
 import jakarta.servlet.DispatcherType
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -11,6 +12,7 @@ import org.springframework.security.config.Customizer
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.DelegatingAuthenticationEntryPoint
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher
 import org.springframework.security.web.util.matcher.RequestMatcherEntry
 import org.springframework.web.cors.CorsConfiguration
@@ -21,6 +23,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 @EnableWebSecurity
 @EnableMethodSecurity
 class MfaSecurityConfig {
+
+    @Value("\${komfa.frontend.base-url:}")
+    private val frontendBaseUrl: String = ""
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
@@ -38,7 +43,7 @@ class MfaSecurityConfig {
                 .anyRequest().authenticated()
         }
         .csrf { csrf ->
-            csrf.ignoringRequestMatchers("/api/**", "/login", "/login/**")
+            csrf.ignoringRequestMatchers("/api/**", "/login", "/login/**", "/logout", "/logout/**", "/ott", "/ott/**")
         }
         .exceptionHandling { exceptions ->
             exceptions.authenticationEntryPoint(
@@ -49,7 +54,16 @@ class MfaSecurityConfig {
             )
         }
         .formLogin { form ->
-            form.defaultSuccessUrl("/", true)
+            val successUrl = frontendBaseUrl.trim().ifEmpty { null }?.let { u -> u.trimEnd('/') + "/" } ?: "/"
+            form.successHandler(SimpleUrlAuthenticationSuccessHandler().apply {
+                setDefaultTargetUrl(successUrl)
+                setAlwaysUseDefaultTargetUrl(true)
+            })
+        }
+        .logout { logout ->
+            frontendBaseUrl.trim().ifEmpty { null }?.let { url ->
+                logout.logoutSuccessUrl(url.trimEnd('/') + "/")
+            }
         }
         .oneTimeTokenLogin(Customizer.withDefaults())
         .build()

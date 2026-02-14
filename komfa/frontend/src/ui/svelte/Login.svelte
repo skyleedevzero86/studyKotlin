@@ -5,8 +5,10 @@
   import { Username } from "../../domain/auth/types";
   import { requestOtt } from "../../application/auth/requestOtt";
   import { authApi } from "../../infrastructure/http/authApi";
+  import { apiOrigin } from "../../infrastructure/http/api";
 
   let { onOttSent }: LoginProps = $props();
+  const loginAction = $derived(apiOrigin() ? `${apiOrigin()}/login` : "/login");
 
   let username = $state("");
   let password = $state("");
@@ -67,7 +69,7 @@
   <h1>Komfa</h1>
   <p class="subtitle">2단계 인증 (MFA)</p>
 
-  <form method="post" action="/login" onsubmit={submitPasswordForm}>
+  <form method="post" action={loginAction} onsubmit={submitPasswordForm}>
     <label for="username">사용자명</label>
     <input
       id="username"

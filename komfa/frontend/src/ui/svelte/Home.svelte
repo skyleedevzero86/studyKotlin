@@ -1,7 +1,9 @@
 <script lang="ts">
   import "../css/Home.css";
   import type { MeResponse } from "../../infrastructure/http/api";
+  import { apiOrigin } from "../../infrastructure/http/api";
 
+  const logoutAction = $derived(apiOrigin() ? `${apiOrigin()}/logout` : "/logout");
   interface Props {
     profile: MeResponse;
     isAdmin: boolean;
@@ -20,7 +22,7 @@
       <button type="button" onclick={() => goto("/admin")}>관리자</button>
     {/if}
   </nav>
-  <form method="post" action="/logout" class="logout-form">
+  <form method="post" action={logoutAction} class="logout-form">
     <button type="submit">로그아웃</button>
   </form>
 </div>

@@ -12,8 +12,10 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -129,6 +131,21 @@ class AdminUsersController(
             ResponseEntity.notFound().build()
         } catch (e: IllegalStateException) {
             ResponseEntity.badRequest().body(mapOf("message" to (e.message ?: "탈퇴한 계정은 수정하거나 삭제할 수 없습니다.")))
+        }
+    }
+
+    @PatchMapping("/{userId}/role")
+    fun updateRole(@PathVariable userId: Long, @RequestBody body: Map<String, String>): ResponseEntity<Any> {
+        val roles = body["roles"] ?: return ResponseEntity.badRequest().body(mapOf("message" to "roles 필드가 필요합니다."))
+        return try {
+            val user = userService.updateRoles(userId, roles)
+            ResponseEntity.ok(toListItem(user))
+        } catch (_: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        } catch (e: IllegalStateException) {
+            ResponseEntity.badRequest().body(mapOf("message" to (e.message ?: "역할을 변경할 수 없습니다.")))
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().body(mapOf("message" to (e.message ?: "잘못된 역할입니다.")))
         }
     }
 

@@ -29,7 +29,21 @@ class MagicLinkOttHandler(
         val username = Username(oneTimeToken.username)
         val token = TokenValue(oneTimeToken.tokenValue)
         ottDelivery.deliver(username, token)
-        redirectHandler.handle(request, response, oneTimeToken)
+        if (isApiRequest(request)) {
+            response.status = HttpServletResponse.SC_OK
+            response.contentType = "application/json"
+            response.characterEncoding = "UTF-8"
+            response.writer.write("{}")
+        } else {
+            redirectHandler.handle(request, response, oneTimeToken)
+        }
+    }
+
+    private fun isApiRequest(request: HttpServletRequest): Boolean {
+        val accept = request.getHeader("Accept") ?: return false
+        if (accept.contains("application/json")) return true
+        if (request.getHeader("X-Requested-With") == "XMLHttpRequest") return true
+        return false
     }
 
     fun buildMagicLink(request: HttpServletRequest, token: TokenValue): String {

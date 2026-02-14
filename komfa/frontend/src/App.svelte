@@ -34,7 +34,7 @@
   });
 
   $effect(() => {
-    if (path === "/" || path === "/login") {
+    if (path === "/" || path === "/login" || path === "/user" || path === "/admin" || path === "/me") {
       api.me().then((p) => {
         profile = p;
         if (p)
@@ -113,7 +113,7 @@
       }}>홈</a
     >
   {:else if path === "/user"}
-    <User />
+    <User {profile} {isAdmin} />
     <a
       href="/"
       class="app-link"

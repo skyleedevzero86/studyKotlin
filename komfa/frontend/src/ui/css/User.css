@@ -4,12 +4,162 @@
   border-radius: 12px;
   padding: 2rem;
   min-width: 320px;
+  max-width: 960px;
 }
 .user-card h1 {
   margin: 0 0 1rem 0;
   font-size: 1.25rem;
 }
+.user-card h2 {
+  margin: 1.5rem 0 0.75rem 0;
+  font-size: 1rem;
+  color: #e4e4e7;
+}
 .user-card .username {
   margin-top: 0.5rem;
   color: #a1a1aa;
+}
+.user-card .member-list {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #27272a;
+}
+.user-card .list-error {
+  color: #f87171;
+  margin-bottom: 0.75rem;
+}
+.user-card .member-list button {
+  padding: 0.5rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.user-card .search-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.user-card .search-form input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+}
+.user-card .search-form button {
+  padding: 0.5rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.user-card .user-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.user-card .user-table th,
+.user-card .user-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #27272a;
+}
+.user-card .user-table th {
+  color: #a1a1aa;
+  font-weight: 500;
+}
+.user-card .user-table td {
+  color: #e4e4e7;
+}
+.user-card .pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #a1a1aa;
+}
+.user-card .pagination button {
+  padding: 0.4rem 0.75rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.user-card .pagination button:hover {
+  background: #3f3f46;
+}
+.user-card .link-btn {
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-size: inherit;
+}
+.user-card .link-btn:hover {
+  color: #818cf8;
+}
+.user-card .roles-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.user-card .roles-cell .role-text {
+  margin-right: 0.25rem;
+}
+.user-card .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 4px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.user-card .btn-sm:hover {
+  background: #3f3f46;
+}
+
+.user-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+.user-modal-content {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.user-modal-content h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #e4e4e7;
+}
+.user-modal-content p {
+  margin: 0;
+  color: #a1a1aa;
+  word-break: break-all;
+}
+.user-modal-content button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
 }

@@ -95,6 +95,17 @@
     }
   }
 
+  async function changeRole(userId: number, newRole: "ROLE_USER" | "ROLE_ADMIN") {
+    message = null;
+    const result = await api.adminUsersUpdateRole(userId, newRole);
+    if ("error" in result) {
+      message = { type: "error", text: result.error };
+    } else {
+      message = { type: "ok", text: "권한이 변경되었습니다." };
+      await loadList();
+    }
+  }
+
   async function showHistory(userId: number) {
     historyUserId = userId;
     const data = await api.adminUsersPasswordHistory(userId, 0, 20);
@@ -185,7 +196,16 @@
                 -
               {/if}
             </td>
-            <td>{u.roles}</td>
+            <td class="roles-cell">
+              <span class="role-text">{u.roles.includes("ROLE_ADMIN") ? "관리자" : "일반회원"}</span>
+              {#if u.status !== "WITHDRAWN"}
+                {#if u.roles.includes("ROLE_ADMIN")}
+                  <button type="button" class="btn-sm" onclick={() => changeRole(u.id, "ROLE_USER")}>일반회원으로</button>
+                {:else}
+                  <button type="button" class="btn-sm" onclick={() => changeRole(u.id, "ROLE_ADMIN")}>관리자로</button>
+                {/if}
+              {/if}
+            </td>
             <td>{statusLabel(u.status)}</td>
             <td>{new Date(u.createdAt).toLocaleDateString()}</td>
             <td class="actions">

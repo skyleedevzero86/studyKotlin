@@ -100,6 +100,15 @@
   flex-wrap: wrap;
   gap: 0.25rem;
 }
+.admin-card .user-table .roles-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.admin-card .user-table .roles-cell .role-text {
+  margin-right: 0.25rem;
+}
 .admin-card .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;

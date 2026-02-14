@@ -185,6 +185,21 @@ class UserService(
     }
 
     @Transactional
+    fun updateRoles(userId: Long, newRoles: String): UserEntity {
+        val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("사용자를 찾을 수 없습니다: $userId") }
+        if (user.status == UserStatus.WITHDRAWN.name) throw IllegalStateException("탈퇴한 계정은 수정할 수 없습니다.")
+        val normalized = newRoles.trim().let { if (it.startsWith("ROLE_")) it else "ROLE_$it" }
+        if (normalized != UserRole.USER.authority && normalized != UserRole.ADMIN.authority) {
+            throw IllegalArgumentException("역할은 ROLE_USER 또는 ROLE_ADMIN 만 가능합니다.")
+        }
+        if (user.roles.contains(UserRole.ADMIN.authority) && normalized == UserRole.USER.authority) {
+            val adminCount = userRepository.findAll().count { it.roles.contains(UserRole.ADMIN.authority) }
+            if (adminCount <= 1) throw IllegalStateException("관리자는 최소 1명 이상이어야 합니다.")
+        }
+        return userRepository.save(user.copy(roles = normalized, updatedAt = Instant.now()))
+    }
+
+    @Transactional
     fun withdrawSelf(username: String): UserEntity {
         val user = userRepository.findByUsername(username)
             ?: throw NoSuchElementException("사용자를 찾을 수 없습니다: $username")

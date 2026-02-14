@@ -1,4 +1,8 @@
-const base = (): string => (typeof window !== 'undefined' ? '' : 'http://localhost:8080')
+export function apiOrigin(): string {
+  if (typeof window === 'undefined') return 'http://localhost:8080'
+  return window.location.port === '5173' ? 'http://localhost:8080' : ''
+}
+const base = (): string => apiOrigin()
 
 const json = (body: unknown) => ({
   method: 'POST',
@@ -55,8 +59,8 @@ export interface MeResponse {
 
 export async function me(): Promise<MeResponse | null> {
   try {
-    const res = await fetch(`${base()}/api/me`, { credentials: 'include' })
-    if (res.status === 204 || !res.ok) return null
+    const res = await apiFetch(`${base()}/api/me`)
+    if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 204 || !res.ok) return null
     return await res.json()
   } catch {
     return null
@@ -64,25 +68,25 @@ export async function me(): Promise<MeResponse | null> {
 }
 
 export async function updateProfile(email: string | null): Promise<{ ok: true } | { ok: false }> {
-  const res = await fetch(`${base()}/api/me`, {
+  const res = await apiFetch(`${base()}/api/me`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
-    credentials: 'include',
   })
-  return { ok: res.ok }
+  return { ok: !(res.type === 'opaqueredirect' || res.status === 302) && res.ok }
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true } | { ok: false }> {
-  const res = await fetch(`${base()}/api/auth/change-password`, {
+  const res = await apiFetch(`${base()}/api/auth/change-password`, {
     ...json({ currentPassword, newPassword }),
     method: 'POST',
   })
-  return { ok: res.ok }
+  return { ok: !(res.type === 'opaqueredirect' || res.status === 302) && res.ok }
 }
 
 export async function withdraw(): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  const res = await fetch(`${base()}/api/me/withdraw`, { method: 'POST', credentials: 'include' })
+  const res = await apiFetch(`${base()}/api/me/withdraw`, { method: 'POST' })
+  if (res.type === 'opaqueredirect' || res.status === 302) return { ok: false, message: '인증이 필요합니다.' }
   const data = await res.json().catch(() => ({}))
   if (res.ok) return { ok: true, message: data.message ?? '탈퇴되었습니다.' }
   return { ok: false, message: data.message ?? '실패했습니다.' }
@@ -90,6 +94,9 @@ export async function withdraw(): Promise<{ ok: true; message: string } | { ok: 
 
 const fetchNoRedirect = (url: string) =>
   fetch(url, { credentials: 'include', redirect: 'manual' })
+
+const apiFetch = (url: string, init?: RequestInit) =>
+  fetch(url, { ...init, credentials: 'include', redirect: 'manual' })
 
 export async function userArea(): Promise<{ message: string; username: string } | null> {
   try {
@@ -151,8 +158,8 @@ export async function adminUsersList(page: number, size: number, search: string 
   const q = search?.trim() || ''
   const params = new URLSearchParams({ page: String(page), size: String(size) })
   if (q) params.set('search', q)
-  const res = await fetch(`${base()}/api/admin/users?${params}`, { credentials: 'include' })
-  if (!res.ok) return null
+  const res = await apiFetch(`${base()}/api/admin/users?${params}`)
+  if (res.type === 'opaqueredirect' || res.status === 302 || !res.ok) return null
   return res.json()
 }
 
@@ -172,34 +179,49 @@ export interface AdminPasswordHistoryResponse {
 }
 
 export async function adminUsersPasswordHistory(userId: number, page: number, size: number): Promise<AdminPasswordHistoryResponse | null> {
-  const res = await fetch(`${base()}/api/admin/users/${userId}/password-history?page=${page}&size=${size}`, { credentials: 'include' })
-  if (!res.ok) return null
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/password-history?page=${page}&size=${size}`)
+  if (res.type === 'opaqueredirect' || res.status === 302 || !res.ok) return null
   return res.json()
 }
 
 export async function adminUsersDecryptedEmail(userId: number): Promise<string | null> {
-  const res = await fetch(`${base()}/api/admin/users/${userId}/sensitive/email`, { credentials: 'include' })
-  if (!res.ok) return null
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/sensitive/email`)
+  if (res.type === 'opaqueredirect' || res.status === 302 || !res.ok) return null
   const data = await res.json()
   return data.email ?? null
 }
 
 export async function adminUsersApprove(userId: number): Promise<AdminUserListItem | { error: string }> {
-  const res = await fetch(`${base()}/api/admin/users/${userId}/approve`, { method: 'POST', credentials: 'include' })
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/approve`, { method: 'POST' })
+  if (res.type === 'opaqueredirect' || res.status === 302) return { error: '인증이 필요합니다.' }
   const data = await res.json().catch(() => ({}))
   if (res.ok) return data as AdminUserListItem
   return { error: data.message ?? '실패' }
 }
 
 export async function adminUsersSuspend(userId: number): Promise<AdminUserListItem | { error: string }> {
-  const res = await fetch(`${base()}/api/admin/users/${userId}/suspend`, { method: 'POST', credentials: 'include' })
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/suspend`, { method: 'POST' })
+  if (res.type === 'opaqueredirect' || res.status === 302) return { error: '인증이 필요합니다.' }
   const data = await res.json().catch(() => ({}))
   if (res.ok) return data as AdminUserListItem
   return { error: data.message ?? '실패' }
 }
 
 export async function adminUsersWithdraw(userId: number): Promise<AdminUserListItem | { error: string }> {
-  const res = await fetch(`${base()}/api/admin/users/${userId}/withdraw`, { method: 'POST', credentials: 'include' })
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/withdraw`, { method: 'POST' })
+  if (res.type === 'opaqueredirect' || res.status === 302) return { error: '인증이 필요합니다.' }
+  const data = await res.json().catch(() => ({}))
+  if (res.ok) return data as AdminUserListItem
+  return { error: data.message ?? '실패' }
+}
+
+export async function adminUsersUpdateRole(userId: number, roles: string): Promise<AdminUserListItem | { error: string }> {
+  const res = await apiFetch(`${base()}/api/admin/users/${userId}/role`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roles }),
+  })
+  if (res.type === 'opaqueredirect' || res.status === 302) return { error: '인증이 필요합니다.' }
   const data = await res.json().catch(() => ({}))
   if (res.ok) return data as AdminUserListItem
   return { error: data.message ?? '실패' }
