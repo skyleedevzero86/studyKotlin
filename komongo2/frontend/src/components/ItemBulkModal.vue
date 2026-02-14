@@ -60,7 +60,7 @@ const emit = defineEmits<{
         <button type="button" class="btn-add" @click="emit('addRow')">+ 행 추가</button>
         <p v-if="error" class="error">{{ error }}</p>
         <div class="actions">
-          <button type="button" @click="emit('close')">취소</button>
+          <button type="button" class="cancel" @click="emit('close')">취소</button>
           <button type="button" class="primary" :disabled="loading" @click="emit('submit')">{{ loading ? '등록 중...' : '일괄 등록' }}</button>
         </div>
       </div>
@@ -79,12 +79,26 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
 th { font-weight: 600; }
 input { width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 4px; font: inherit; }
-.btn-add { padding: 0.4rem 0.8rem; margin-bottom: 1rem; border: 1px dashed var(--border); background: transparent; border-radius: 4px; cursor: pointer; font: inherit; }
-.btn-remove { padding: 0.25rem 0.5rem; font-size: 0.875rem; border: none; background: transparent; color: var(--danger); cursor: pointer; }
-.btn-remove:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-add {
+  padding: 0.5rem 1rem; margin-bottom: 1rem;
+  border: 1px solid var(--success); border-radius: 6px;
+  background: var(--success); color: white;
+  cursor: pointer; font: inherit; font-weight: 500;
+}
+.btn-add:hover { background: #22c55e; border-color: #22c55e; }
+.btn-remove {
+  padding: 0.35rem 0.65rem; font-size: 0.875rem;
+  border: 1px solid var(--danger); border-radius: 4px;
+  background: var(--danger); color: white;
+  cursor: pointer; font: inherit;
+}
+.btn-remove:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; }
+.btn-remove:disabled { opacity: 0.5; cursor: not-allowed; background: #7f1d1d; border-color: #7f1d1d; color: #fca5a5; }
 .error { color: var(--danger); font-size: 0.875rem; margin-bottom: 0.5rem; }
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-.actions button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
+.actions button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; color: #e4e4e7; }
+.actions button.cancel { background: var(--cancel-bg, #3f3f46); color: #e4e4e7; border-color: var(--border); }
+.actions button.cancel:hover { background: #52525b; border-color: #52525b; }
 .actions button.primary { background: var(--primary); color: white; border-color: var(--primary); }
 .actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

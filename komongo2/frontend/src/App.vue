@@ -15,6 +15,11 @@
   --muted: #888;
   --primary: #6366f1;
   --danger: #ef4444;
+  --warning: #eab308;
+  --success: #16a34a;
+  --pagination-bg: #1a1a1f;
+  --pagination-text: #a1a1aa;
+  --pagination-btn-bg: #25252b;
 }
 *,
 *::before,

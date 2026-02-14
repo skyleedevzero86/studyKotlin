@@ -28,7 +28,7 @@ const del = useItemDelete(refresh)
           class="search"
         />
         <button type="button" class="btn primary" @click="form.openCreate()">추가</button>
-        <button type="button" class="btn" @click="bulk.openModal()">리스트로 입력</button>
+        <button type="button" class="btn success" @click="bulk.openModal()">리스트로 입력</button>
       </div>
     </header>
 
@@ -51,7 +51,7 @@ const del = useItemDelete(refresh)
             <td>{{ item.description }}</td>
             <td>{{ new Date(item.createdAt).toLocaleDateString('ko-KR') }}</td>
             <td class="actions">
-              <button type="button" class="btn-sm" @click="form.openEdit(item)">수정</button>
+              <button type="button" class="btn-sm edit" @click="form.openEdit(item)">수정</button>
               <button type="button" class="btn-sm danger" @click="del.confirm(item)">삭제</button>
             </td>
           </tr>
@@ -77,8 +77,8 @@ const del = useItemDelete(refresh)
       :description="form.description"
       :loading="form.loading"
       :error="form.error"
-      @update:name="(v: string) => (form.name.value = v)"
-      @update:description="(v: string) => (form.description.value = v)"
+      @update:name="(v: string) => (form.name = v)"
+      @update:description="(v: string) => (form.description = v)"
       @close="form.close()"
       @submit="form.submit()"
     />
@@ -110,8 +110,10 @@ const del = useItemDelete(refresh)
 .page-header h1 { margin: 0; font-size: 1.5rem; }
 .toolbar { display: flex; gap: 0.5rem; align-items: center; }
 .search { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 4px; min-width: 200px; font: inherit; }
-.btn { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; font: inherit; }
+.btn { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; font: inherit; color: #e4e4e7; }
 .btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn.success { background: var(--success); color: white; border-color: var(--success); }
+.btn.success:hover { background: #22c55e; border-color: #22c55e; }
 .error-banner { padding: 0.75rem; background: #fef2f2; color: var(--danger); border-radius: 4px; margin-bottom: 1rem; }
 .loading { padding: 2rem; text-align: center; color: var(--muted); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -119,7 +121,9 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
 th { font-weight: 600; background: var(--hover); }
 .actions { white-space: nowrap; }
-.btn-sm { padding: 0.25rem 0.5rem; margin-right: 0.25rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; }
+.btn-sm { padding: 0.25rem 0.5rem; margin-right: 0.25rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; color: #e4e4e7; }
+.btn-sm.edit { background: var(--warning); color: #0f0f12; border-color: var(--warning); }
+.btn-sm.edit:hover { background: #facc15; border-color: #facc15; }
 .btn-sm.danger { color: var(--danger); border-color: var(--danger); }
 .empty { padding: 2rem; text-align: center; color: var(--muted); margin: 0; }
 </style>

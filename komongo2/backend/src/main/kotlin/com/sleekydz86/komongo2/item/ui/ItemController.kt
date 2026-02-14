@@ -27,21 +27,22 @@ class ItemController(private val itemService: ItemService) {
         itemService.findById(id)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
 
     @PostMapping
-    fun create(@RequestBody item: Item): ResponseEntity<Item> {
-        val withTime = item.copy(createdAt = java.time.Instant.now(), updatedAt = java.time.Instant.now())
-        return ResponseEntity.status(HttpStatus.CREATED).body(itemService.create(withTime))
+    fun create(@RequestBody req: CreateItemRequest): ResponseEntity<Item> {
+        val now = java.time.Instant.now()
+        val item = Item(name = req.name, description = req.description, createdAt = now, updatedAt = now)
+        return ResponseEntity.status(HttpStatus.CREATED).body(itemService.create(item))
     }
 
     @PostMapping("/bulk")
-    fun createBulk(@RequestBody items: List<Item>): ResponseEntity<List<Item>> {
+    fun createBulk(@RequestBody items: List<CreateItemRequest>): ResponseEntity<List<Item>> {
         val now = java.time.Instant.now()
-        val toSave = items.map { it.copy(createdAt = now, updatedAt = now) }
+        val toSave = items.map { Item(name = it.name, description = it.description, createdAt = now, updatedAt = now) }
         return ResponseEntity.status(HttpStatus.CREATED).body(itemService.createAll(toSave))
     }
 
     @PutMapping("/{id}")
-    fun update(@PathVariable id: String, @RequestBody item: Item): ResponseEntity<Item> =
-        itemService.update(id, item)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
+    fun update(@PathVariable id: String, @RequestBody req: CreateItemRequest): ResponseEntity<Item> =
+        itemService.update(id, req.name, req.description)?.let { ResponseEntity.ok(it) } ?: ResponseEntity.notFound().build()
 
     @DeleteMapping("/{id}")
     fun delete(@PathVariable id: String): ResponseEntity<Void> =

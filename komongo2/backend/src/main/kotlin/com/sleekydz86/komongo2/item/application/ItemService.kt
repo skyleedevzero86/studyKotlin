@@ -35,10 +35,10 @@ class ItemService(
         return saved
     }
 
-    fun update(id: String, item: Item): Item? {
+    fun update(id: String, name: String, description: String): Item? {
         val existing = itemRepository.findById(id).orElse(null) ?: return null
         val updated = itemRepository.save(
-            existing.copy(name = item.name, description = item.description, updatedAt = java.time.Instant.now())
+            existing.copy(name = name, description = description, updatedAt = java.time.Instant.now())
         )
         itemLogService.appendBoth(id, "UPDATE")
         return updated

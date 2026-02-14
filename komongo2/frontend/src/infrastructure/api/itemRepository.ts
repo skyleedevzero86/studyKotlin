@@ -4,6 +4,28 @@ import type { Page, Pageable } from '@/domain/item/types'
 
 const PATH = '/items'
 
+interface PagedModelResponse<T> {
+  content: T[]
+  metadata?: { size: number; number: number; totalElements: number; totalPages: number }
+}
+
+function toPage<T>(res: PagedModelResponse<T> | Page<T>): Page<T> {
+  if ('metadata' in res && res.metadata) {
+    const m = res.metadata
+    return {
+      content: res.content,
+      totalElements: m.totalElements,
+      totalPages: m.totalPages,
+      size: m.size,
+      number: m.number,
+      first: m.number === 0,
+      last: m.number >= m.totalPages - 1,
+      numberOfElements: res.content.length,
+    }
+  }
+  return res as Page<T>
+}
+
 function toParams(pageable: Pageable, keyword: string | null): Record<string, string | number> {
   const params: Record<string, string | number> = {
     page: pageable.page,
@@ -16,8 +38,9 @@ function toParams(pageable: Pageable, keyword: string | null): Record<string, st
 }
 
 export const itemRepository = {
-  getPage(keyword: string | null, pageable: Pageable): Promise<Page<Item>> {
-    return get<Page<Item>>(PATH, toParams(pageable, keyword))
+  async getPage(keyword: string | null, pageable: Pageable): Promise<Page<Item>> {
+    const res = await get<PagedModelResponse<Item> | Page<Item>>(PATH, toParams(pageable, keyword))
+    return toPage(res)
   },
   getById(id: string): Promise<Item> {
     return get<Item>(`${PATH}/${id}`)

@@ -19,7 +19,7 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
         <p v-if="target"><strong>{{ target.name }}</strong> 항목을 삭제할까요?</p>
         <p v-if="error" class="error">{{ error }}</p>
         <div class="actions">
-          <button type="button" @click="emit('close')">취소</button>
+          <button type="button" class="cancel" @click="emit('close')">취소</button>
           <button type="button" class="danger" :disabled="loading" @click="emit('confirm')">{{ loading ? '삭제 중...' : '삭제' }}</button>
         </div>
       </div>
@@ -33,7 +33,9 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
 .modal h2 { margin: 0 0 1rem; font-size: 1.25rem; }
 .error { color: var(--danger); font-size: 0.875rem; margin: 0.5rem 0; }
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
-.actions button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; }
+.actions button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; color: #e4e4e7; }
+.actions button.cancel { background: var(--cancel-bg, #3f3f46); color: #e4e4e7; border-color: var(--border); }
+.actions button.cancel:hover { background: #52525b; border-color: #52525b; }
 .actions button.danger { background: var(--danger); color: white; border-color: var(--danger); }
 .actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
