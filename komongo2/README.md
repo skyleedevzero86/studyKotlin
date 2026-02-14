@@ -1,5 +1,8 @@
 # komongo2
+<Br/>
+<img width="915" height="777" alt="image" src="https://github.com/user-attachments/assets/124faa5a-f3d5-47ac-abc0-4abeb0c01b36" />
 
+<br/>
 ## 1. 프로젝트 소개
 
 **komongo2**는 항목(Item) CRUD와 항목별 이력(ItemLog) 조회를 제공하는 풀스택 웹 애플리케이션이다.
