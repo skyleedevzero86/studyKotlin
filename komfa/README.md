@@ -1,4 +1,14 @@
 # Komfa
+<br/>
+
+## 실행화면
+<img width="494" height="597" alt="image" src="https://github.com/user-attachments/assets/3a37158a-beaf-41fa-9ade-7f1ba12898c5" />
+<br/>
+## 메일발송 화면
+<img width="1206" height="729" alt="image" src="https://github.com/user-attachments/assets/e4eaa690-0850-450f-830b-c36d4ba3eb6e" />
+<img width="1206" height="778" alt="image" src="https://github.com/user-attachments/assets/2da88976-15ec-4bdf-94db-036efb774ff0" />
+
+<br/>
 
 **Ko**tlin + **M**ulti-**F**actor **A**uthentication 기반 회원·인증·관리자 기능을 제공하는 풀스택 웹 프로젝트입니다.
 
