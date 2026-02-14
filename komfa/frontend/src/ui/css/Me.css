@@ -1,0 +1,80 @@
+.me-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.me-card h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+.me-card .tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.me-card .tabs button {
+  padding: 0.4rem 0.8rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.me-card .tabs button.active {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+.me-card .label,
+.me-card label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+.me-card .readonly {
+  margin: 0 0 1rem 0;
+  color: #e4e4e7;
+}
+.me-card input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+.me-card button {
+  padding: 0.6rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.me-card button.danger {
+  background: #dc2626;
+}
+.me-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.me-card .warn {
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: #f59e0b;
+}
+.me-card .message {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+.me-card .message[data-type="ok"] {
+  color: #22c55e;
+}
+.me-card .message[data-type="error"] {
+  color: #ef4444;
+}

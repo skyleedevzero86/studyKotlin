@@ -22,19 +22,23 @@ class MeController(
 
     @GetMapping("/me")
     fun me(@AuthenticationPrincipal principal: UserDetails?): ResponseEntity<MeResponse> {
-        val username = principal?.username ?: return ResponseEntity.notFound().build()
-        val user = userService.getByUsername(username) ?: return ResponseEntity.notFound().build()
-        val requirePasswordChange = userService.requirePasswordChange(user.updatedAt)
-        val decryptedEmail = userService.decryptEmail(user)
-        return ResponseEntity.ok(
-            MeResponse(
-                username = user.username,
-                email = decryptedEmail,
-                createdAt = user.createdAt.toString(),
-                updatedAt = user.updatedAt.toString(),
-                requirePasswordChange = requirePasswordChange,
+        return try {
+            val username = principal?.username ?: return ResponseEntity.noContent().build()
+            val user = userService.getByUsername(username) ?: return ResponseEntity.noContent().build()
+            val requirePasswordChange = userService.requirePasswordChange(user.updatedAt)
+            val decryptedEmail = userService.decryptEmail(user)
+            ResponseEntity.ok(
+                MeResponse(
+                    username = user.username,
+                    email = decryptedEmail,
+                    createdAt = user.createdAt?.toString() ?: "",
+                    updatedAt = user.updatedAt?.toString() ?: "",
+                    requirePasswordChange = requirePasswordChange,
+                )
             )
-        )
+        } catch (_: Throwable) {
+            ResponseEntity.noContent().build()
+        }
     }
 
     @PatchMapping("/me")

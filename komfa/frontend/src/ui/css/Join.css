@@ -1,0 +1,51 @@
+.join-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.join-card h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+.join-card label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+.join-card input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+.join-card button {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+.join-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.join-card .message {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+.join-card .message[data-type="ok"] {
+  color: #22c55e;
+}
+.join-card .message[data-type="error"] {
+  color: #ef4444;
+}

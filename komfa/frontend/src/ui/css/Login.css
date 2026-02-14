@@ -1,0 +1,72 @@
+.login-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.login-card h1 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.login-card .subtitle {
+  margin: 0 0 1.5rem 0;
+  color: #71717a;
+  font-size: 0.875rem;
+}
+.login-card label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+.login-card input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+.login-card input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+.login-card button {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: #6366f1;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.login-card button:hover:not(:disabled) {
+  background: #4f46e5;
+}
+.login-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.login-card .message {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+.login-card .message[data-type='ok'] {
+  color: #22c55e;
+}
+.login-card .message[data-type='error'] {
+  color: #ef4444;
+}
+.login-card .ott-form {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #27272a;
+}

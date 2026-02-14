@@ -1,0 +1,15 @@
+.user-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.user-card h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+.user-card .username {
+  margin-top: 0.5rem;
+  color: #a1a1aa;
+}

@@ -1,0 +1,27 @@
+.ott-sent-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem;
+  min-width: 320px;
+}
+.ott-sent-card h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+.ott-sent-card p {
+  margin: 0 0 1rem 0;
+  color: #a1a1aa;
+  font-size: 0.875rem;
+}
+.ott-sent-card button {
+  padding: 0.5rem 1rem;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.ott-sent-card button:hover {
+  background: #3f3f46;
+}
