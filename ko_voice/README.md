@@ -1,8 +1,9 @@
 # Ko Voice
-
-Kotlin + Spring Boot 기반 **음성 메모 / STT·TTS** 웹 애플리케이션입니다.  
-[Groq](https://groq.com) API(Whisper STT, PlayAI TTS)를 사용해 음성→텍스트, 텍스트→음성 변환을 제공합니다.
-
+<br/>
+<img width="990" height="547" alt="image" src="https://github.com/user-attachments/assets/7322683d-b93a-4b89-ad04-b612bc6baf03" />
+<br/><br/>
+Kotlin + Spring Boot 기반 **음성 메모 / STT·TTS** 웹 애플리케이션입니다.  <br/><br/>
+[Groq](https://groq.com) API(Whisper STT, PlayAI TTS)를 사용해 음성→텍스트, 텍스트→음성 변환을 제공합니다.<br/><br/>
 ---
 
 ## 기술 스택
