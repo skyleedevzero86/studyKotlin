@@ -210,6 +210,10 @@ class SpeechController(
     }
 
     private fun parseProviderErrorMessage(responseBody: String, fallback: String?): String {
+        if (responseBody.contains("model_terms_required") || responseBody.contains("terms acceptance", ignoreCase = true)) {
+            return "TTS 모델 약관 동의가 필요합니다. 콘솔에서 모델 약관에 동의한 뒤 다시 시도해주세요."
+        }
+
         if (responseBody.contains("model_decommissioned")) {
             return "요청한 TTS 모델은 더 이상 지원되지 않습니다. 설정을 확인해주세요."
         }

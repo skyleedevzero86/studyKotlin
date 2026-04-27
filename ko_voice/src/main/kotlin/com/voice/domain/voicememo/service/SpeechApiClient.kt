@@ -147,11 +147,11 @@ class SpeechApiClient(
                             val errorBody = EntityUtils.toString(response.entity)
                             val errorMessage = parseErrorMessage(errorBody)
 
-                            if (errorBody.contains("model_decommissioned")) {
-                                throw IllegalArgumentException("요청한 TTS 모델은 더 이상 지원되지 않습니다. 설정의 TTS 모델 값을 확인해주세요.")
+                            if (errorBody.contains("model_terms_required") || errorBody.contains("terms acceptance", ignoreCase = true)) {
+                                throw IllegalStateException("TTS 모델 약관 동의가 필요합니다. 콘솔에서 모델 약관에 동의한 뒤 다시 시도해주세요.")
                             }
-                            else if (errorBody.contains("model_terms_required")) {
-                                throw IllegalStateException("TTS 모델 사용을 위해 약관 동의가 필요합니다.")
+                            else if (errorBody.contains("model_decommissioned")) {
+                                throw IllegalArgumentException("요청한 TTS 모델은 더 이상 지원되지 않습니다. 설정의 TTS 모델 값을 확인해주세요.")
                             }
                             else if (errorBody.contains("voice must be one of the following voices")) {
                                 throw IllegalArgumentException("잘못된 요청: " + errorMessage)
