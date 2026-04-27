@@ -11,8 +11,8 @@ data class SpeechRequest(
 ) {
     fun validate(): SpeechRequest {
         require(text.isNotBlank()) { "텍스트는 비어있을 수 없습니다" }
-        require(text.length <= TtsOptions.MAX_INPUT_CHARS) {
-            "TTS는 요청당 최대 ${TtsOptions.MAX_INPUT_CHARS}자까지 지원됩니다"
+        require(text.length <= TtsOptions.GROQ_MAX_INPUT_CHARS) {
+            "TTS는 요청당 최대 ${TtsOptions.GROQ_MAX_INPUT_CHARS}자까지 지원됩니다"
         }
         require(model.isNotBlank()) { "TTS 모델이 설정되어야 합니다" }
         require(voice.isNotBlank()) { "음성을 선택해야 합니다" }

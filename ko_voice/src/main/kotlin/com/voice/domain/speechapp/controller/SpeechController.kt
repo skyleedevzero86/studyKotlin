@@ -34,6 +34,12 @@ class SpeechController(
     @Value("\${speech.api.base-url}")
     private lateinit var baseUrl: String
 
+    @Value("\${speech.api.openai.key:}")
+    private lateinit var openAiApiKey: String
+
+    @Value("\${speech.api.openai.base-url:https://api.openai.com/v1}")
+    private lateinit var openAiBaseUrl: String
+
     private val restTemplate = RestTemplate()
     private val mapper = jacksonObjectMapper()
 
@@ -142,28 +148,53 @@ class SpeechController(
                 return ttsError("텍스트를 입력해주세요.", HttpStatus.BAD_REQUEST)
             }
 
-            val modelKey = ttsOptions.resolveModelKey(requestBodyMap["model"] as? String)
-            val model = ttsOptions.modelId(modelKey)
-            val voice = ttsOptions.resolveVoice(modelKey, requestBodyMap["voice"] as? String)
+            val provider = ttsOptions.resolveProvider(requestBodyMap["provider"] as? String)
+            val modelKey = ttsOptions.resolveModelKey(provider, requestBodyMap["model"] as? String)
+            val model = ttsOptions.modelId(provider, modelKey)
+            val voice = ttsOptions.resolveVoice(provider, modelKey, requestBodyMap["voice"] as? String)
             val processedText = KoreanRomanizer.preprocessTextForTTS(originalText).trim()
+            val maxInputChars = ttsOptions.maxInputChars(provider)
 
-            if (processedText.length > TtsOptions.MAX_INPUT_CHARS) {
+            if (processedText.length > maxInputChars) {
                 return ttsError(
-                    "TTS는 요청당 최대 ${TtsOptions.MAX_INPUT_CHARS}자까지 지원됩니다. 현재 ${processedText.length}자입니다.",
+                    "TTS는 요청당 최대 ${maxInputChars}자까지 지원됩니다. 현재 ${processedText.length}자입니다.",
                     HttpStatus.BAD_REQUEST
                 )
             }
 
-            val requestBody = mapOf(
+            if (provider == TtsOptions.PROVIDER_OPENAI && openAiApiKey.isBlank()) {
+                return ttsError("OpenAI TTS API 키가 설정되지 않았습니다.", HttpStatus.INTERNAL_SERVER_ERROR)
+            }
+
+            val responseFormat = ((requestBodyMap["response_format"] as? String)?.trim()?.lowercase())
+                ?.takeIf { it.isNotBlank() } ?: TtsOptions.RESPONSE_FORMAT
+
+            val requestBody = mutableMapOf<String, Any>(
                 "model" to model,
                 "input" to processedText,
                 "voice" to voice,
-                "response_format" to TtsOptions.RESPONSE_FORMAT
+                "response_format" to responseFormat
             )
 
+            if (provider == TtsOptions.PROVIDER_OPENAI) {
+                val instructions = (requestBodyMap["instructions"] as? String)?.trim().orEmpty()
+                if (instructions.isNotBlank() && ttsOptions.supportsInstructions(provider, model)) {
+                    requestBody["instructions"] = instructions.take(TtsOptions.OPENAI_MAX_INPUT_CHARS)
+                }
+
+                val speed = (requestBodyMap["speed"] as? Number)?.toDouble()
+                if (speed != null && speed in 0.25..4.0) {
+                    requestBody["speed"] = speed
+                }
+            }
+
+            val targetBaseUrl = if (provider == TtsOptions.PROVIDER_OPENAI) openAiBaseUrl else baseUrl
+            val targetApiKey = if (provider == TtsOptions.PROVIDER_OPENAI) openAiApiKey else apiKey
+
+            headers.set("Authorization", "Bearer $targetApiKey")
             val request = HttpEntity(requestBody, headers)
             val response = restTemplate.postForEntity(
-                "$baseUrl/audio/speech",
+                "$targetBaseUrl/audio/speech",
                 request,
                 ByteArray::class.java
             )
@@ -175,15 +206,15 @@ class SpeechController(
 
                 val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 val safeVoice = voice.replace("-", "_").take(20)
-                val outputFile = File(uploadDir, "output_${safeVoice}_$timestamp.wav")
+                val outputFile = File(uploadDir, "output_${safeVoice}_$timestamp.$responseFormat")
 
                 FileUtils.writeByteArrayToFile(outputFile, response.body!!)
                 println("Saved output file: ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")
             }
 
             val responseHeaders = HttpHeaders().apply {
-                contentType = MediaType.parseMediaType("audio/wav")
-                setContentDispositionFormData("attachment", "speech.wav")
+                contentType = mediaTypeForFormat(responseFormat)
+                setContentDispositionFormData("attachment", "speech.$responseFormat")
             }
 
             ResponseEntity(response.body, responseHeaders, HttpStatus.OK)
@@ -225,6 +256,17 @@ class SpeechController(
                 .asText(fallback ?: "TTS API 오류가 발생했습니다.")
         } catch (e: Exception) {
             fallback ?: "TTS API 오류가 발생했습니다."
+        }
+    }
+
+    private fun mediaTypeForFormat(format: String): MediaType {
+        return when (format.lowercase()) {
+            "mp3" -> MediaType.parseMediaType("audio/mpeg")
+            "opus" -> MediaType.parseMediaType("audio/opus")
+            "aac" -> MediaType.parseMediaType("audio/aac")
+            "flac" -> MediaType.parseMediaType("audio/flac")
+            "pcm" -> MediaType.parseMediaType("audio/L16")
+            else -> MediaType.parseMediaType("audio/wav")
         }
     }
 

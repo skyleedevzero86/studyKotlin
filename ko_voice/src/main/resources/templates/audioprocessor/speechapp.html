@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
   <head>
     <meta charset="UTF-8" />
@@ -321,7 +321,7 @@
             <label for="inputText">변환할 텍스트:</label>
             <textarea
               id="inputText"
-              maxlength="200"
+              maxlength="4096"
               placeholder="여기에 텍스트를 입력하세요..."
             ></textarea>
           </div>
@@ -329,8 +329,12 @@
           <div class="form-group">
             <label for="ttsModel">모델 선택:</label>
             <select id="ttsModel">
-              <option value="english">영어 TTS</option>
-              <option value="arabic">아랍어 TTS</option>
+              <option value="english" data-provider="groq">Groq - English (Orpheus)</option>
+              <option value="arabic" data-provider="groq">Groq - Arabic (Orpheus)</option>
+              <option value="gpt-4o-mini-tts" data-provider="openai">OpenAI - gpt-4o-mini-tts</option>
+              <option value="gpt-4o-mini-tts-2025-12-15" data-provider="openai">OpenAI - gpt-4o-mini-tts-2025-12-15</option>
+              <option value="tts-1" data-provider="openai">OpenAI - tts-1</option>
+              <option value="tts-1-hd" data-provider="openai">OpenAI - tts-1-hd</option>
             </select>
           </div>
 
@@ -359,22 +363,24 @@
       let isRecording = false;
       let selectedVoice = "troy";
 
-      const voices = {
-        english: [
-          "autumn",
-          "diana",
-          "hannah",
-          "austin",
-          "daniel",
-          "troy",
+      const voicesByModel = {
+        english: ["autumn", "diana", "hannah", "austin", "daniel", "troy"],
+        arabic: ["abdullah", "fahad", "sultan", "lulwa", "noura", "aisha"],
+        "gpt-4o-mini-tts": [
+          "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova",
+          "sage", "shimmer", "verse", "marin", "cedar",
         ],
-        arabic: [
-          "abdullah",
-          "fahad",
-          "sultan",
-          "lulwa",
-          "noura",
-          "aisha",
+        "gpt-4o-mini-tts-2025-12-15": [
+          "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova",
+          "sage", "shimmer", "verse", "marin", "cedar",
+        ],
+        "tts-1": [
+          "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova",
+          "sage", "shimmer", "verse", "marin", "cedar",
+        ],
+        "tts-1-hd": [
+          "alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova",
+          "sage", "shimmer", "verse", "marin", "cedar",
         ],
       };
 
@@ -386,12 +392,14 @@
       function initializeVoiceGrid() {
         const voiceGrid = document.getElementById("voiceGrid");
         const model = document.getElementById("ttsModel").value;
+        const maxLength = model === "english" || model === "arabic" ? 200 : 4096;
 
         voiceGrid.innerHTML = "";
-        const modelVoices = voices[model] || voices.english;
+        const modelVoices = voicesByModel[model] || voicesByModel.english;
         if (!modelVoices.includes(selectedVoice)) {
           selectedVoice = modelVoices[0];
         }
+        document.getElementById("inputText").maxLength = maxLength;
 
         modelVoices.forEach((voice) => {
           const voiceOption = document.createElement("div");
@@ -451,7 +459,7 @@
             showStatus(
               "sttStatus",
               "이 브라우저는 녹음 기능을 지원하지 않습니다. Chrome, Firefox, Edge를 사용해주세요.",
-              "error"
+              "error",
             );
             return;
           }
@@ -487,7 +495,7 @@
           for (let i = 0; i < constraintOptions.length; i++) {
             try {
               stream = await navigator.mediaDevices.getUserMedia(
-                constraintOptions[i]
+                constraintOptions[i],
               );
               break;
             } catch (error) {
@@ -511,7 +519,7 @@
           if (tracks.length === 0 || tracks[0].readyState !== "live") {
             stream.getTracks().forEach((track) => track.stop());
             const error = new Error(
-              "스트림을 획득했지만 트랙이 활성 상태가 아닙니다."
+              "스트림을 획득했지만 트랙이 활성 상태가 아닙니다.",
             );
             error.name = "NotReadableError";
             throw error;
@@ -555,7 +563,7 @@
               showStatus(
                 "sttStatus",
                 "녹음된 데이터가 없습니다. 다시 시도해주세요.",
-                "error"
+                "error",
               );
               return;
             }
@@ -587,7 +595,7 @@
               "sttStatus",
               "녹음 중 오류가 발생했습니다: " +
                 (event.error?.name || "알 수 없는 오류"),
-              "error"
+              "error",
             );
             stopRecording();
           };
@@ -599,7 +607,7 @@
                 showStatus(
                   "sttStatus",
                   "마이크 연결이 끊어졌습니다. 녹음이 중지되었습니다.",
-                  "error"
+                  "error",
                 );
               }
             });
@@ -679,7 +687,7 @@
           showStatus(
             "sttStatus",
             "음성 파일을 선택하거나 녹음해주세요.",
-            "error"
+            "error",
           );
           return;
         }
@@ -720,20 +728,33 @@
 
       async function generateSpeech() {
         const text = document.getElementById("inputText").value.trim();
+        const ttsModelElement = document.getElementById("ttsModel");
+        const model = ttsModelElement.value;
+        const provider =
+          ttsModelElement.options[ttsModelElement.selectedIndex].dataset.provider ||
+          "groq";
+        const maxChars = provider === "openai" ? 4096 : 200;
+
         if (!text) {
           showStatus("ttsStatus", "변환할 텍스트를 입력해주세요.", "error");
           return;
         }
 
-        if (text.length > 200) {
-          showStatus("ttsStatus", "TTS 텍스트는 200자 이하로 입력해주세요.", "error");
+        if (text.length > maxChars) {
+          showStatus(
+            "ttsStatus",
+            `선택한 모델의 입력 제한은 ${maxChars}자입니다.`,
+            "error",
+          );
           return;
         }
 
         const requestBody = {
           text: text,
           voice: selectedVoice,
-          model: document.getElementById("ttsModel").value,
+          model: model,
+          provider: provider,
+          response_format: "wav",
         };
 
         showStatus("ttsStatus", "음성을 생성 중...", "processing");
@@ -761,8 +782,9 @@
             const errorText = await response.text();
             showStatus(
               "ttsStatus",
-              errorText || "음성 생성에 실패했습니다. (Error: " + response.status + ")",
-              "error"
+              errorText ||
+                "음성 생성에 실패했습니다. (Error: " + response.status + ")",
+              "error",
             );
           }
         } catch (error) {
@@ -797,7 +819,7 @@
             showStatus(
               "ttsStatus",
               `음성이 저장되었습니다: ${result.filename}`,
-              "success"
+              "success",
             );
           } else {
             showStatus("ttsStatus", "저장 실패: " + result.error, "error");

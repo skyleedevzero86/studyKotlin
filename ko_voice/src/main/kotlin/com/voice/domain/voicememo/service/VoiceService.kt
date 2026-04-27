@@ -20,7 +20,7 @@ class VoiceService(
     companion object {
         private val TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
         private const val MAX_FILE_SIZE = 25 * 1024 * 1024
-        private const val MAX_TEXT_LENGTH = TtsOptions.MAX_INPUT_CHARS
+        private const val MAX_TEXT_LENGTH = TtsOptions.GROQ_MAX_INPUT_CHARS
     }
 
     fun processSpeechToText(audioData: ByteArray, language: String, extension: String = "wav"): String {
