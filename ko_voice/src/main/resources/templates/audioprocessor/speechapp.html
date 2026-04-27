@@ -321,6 +321,7 @@
             <label for="inputText">변환할 텍스트:</label>
             <textarea
               id="inputText"
+              maxlength="200"
               placeholder="여기에 텍스트를 입력하세요..."
             ></textarea>
           </div>
@@ -328,8 +329,8 @@
           <div class="form-group">
             <label for="ttsModel">모델 선택:</label>
             <select id="ttsModel">
-              <option value="playai-tts">영어 TTS</option>
-              <option value="playai-tts-arabic">아랍어 TTS</option>
+              <option value="english">영어 TTS</option>
+              <option value="arabic">아랍어 TTS</option>
             </select>
           </div>
 
@@ -356,35 +357,24 @@
       let mediaRecorder;
       let recordedChunks = [];
       let isRecording = false;
-      let selectedVoice = "Fritz-PlayAI";
+      let selectedVoice = "troy";
 
       const voices = {
-        "playai-tts": [
-          "Arista-PlayAI",
-          "Atlas-PlayAI",
-          "Basil-PlayAI",
-          "Briggs-PlayAI",
-          "Calum-PlayAI",
-          "Celeste-PlayAI",
-          "Cheyenne-PlayAI",
-          "Chip-PlayAI",
-          "Cillian-PlayAI",
-          "Deedee-PlayAI",
-          "Fritz-PlayAI",
-          "Gail-PlayAI",
-          "Indigo-PlayAI",
-          "Mamaw-PlayAI",
-          "Mason-PlayAI",
-          "Mikail-PlayAI",
-          "Mitch-PlayAI",
-          "Quinn-PlayAI",
-          "Thunder-PlayAI",
+        english: [
+          "autumn",
+          "diana",
+          "hannah",
+          "austin",
+          "daniel",
+          "troy",
         ],
-        "playai-tts-arabic": [
-          "Ahmad-PlayAI",
-          "Amira-PlayAI",
-          "Khalid-PlayAI",
-          "Nasser-PlayAI",
+        arabic: [
+          "abdullah",
+          "fahad",
+          "sultan",
+          "lulwa",
+          "noura",
+          "aisha",
         ],
       };
 
@@ -398,14 +388,15 @@
         const model = document.getElementById("ttsModel").value;
 
         voiceGrid.innerHTML = "";
-        if (!voices[model].includes(selectedVoice)) {
-          selectedVoice = voices[model][0];
+        const modelVoices = voices[model] || voices.english;
+        if (!modelVoices.includes(selectedVoice)) {
+          selectedVoice = modelVoices[0];
         }
 
-        voices[model].forEach((voice) => {
+        modelVoices.forEach((voice) => {
           const voiceOption = document.createElement("div");
           voiceOption.className = "voice-option";
-          voiceOption.textContent = voice.replace("-PlayAI", "");
+          voiceOption.textContent = displayVoiceName(voice);
           voiceOption.onclick = () => selectVoice(voice, voiceOption);
 
           if (voice === selectedVoice) {
@@ -414,6 +405,10 @@
 
           voiceGrid.appendChild(voiceOption);
         });
+      }
+
+      function displayVoiceName(voice) {
+        return voice.charAt(0).toUpperCase() + voice.slice(1);
       }
 
       function selectVoice(voice, element) {
@@ -730,6 +725,11 @@
           return;
         }
 
+        if (text.length > 200) {
+          showStatus("ttsStatus", "TTS 텍스트는 200자 이하로 입력해주세요.", "error");
+          return;
+        }
+
         const requestBody = {
           text: text,
           voice: selectedVoice,
@@ -761,7 +761,7 @@
             const errorText = await response.text();
             showStatus(
               "ttsStatus",
-              "음성 생성에 실패했습니다. (Error: " + response.status + ")",
+              errorText || "음성 생성에 실패했습니다. (Error: " + response.status + ")",
               "error"
             );
           }

@@ -231,16 +231,16 @@
     <form method="post" action="/generate">
         <div class="form-group">
             <label for="text">텍스트 입력:</label>
-            <textarea name="text" id="text" placeholder="음성으로 변환할 텍스트를 입력하세요..."
+            <textarea name="text" id="text" maxlength="200" placeholder="음성으로 변환할 텍스트를 입력하세요..."
                       th:text="${generatedText}"></textarea>
-            <div class="status">최대 4,096자까지 입력 가능합니다.</div>
+            <div class="status">최대 200자까지 입력 가능합니다.</div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
                 <label for="voice">음성 선택:</label>
                 <select name="voice" id="voice">
-                    <optgroup label="Groq PlayAI 음성">
+                    <optgroup label="TTS 음성">
                         <option th:each="voice : ${voices}"
                                 th:value="${voice}"
                                 th:text="${voice}"
@@ -249,7 +249,7 @@
                     </optgroup>
                 </select>
                 <div class="voice-info">
-                    Groq PlayAI 음성을 사용합니다.
+                    선택한 TTS 음성을 사용합니다.
                 </div>
             </div>
         </div>
@@ -298,8 +298,8 @@
             return false;
         }
 
-        if (text.length > 4096) {
-            alert('텍스트가 너무 깁니다. 4,096자 이하로 입력해주세요.');
+        if (text.length > 200) {
+            alert('텍스트가 너무 깁니다. 200자 이하로 입력해주세요.');
             return false;
         }
 
@@ -308,9 +308,9 @@
 
     document.getElementById('text').addEventListener('input', function() {
         const text = this.value;
-        const remaining = 4096 - text.length;
+        const remaining = 200 - text.length;
         const status = this.parentElement.querySelector('.status');
-        status.textContent = `${text.length}/4,096자 (${remaining}자 남음)`;
+        status.textContent = `${text.length}/200자 (${remaining}자 남음)`;
 
         if (remaining < 0) {
             status.style.color = '#e74c3c';
@@ -323,7 +323,7 @@
 
     document.getElementById('voice').addEventListener('change', function() {
         const voiceInfo = this.parentElement.querySelector('.voice-info');
-        voiceInfo.textContent = 'Groq PlayAI 음성을 사용합니다.';
+        voiceInfo.textContent = '선택한 TTS 음성을 사용합니다.';
         voiceInfo.style.color = '#7f8c8d';
     });
 </script>

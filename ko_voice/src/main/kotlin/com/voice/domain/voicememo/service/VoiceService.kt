@@ -1,6 +1,7 @@
 package com.voice.domain.voicememo.service
 
 import com.voice.domain.global.util.KoreanRomanizer
+import com.voice.domain.speech.TtsOptions
 import com.voice.domain.voicememo.dto.SpeechRequest
 import com.voice.domain.voicememo.dto.TranscriptionRequest
 import org.apache.commons.io.FileUtils
@@ -11,14 +12,15 @@ import java.time.format.DateTimeFormatter
 
 @Service
 class VoiceService(
-    private val groqClient: GroqApiClient,
+    private val speechApiClient: SpeechApiClient,
+    private val ttsOptions: TtsOptions,
     private val uploadDir: File
 ) {
 
     companion object {
         private val TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
         private const val MAX_FILE_SIZE = 25 * 1024 * 1024
-        private const val MAX_TEXT_LENGTH = 4096
+        private const val MAX_TEXT_LENGTH = TtsOptions.MAX_INPUT_CHARS
     }
 
     fun processSpeechToText(audioData: ByteArray, language: String, extension: String = "wav"): String {
@@ -43,7 +45,7 @@ class VoiceService(
             println("Saved input file: ${audioFile.absolutePath}, size: ${audioFile.length()} bytes")
 
             val request = TranscriptionRequest(audioFile, language)
-            val response = groqClient.transcribe(request)
+            val response = speechApiClient.transcribe(request)
 
             if (response.text.isBlank()) {
                 throw IllegalStateException("음성에서 텍스트를 인식할 수 없습니다.")
@@ -75,24 +77,30 @@ class VoiceService(
             throw IllegalArgumentException("텍스트가 비어있습니다.")
         }
 
-        val model = "playai-tts"
-        val processedText = KoreanRomanizer.preprocessTextForTTS(text)
+        val modelKey = ttsOptions.resolveModelKey(null)
+        val model = ttsOptions.modelId(modelKey)
+        val resolvedVoice = ttsOptions.resolveVoice(modelKey, voice)
+        val processedText = KoreanRomanizer.preprocessTextForTTS(text).trim()
 
-        val request = SpeechRequest(model = model, text = processedText, voice = voice)
+        if (processedText.length > MAX_TEXT_LENGTH) {
+            throw IllegalArgumentException("TTS는 요청당 최대 ${MAX_TEXT_LENGTH}자까지 지원됩니다. 현재 ${processedText.length}자입니다.")
+        }
+
+        val request = SpeechRequest(model = model, text = processedText, voice = resolvedVoice)
 
         return try {
             if (!uploadDir.exists()) {
                 uploadDir.mkdirs()
             }
 
-            val speechData = groqClient.generateSpeech(request)
+            val speechData = speechApiClient.generateSpeech(request)
 
             if (speechData.isEmpty()) {
                 throw IllegalStateException("TTS API에서 음성 데이터를 받지 못했습니다.")
             }
 
             val timestamp = LocalDateTime.now().format(TIMESTAMP_FORMATTER)
-            val outputFile = File(uploadDir, "output_${voice}_$timestamp.wav")
+            val outputFile = File(uploadDir, "output_${resolvedVoice}_$timestamp.wav")
 
             FileUtils.writeByteArrayToFile(outputFile, speechData)
             println("Saved output file: ${outputFile.absolutePath}, size: ${outputFile.length()} bytes")

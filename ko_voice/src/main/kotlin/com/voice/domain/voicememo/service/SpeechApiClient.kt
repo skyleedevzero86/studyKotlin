@@ -2,6 +2,7 @@ package com.voice.domain.voicememo.service
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.voice.domain.speech.TtsOptions
 import com.voice.domain.voicememo.dto.SpeechRequest
 import com.voice.domain.voicememo.dto.TranscriptionRequest
 import com.voice.domain.voicememo.dto.TranscriptionResponse
@@ -18,12 +19,12 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 
 @Component
-class GroqApiClient(
+class SpeechApiClient(
     private val httpClient: CloseableHttpClient,
-    @Value("\${groq.api.key}") private val apiKey: String,
-    @Value("\${groq.api.base-url}") private val baseUrl: String,
-    @Value("\${groq.api.stt-endpoint}") private val sttEndpoint: String,
-    @Value("\${groq.api.tts-endpoint}") private val ttsEndpoint: String
+    @Value("\${speech.api.key}") private val apiKey: String,
+    @Value("\${speech.api.base-url}") private val baseUrl: String,
+    @Value("\${speech.api.stt-endpoint}") private val sttEndpoint: String,
+    @Value("\${speech.api.tts-endpoint}") private val ttsEndpoint: String
 ) {
     private val mapper = jacksonObjectMapper()
 
@@ -113,6 +114,7 @@ class GroqApiClient(
 
     fun generateSpeech(request: SpeechRequest): ByteArray {
         val url = "$baseUrl$ttsEndpoint"
+        val validatedRequest = request.validate()
 
         repeat(MAX_RETRIES) { attempt ->
             try {
@@ -122,13 +124,13 @@ class GroqApiClient(
                     addHeader("User-Agent", "VoiceMemo/1.0")
                 }
 
-                val requestBody = createTtsRequestBody(request)
+                val requestBody = createTtsRequestBody(validatedRequest)
                 httpPost.setEntity(StringEntity(requestBody, ContentType.APPLICATION_JSON))
 
                 val result = httpClient.execute(httpPost) { response ->
                     val status = response.code
 
-                    println("TTS API Response - Status: $status, Model: ${request.model}, Voice: ${request.voice}")
+                    println("TTS API Response - Status: $status, Model: ${validatedRequest.model}, Voice: ${validatedRequest.voice}")
 
                     when (status) {
                         HttpStatus.SC_OK -> {
@@ -145,14 +147,17 @@ class GroqApiClient(
                             val errorBody = EntityUtils.toString(response.entity)
                             val errorMessage = parseErrorMessage(errorBody)
 
-                            if (errorBody.contains("model_terms_required")) {
-                                throw IllegalStateException("PlayAI 모델 사용을 위해 약관 동의가 필요합니다. Groq 콘솔에서 약관에 동의하거나 다른 음성을 선택해주세요.")
+                            if (errorBody.contains("model_decommissioned")) {
+                                throw IllegalArgumentException("요청한 TTS 모델은 더 이상 지원되지 않습니다. 설정의 TTS 모델 값을 확인해주세요.")
+                            }
+                            else if (errorBody.contains("model_terms_required")) {
+                                throw IllegalStateException("TTS 모델 사용을 위해 약관 동의가 필요합니다.")
                             }
                             else if (errorBody.contains("voice must be one of the following voices")) {
                                 throw IllegalArgumentException("잘못된 요청: " + errorMessage)
                             }
                             else if (errorBody.contains("invalid_model")) {
-                                throw IllegalArgumentException("잘못된 요청: ${request.model}은(는) 유효하지 않은 모델입니다. Groq API 문서를 확인하세요.")
+                                throw IllegalArgumentException("잘못된 요청: ${validatedRequest.model}은(는) 유효하지 않은 모델입니다. 설정을 확인하세요.")
                             }
 
                             throw IllegalStateException("TTS API failed with status $status: $errorMessage")
@@ -188,14 +193,8 @@ class GroqApiClient(
             "model" to request.model,
             "input" to request.text,
             "voice" to request.voice,
-            "response_format" to "wav"
+            "response_format" to TtsOptions.RESPONSE_FORMAT
         )
-
-        when (request.model) {
-            "playai-tts" -> {
-                requestMap["speed"] = 1.0
-            }
-        }
 
         return mapper.writeValueAsString(requestMap)
     }

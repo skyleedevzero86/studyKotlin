@@ -1,6 +1,8 @@
 package com.voice.domain.speechapp.controller
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.voice.domain.global.util.KoreanRomanizer
+import com.voice.domain.speech.TtsOptions
 import org.apache.commons.io.FileUtils
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
@@ -10,6 +12,7 @@ import org.springframework.ui.Model
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestTemplate
 import org.springframework.web.multipart.MultipartFile
 import java.io.File
@@ -21,16 +24,18 @@ import java.util.*
 
 @Controller
 class SpeechController(
+    private val ttsOptions: TtsOptions,
     private val uploadDir: File
 ) {
 
-    @Value("\${groq.api.key}")
+    @Value("\${speech.api.key}")
     private lateinit var apiKey: String
 
-    @Value("\${groq.api.base-url}")
+    @Value("\${speech.api.base-url}")
     private lateinit var baseUrl: String
 
     private val restTemplate = RestTemplate()
+    private val mapper = jacksonObjectMapper()
 
     @GetMapping("/")
     fun index(model: Model): String {
@@ -133,15 +138,27 @@ class SpeechController(
             }
 
             val originalText = requestBodyMap["text"] as? String ?: ""
-            val voice = requestBodyMap["voice"] as? String ?: "Fritz-PlayAI"
-            val model = requestBodyMap["model"] as? String ?: "playai-tts"
-            val processedText = KoreanRomanizer.preprocessTextForTTS(originalText)
+            if (originalText.isBlank()) {
+                return ttsError("텍스트를 입력해주세요.", HttpStatus.BAD_REQUEST)
+            }
+
+            val modelKey = ttsOptions.resolveModelKey(requestBodyMap["model"] as? String)
+            val model = ttsOptions.modelId(modelKey)
+            val voice = ttsOptions.resolveVoice(modelKey, requestBodyMap["voice"] as? String)
+            val processedText = KoreanRomanizer.preprocessTextForTTS(originalText).trim()
+
+            if (processedText.length > TtsOptions.MAX_INPUT_CHARS) {
+                return ttsError(
+                    "TTS는 요청당 최대 ${TtsOptions.MAX_INPUT_CHARS}자까지 지원됩니다. 현재 ${processedText.length}자입니다.",
+                    HttpStatus.BAD_REQUEST
+                )
+            }
 
             val requestBody = mapOf(
                 "model" to model,
                 "input" to processedText,
                 "voice" to voice,
-                "response_format" to "wav"
+                "response_format" to TtsOptions.RESPONSE_FORMAT
             )
 
             val request = HttpEntity(requestBody, headers)
@@ -170,10 +187,40 @@ class SpeechController(
             }
 
             ResponseEntity(response.body, responseHeaders, HttpStatus.OK)
+        } catch (e: IllegalArgumentException) {
+            println("TTS Validation Error: ${e.message}")
+            ttsError(e.message ?: "TTS 요청이 올바르지 않습니다.", HttpStatus.BAD_REQUEST)
+        } catch (e: HttpClientErrorException) {
+            val errorMessage = parseProviderErrorMessage(e.responseBodyAsString, e.message)
+
+            println("TTS API Error: $errorMessage")
+            ttsError(errorMessage, e.statusCode)
         } catch (e: Exception) {
             println("TTS Error: ${e.message}")
             e.printStackTrace()
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+            ttsError(e.message ?: "음성 생성 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR)
+        }
+    }
+
+    private fun ttsError(message: String, status: HttpStatusCode): ResponseEntity<ByteArray> {
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.TEXT_PLAIN
+        }
+        return ResponseEntity.status(status).headers(headers).body(message.toByteArray(Charsets.UTF_8))
+    }
+
+    private fun parseProviderErrorMessage(responseBody: String, fallback: String?): String {
+        if (responseBody.contains("model_decommissioned")) {
+            return "요청한 TTS 모델은 더 이상 지원되지 않습니다. 설정을 확인해주세요."
+        }
+
+        return try {
+            mapper.readTree(responseBody)
+                .path("error")
+                .path("message")
+                .asText(fallback ?: "TTS API 오류가 발생했습니다.")
+        } catch (e: Exception) {
+            fallback ?: "TTS API 오류가 발생했습니다."
         }
     }
 
