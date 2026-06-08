@@ -11,6 +11,7 @@ import kotlin.test.Test
 @SpringBootTest
 @Transactional
 @Commit
+@Rollback(false)
 class MemberTest {
 
     @Autowired

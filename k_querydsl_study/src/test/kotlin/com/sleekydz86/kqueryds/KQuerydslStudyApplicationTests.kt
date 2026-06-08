@@ -26,21 +26,22 @@ class KQuerydslStudyApplicationTests {
         val hello = Hello()
         em.persist(hello)
 
-        val query = JPAQueryFactory(em)
+        em.flush()
+        em.clear()
 
+        val query = JPAQueryFactory(em)
         val qHello = QHello("h")
 
         val result = query
             .selectFrom(qHello)
+            .where(qHello.id.eq(hello.id))
             .fetchOne()
-
 
         println("결과: $result")
         println("결과 id: ${result?.id}")
 
-        Assertions.assertThat(result).isEqualTo(hello)
+        Assertions.assertThat(result).isNotNull
         Assertions.assertThat(result?.id).isEqualTo(hello.id)
-
     }
 
 }
