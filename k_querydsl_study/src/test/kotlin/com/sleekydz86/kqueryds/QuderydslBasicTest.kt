@@ -5,6 +5,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import com.sleekydz86.kqueryds.entity.Member
 import com.sleekydz86.kqueryds.entity.QMember
 import com.sleekydz86.kqueryds.entity.Team
+import com.sleekydz86.kqueryds.entity.QTeam
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -393,6 +394,37 @@ class QuerydslBasicTest {
         assertThat(tuple.get(member.age.avg())).isEqualTo(25.0)
         assertThat(tuple.get(member.age.max())).isEqualTo(40)
         assertThat(tuple.get(member.age.min())).isEqualTo(10)
+    }
+
+    /**
+     * 각 팀의 이름과 평균 연령을 구한다.
+     */
+    @Test
+    fun group() {
+        val member = QMember.member
+        val team = QTeam.team
+
+        val avgAge = member.age.avg()
+
+        val result: List<Tuple> = queryFactory
+            .select(
+                team.name,
+                avgAge
+            )
+            .from(member)
+            .join(member.team, team)
+            .groupBy(team.name)
+            .orderBy(team.name.asc())
+            .fetch()
+
+        val teamA = result[0]
+        val teamB = result[1]
+
+        assertThat(teamA.get(team.name)).isEqualTo("teamA")
+        assertThat(teamA.get(avgAge)).isEqualTo(15.0)
+
+        assertThat(teamB.get(team.name)).isEqualTo("teamB")
+        assertThat(teamB.get(avgAge)).isEqualTo(35.0)
     }
 
 }
