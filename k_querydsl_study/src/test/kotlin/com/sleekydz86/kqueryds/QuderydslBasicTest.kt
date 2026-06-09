@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.annotation.Transactional
+import com.querydsl.core.Tuple
 
 @SpringBootTest
 @Transactional
@@ -280,6 +281,118 @@ class QuerydslBasicTest {
             .fetchOne() ?: 0L
 
         assertThat(count).isEqualTo(3L)
+    }
+
+    //정렬
+    /** * 회원 정렬순서 * 1. 회원 나이 내림차순 (desc) * 2. 회원 이름 올림차순 (asc) * 단 2에서 회원 이름이 없으면 마지막에 출력 **/
+    @Test
+    fun sort() {
+        val team = Team("sortTeam")
+        em.persist(team)
+
+        val nullMember = Member("temp", 100, team)
+        nullMember.username = null
+
+        em.persist(nullMember)
+        em.persist(Member("member5", 100, team))
+        em.persist(Member("member6", 100, team))
+
+        em.flush()
+        em.clear()
+
+        val member = QMember.member
+
+        val result = queryFactory
+            .selectFrom(member)
+            .where(member.age.eq(100))
+            .orderBy(
+                member.age.desc(),
+                member.username.asc().nullsLast()
+            )
+            .fetch()
+
+        assertThat(result.map { it.username })
+            .containsExactly("member5", "member6", null)
+    }
+
+    //페이징
+    @Suppress("DEPRECATION")
+    @Test
+    fun paging1() {
+        val member = QMember.member
+
+        val queryResults = queryFactory
+            .selectFrom(member)
+            .orderBy(member.username.desc())
+            .offset(1)
+            .limit(2)
+            .fetchResults()
+
+        assertThat(queryResults.total).isEqualTo(4L)
+        assertThat(queryResults.offset).isEqualTo(1L)
+        assertThat(queryResults.limit).isEqualTo(2L)
+        assertThat(queryResults.results.size).isEqualTo(2)
+
+        queryResults.results.forEach {
+            println("member=${it.username}, age=${it.age}")
+        }
+    }
+
+
+    //집합
+    @Test
+    fun aggregation() {
+        val member = QMember.member
+
+        val count = member.count()
+        val sum = member.age.sum()
+        val avg = member.age.avg()
+        val max = member.age.max()
+        val min = member.age.min()
+
+        val result: List<Tuple> = queryFactory
+            .select(
+                count,
+                sum,
+                avg,
+                max,
+                min
+            )
+            .from(member)
+            .fetch()
+
+        val tuple = result[0]
+
+        assertThat(tuple.get(count)).isEqualTo(4L)
+        assertThat(tuple.get(sum)).isEqualTo(100)
+        assertThat(tuple.get(avg)).isEqualTo(25.0)
+        assertThat(tuple.get(max)).isEqualTo(40)
+        assertThat(tuple.get(min)).isEqualTo(10)
+    }
+
+    //집합 짧은버전..
+    @Test
+    fun aggregation2() {
+        val member = QMember.member
+
+        val result = queryFactory
+            .select(
+                member.count(),
+                member.age.sum(),
+                member.age.avg(),
+                member.age.max(),
+                member.age.min()
+            )
+            .from(member)
+            .fetch()
+
+        val tuple = result[0]
+
+        assertThat(tuple.get(member.count())).isEqualTo(4L)
+        assertThat(tuple.get(member.age.sum())).isEqualTo(100)
+        assertThat(tuple.get(member.age.avg())).isEqualTo(25.0)
+        assertThat(tuple.get(member.age.max())).isEqualTo(40)
+        assertThat(tuple.get(member.age.min())).isEqualTo(10)
     }
 
 }
