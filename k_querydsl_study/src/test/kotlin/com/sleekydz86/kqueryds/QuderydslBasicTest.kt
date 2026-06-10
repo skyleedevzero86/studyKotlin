@@ -1,11 +1,12 @@
 package com.sleekydz86.kqueryds
 
+import com.querydsl.core.Tuple
 import com.querydsl.core.types.dsl.BooleanExpression
 import com.querydsl.jpa.impl.JPAQueryFactory
 import com.sleekydz86.kqueryds.entity.Member
 import com.sleekydz86.kqueryds.entity.QMember
-import com.sleekydz86.kqueryds.entity.Team
 import com.sleekydz86.kqueryds.entity.QTeam
+import com.sleekydz86.kqueryds.entity.Team
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.annotation.Transactional
-import com.querydsl.core.Tuple
 
 @SpringBootTest
 @Transactional
@@ -24,34 +24,40 @@ class QuerydslBasicTest {
 
     private lateinit var queryFactory: JPAQueryFactory
 
+    private val member = QMember.member
+    private val team = QTeam.team
+
     @BeforeEach
     fun before() {
         queryFactory = JPAQueryFactory(em)
 
         val teamA = Team("teamA")
         val teamB = Team("teamB")
-        em.persist(teamA)
-        em.persist(teamB)
 
-        val member1 = Member("member1", 10, teamA)
-        val member2 = Member("member2", 20, teamA)
-        val member3 = Member("member3", 30, teamB)
-        val member4 = Member("member4", 40, teamB)
+        listOf(teamA, teamB).forEach {
+            em.persist(it)
+        }
 
-        em.persist(member1)
-        em.persist(member2)
-        em.persist(member3)
-        em.persist(member4)
+        listOf(
+            Member("member1", 10, teamA),
+            Member("member2", 20, teamA),
+            Member("member3", 30, teamB),
+            Member("member4", 40, teamB)
+        ).forEach {
+            em.persist(it)
+        }
 
         em.flush()
         em.clear()
 
-        val members = em.createQuery(
+        printAllMembers()
+    }
+
+    private fun printAllMembers() {
+        em.createQuery(
             "select m from Member m",
             Member::class.java
-        ).resultList
-
-        members.forEach { m ->
+        ).resultList.forEach { m ->
             println("member id=${m.id}, username=${m.username}, age=${m.age}, team=${m.team?.name}")
         }
     }
@@ -83,8 +89,6 @@ class QuerydslBasicTest {
 
     @Test
     fun startQuerydsl2() {
-        val member = QMember.member
-
         val findMember = queryFactory
             .selectFrom(member)
             .where(member.username.eq("member1"))
@@ -95,8 +99,6 @@ class QuerydslBasicTest {
 
     @Test
     fun search() {
-        val member = QMember.member
-
         val findMember = queryFactory
             .selectFrom(member)
             .where(
@@ -119,8 +121,6 @@ class QuerydslBasicTest {
     }
 
     private fun searchMember(username: String?, age: Int?): Member? {
-        val member = QMember.member
-
         return queryFactory
             .selectFrom(member)
             .where(
@@ -132,8 +132,6 @@ class QuerydslBasicTest {
 
     @Test
     fun search2() {
-        val member = QMember.member
-
         val findMember = queryFactory
             .selectFrom(member)
             .where(
@@ -150,17 +148,16 @@ class QuerydslBasicTest {
 
     private fun usernameEq(username: String?): BooleanExpression? {
         return username?.takeIf { it.isNotBlank() }
-            ?.let { QMember.member.username.eq(it) }
+            ?.let { member.username.eq(it) }
     }
 
     private fun ageEq(age: Int?): BooleanExpression? {
-        return age?.let { QMember.member.age.eq(it) }
+        return age?.let { member.age.eq(it) }
     }
+
     //리스트조회하는 함수
     @Test
     fun resultFetch() {
-        val member = QMember.member
-
         val result = queryFactory
             .selectFrom(member)
             .fetch()
@@ -175,8 +172,6 @@ class QuerydslBasicTest {
     //단건조회
     @Test
     fun resultFetchOne() {
-        val member = QMember.member
-
         val findMember = queryFactory
             .selectFrom(member)
             .where(
@@ -189,12 +184,9 @@ class QuerydslBasicTest {
         assertThat(findMember?.age).isEqualTo(10)
     }
 
-
     //첫번째만 무조건가져오기..
     @Test
     fun resultFetchFirst() {
-        val member = QMember.member
-
         val findMember = queryFactory
             .selectFrom(member)
             .where(member.username.eq("member1"))
@@ -209,8 +201,6 @@ class QuerydslBasicTest {
     @Suppress("DEPRECATION")
     @Test
     fun resultFetchResults() {
-        val member = QMember.member
-
         val results = queryFactory
             .selectFrom(member)
             .orderBy(member.age.asc())
@@ -219,14 +209,11 @@ class QuerydslBasicTest {
             .fetchResults()
 
         val content = results.results
-        val total = results.total
-        val offset = results.offset
-        val limit = results.limit
 
         assertThat(content).hasSize(2)
-        assertThat(total).isEqualTo(4L)
-        assertThat(offset).isEqualTo(1L)
-        assertThat(limit).isEqualTo(2L)
+        assertThat(results.total).isEqualTo(4L)
+        assertThat(results.offset).isEqualTo(1L)
+        assertThat(results.limit).isEqualTo(2L)
 
         content.forEach {
             println("member=${it.username}, age=${it.age}")
@@ -237,8 +224,6 @@ class QuerydslBasicTest {
     @Suppress("DEPRECATION")
     @Test
     fun resultFetchCount() {
-        val member = QMember.member
-
         val count = queryFactory
             .selectFrom(member)
             .where(member.age.gt(10))
@@ -251,8 +236,6 @@ class QuerydslBasicTest {
 
     @Test
     fun pagingQuery() {
-        val member = QMember.member
-
         //페이징
         val content = queryFactory
             .selectFrom(member)
@@ -273,8 +256,6 @@ class QuerydslBasicTest {
     // 최신방식으로 많이사용 대신 count쿼리 직접작성
     @Test
     fun countQuery() {
-        val member = QMember.member
-
         val count = queryFactory
             .select(member.count())
             .from(member)
@@ -288,20 +269,23 @@ class QuerydslBasicTest {
     /** * 회원 정렬순서 * 1. 회원 나이 내림차순 (desc) * 2. 회원 이름 올림차순 (asc) * 단 2에서 회원 이름이 없으면 마지막에 출력 **/
     @Test
     fun sort() {
-        val team = Team("sortTeam")
-        em.persist(team)
+        val sortTeam = Team("sortTeam")
+        em.persist(sortTeam)
 
-        val nullMember = Member("temp", 100, team)
-        nullMember.username = null
+        val nullMember = Member("temp", 100, sortTeam).apply {
+            username = null
+        }
 
-        em.persist(nullMember)
-        em.persist(Member("member5", 100, team))
-        em.persist(Member("member6", 100, team))
+        listOf(
+            nullMember,
+            Member("member5", 100, sortTeam),
+            Member("member6", 100, sortTeam)
+        ).forEach {
+            em.persist(it)
+        }
 
         em.flush()
         em.clear()
-
-        val member = QMember.member
 
         val result = queryFactory
             .selectFrom(member)
@@ -320,8 +304,6 @@ class QuerydslBasicTest {
     @Suppress("DEPRECATION")
     @Test
     fun paging1() {
-        val member = QMember.member
-
         val queryResults = queryFactory
             .selectFrom(member)
             .orderBy(member.username.desc())
@@ -329,29 +311,28 @@ class QuerydslBasicTest {
             .limit(2)
             .fetchResults()
 
+        val content = queryResults.results
+
         assertThat(queryResults.total).isEqualTo(4L)
         assertThat(queryResults.offset).isEqualTo(1L)
         assertThat(queryResults.limit).isEqualTo(2L)
-        assertThat(queryResults.results.size).isEqualTo(2)
+        assertThat(content).hasSize(2)
 
-        queryResults.results.forEach {
+        content.forEach {
             println("member=${it.username}, age=${it.age}")
         }
     }
 
-
     //집합
     @Test
     fun aggregation() {
-        val member = QMember.member
-
         val count = member.count()
         val sum = member.age.sum()
         val avg = member.age.avg()
         val max = member.age.max()
         val min = member.age.min()
 
-        val result: List<Tuple> = queryFactory
+        val tuple: Tuple = queryFactory
             .select(
                 count,
                 sum,
@@ -360,9 +341,8 @@ class QuerydslBasicTest {
                 min
             )
             .from(member)
-            .fetch()
-
-        val tuple = result[0]
+            .fetchOne()
+            ?: throw AssertionError("집계 결과가 없습니다.")
 
         assertThat(tuple.get(count)).isEqualTo(4L)
         assertThat(tuple.get(sum)).isEqualTo(100)
@@ -374,9 +354,7 @@ class QuerydslBasicTest {
     //집합 짧은버전..
     @Test
     fun aggregation2() {
-        val member = QMember.member
-
-        val result = queryFactory
+        val tuple = queryFactory
             .select(
                 member.count(),
                 member.age.sum(),
@@ -385,9 +363,8 @@ class QuerydslBasicTest {
                 member.age.min()
             )
             .from(member)
-            .fetch()
-
-        val tuple = result[0]
+            .fetchOne()
+            ?: throw AssertionError("집계 결과가 없습니다.")
 
         assertThat(tuple.get(member.count())).isEqualTo(4L)
         assertThat(tuple.get(member.age.sum())).isEqualTo(100)
@@ -401,12 +378,9 @@ class QuerydslBasicTest {
      */
     @Test
     fun group() {
-        val member = QMember.member
-        val team = QTeam.team
-
         val avgAge = member.age.avg()
 
-        val result: List<Tuple> = queryFactory
+        val result = queryFactory
             .select(
                 team.name,
                 avgAge
@@ -426,5 +400,4 @@ class QuerydslBasicTest {
         assertThat(teamB.get(team.name)).isEqualTo("teamB")
         assertThat(teamB.get(avgAge)).isEqualTo(35.0)
     }
-
 }
