@@ -163,4 +163,25 @@ class QuerydslBasic2Test {
             .`as`("패치 조인 미적용")
             .isFalse()
     }
+
+    //패치조인2
+    @Test
+    fun fetchJoinUse() {
+        em.flush()
+        em.clear()
+
+        val findMember = queryFactory
+            .selectFrom(member)
+            .join(member.team, team)
+            .fetchJoin()
+            .where(member.username.eq("member1"))
+            .fetchOne()
+            ?: throw AssertionError("member1을 찾지 못했습니다.")
+
+        val loaded = emf.persistenceUnitUtil.isLoaded(findMember.team)
+
+        assertThat(loaded)
+            .`as`("패치 조인 적용")
+            .isTrue()
+    }
 }
