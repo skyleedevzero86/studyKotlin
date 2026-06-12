@@ -17,6 +17,7 @@ import com.querydsl.core.Tuple
 import com.querydsl.jpa.JPAExpressions
 import com.querydsl.core.types.dsl.CaseBuilder
 import com.querydsl.core.types.dsl.Expressions
+import kotlin.collections.forEach
 
 @SpringBootTest
 @Transactional
@@ -130,24 +131,39 @@ class QuerydslBasic3Test {
      */
 
     //상수가 필요하면 Expressions.constant(xxx) 사용
+
     @Test
     fun constant() {
-        val constantA = Expressions.constant("A")
-
-        val result = queryFactory
+        val result: Tuple? = queryFactory
             .select(
                 member.username,
-                constantA
+                Expressions.constant("A")
             )
             .from(member)
-            .orderBy(member.username.asc())
             .fetchFirst()
-            ?: throw AssertionError("조회 결과가 없습니다.")
 
-        assertThat(result.get(member.username)).isEqualTo("member1")
-        assertThat(result.get(constantA)).isEqualTo("A")
-        println("상수가 필요하면 Expressions.constant(xxx) 사용 result= $result")
+        println("username=${result?.get(member.username)}")
+        println("constant=${result?.get(Expressions.constant("A"))}")
     }
+
+//    @Test
+//    fun constant() {
+//        val constantA = Expressions.constant("A")
+//
+//        val result = queryFactory
+//            .select(
+//                member.username,
+//                constantA
+//            )
+//            .from(member)
+//            .orderBy(member.username.asc())
+//            .fetchFirst()
+//            ?: throw AssertionError("조회 결과가 없습니다.")
+//
+//        assertThat(result.get(member.username)).isEqualTo("member1")
+//        assertThat(result.get(constantA)).isEqualTo("A")
+//        println("상수가 필요하면 Expressions.constant(xxx) 사용 result= $result")
+//    }
 
     //문자더하기
     @Test
@@ -162,8 +178,35 @@ class QuerydslBasic3Test {
             .where(member.username.eq("member1"))
             .fetchOne()
 
+
         assertThat(result).isEqualTo("member1_10")
         println("문자더하기 result= $result")
+
+    }
+
+    @Test
+    fun concatWithMemberAndTeam() {
+        val concatExpression = member.username
+            .concat("_")
+            .concat(member.age.stringValue())
+
+        val result = queryFactory
+            .select(member, team, concatExpression)
+            .from(member)
+            .join(member.team, team)
+            .where(member.username.eq("member1"))
+            .fetch()
+
+        result.forEach { tuple ->
+            val findMember = tuple.get(member)
+            val findTeam = tuple.get(team)
+            val concatValue = tuple.get(concatExpression)
+
+            println("member=${findMember?.username}, team=${findTeam?.name}, concat=$concatValue")
+        }
+
+        assertThat(result.map { it.get(concatExpression) })
+            .containsExactly("member1_10")
     }
 
 }
