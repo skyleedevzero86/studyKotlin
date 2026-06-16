@@ -1,9 +1,9 @@
 package com.sleekydz86.kqueryds.repository.support
 
-
 import com.querydsl.core.types.EntityPath
 import com.querydsl.core.types.Expression
 import com.querydsl.core.types.dsl.PathBuilder
+import com.querydsl.jpa.JPQLQuery
 import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
 import jakarta.annotation.PostConstruct
@@ -15,16 +15,12 @@ import org.springframework.data.jpa.repository.support.JpaEntityInformationSuppo
 import org.springframework.data.jpa.repository.support.Querydsl
 import org.springframework.data.querydsl.SimpleEntityPathResolver
 import org.springframework.data.support.PageableExecutionUtils
-import org.springframework.stereotype.Repository
 import org.springframework.util.Assert
 
 /**
  * Querydsl 4.x 버전에 맞춘 Querydsl 지원 라이브러리
- *
- * @author Younghan Kim
  * @see org.springframework.data.jpa.repository.support.QuerydslRepositorySupport
  */
-@Repository
 abstract class Querydsl4RepositorySupport(
     private val domainClass: Class<*>
 ) {
@@ -71,21 +67,21 @@ abstract class Querydsl4RepositorySupport(
     }
 
     protected fun <T> select(expr: Expression<T>): JPAQuery<T> {
-        return getQueryFactory().select(expr)
+        return queryFactory.select(expr)
     }
 
     protected fun <T> selectFrom(from: EntityPath<T>): JPAQuery<T> {
-        return getQueryFactory().selectFrom(from)
+        return queryFactory.selectFrom(from)
     }
 
     @Suppress("DEPRECATION")
-    protected fun <T> applyPagination(
+    protected fun <T : Any> applyPagination(
         pageable: Pageable,
-        contentQuery: (JPAQueryFactory) -> JPAQuery<T>
+        contentQuery: (JPAQueryFactory) -> JPQLQuery<T>
     ): Page<T> {
-        val jpaQuery = contentQuery(getQueryFactory())
+        val jpaQuery = contentQuery(queryFactory)
 
-        val content = getQuerydsl()
+        val content = querydsl
             .applyPagination(pageable, jpaQuery)
             .fetch()
 
@@ -95,18 +91,18 @@ abstract class Querydsl4RepositorySupport(
     }
 
     @Suppress("DEPRECATION")
-    protected fun <T> applyPagination(
+    protected fun <T : Any> applyPagination(
         pageable: Pageable,
-        contentQuery: (JPAQueryFactory) -> JPAQuery<T>,
-        countQuery: (JPAQueryFactory) -> JPAQuery<*>
+        contentQuery: (JPAQueryFactory) -> JPQLQuery<T>,
+        countQuery: (JPAQueryFactory) -> JPQLQuery<*>
     ): Page<T> {
-        val jpaContentQuery = contentQuery(getQueryFactory())
+        val jpaContentQuery = contentQuery(queryFactory)
 
-        val content = getQuerydsl()
+        val content = querydsl
             .applyPagination(pageable, jpaContentQuery)
             .fetch()
 
-        val countResult = countQuery(getQueryFactory())
+        val countResult = countQuery(queryFactory)
 
         return PageableExecutionUtils.getPage(content, pageable) {
             countResult.fetchCount()
