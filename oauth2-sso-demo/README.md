@@ -1,7 +1,12 @@
+
+<img width="1269" height="696" alt="image" src="https://github.com/user-attachments/assets/a3666876-8ca5-4791-a1bd-4c1154f584d3" />
+
+<br/>
+
 # OAuth2 SSO Demo
 
 Spring Boot 4 · Spring Security 7 · Kotlin 기반 JWT 인증/인가 데모 프로젝트입니다.  
-회원 가입 → 관리자 승인 → JWT 로그인 → Role 기반 API 접근 → 관리자 회원 관리 흐름을 **헥사고날 아키텍처**로 구현했습니다.
+회원 가입 → 관리자 승인 → JWT 로그인 → Role 기반 API 접근 → 관리자 회원 관리 흐름을 구현했습니다.
 
 | 모듈 | 기술 스택 | 포트 |
 |------|-----------|------|
@@ -26,7 +31,7 @@ Spring Boot 4 · Spring Security 7 · Kotlin 기반 JWT 인증/인가 데모 프
 
 ## 1. 왜 이렇게 구성했는가
 
-### 1.1 헥사고날(DDD) 아키텍처
+### 1.1 아키텍처
 
 | 레이어 | 패키지 | 역할 | 이유 |
 |--------|--------|------|------|
@@ -110,7 +115,7 @@ oauth2-sso-demo/
         └── utils/crypto.ts           # AES 복호화, JWT role 파싱
 ```
 
-### 2.2 헥사고날 의존성 방향
+### 2.2 의존성 방향
 
 ```mermaid
 flowchart TB
@@ -480,7 +485,7 @@ http
 2. **AuthenticationManager** + **UserDetailsService** + 커스텀 Filter
 3. **Role 기반 URL 보호** (`hasRole`, `hasAnyRole`)
 4. **EntryPoint / AccessDeniedHandler** — API 친화적 JSON 401/403
-5. **헥사고날** — Security·JPA가 Domain을 침범하지 않게 Port로 분리
+5. Security·JPA가 Domain을 침범하지 않게 Port로 분리
 6. **Boot 4 마이그레이션** — starter 분리, Jackson 3, 테스트 설정 변경
 
 ---
