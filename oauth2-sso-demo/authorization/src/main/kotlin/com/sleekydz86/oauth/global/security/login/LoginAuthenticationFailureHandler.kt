@@ -1,5 +1,7 @@
 package com.sleekydz86.oauth.global.security.login
 
+import com.sleekydz86.oauth.domain.user.model.RecordLoginFailureCommand
+import com.sleekydz86.oauth.global.application.user.UserLifecycleApplicationService
 import com.sleekydz86.oauth.global.exception.ApiErrorResponse
 import com.sleekydz86.oauth.global.exception.ErrorCode
 import com.sleekydz86.oauth.global.exception.ErrorResponseWriter
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component
 @Component
 class LoginAuthenticationFailureHandler(
     private val errorResponseWriter: ErrorResponseWriter,
+    private val userLifecycleApplicationService: UserLifecycleApplicationService,
 ) : AuthenticationFailureHandler {
 
     override fun onAuthenticationFailure(
@@ -22,8 +25,21 @@ class LoginAuthenticationFailureHandler(
         response: HttpServletResponse,
         exception: AuthenticationException,
     ) {
+        val username = request.getAttribute(LOGIN_USERNAME_ATTRIBUTE) as? String
+        val loginFailCount = if (exception is BadCredentialsException && username != null) {
+            userLifecycleApplicationService.recordLoginFailure(RecordLoginFailureCommand(username))?.loginFailCount
+        } else {
+            null
+        }
+
         val message = when (exception) {
-            is BadCredentialsException -> ErrorCode.AUTHENTICATION_FAILED.defaultMessage
+            is BadCredentialsException -> {
+                if (loginFailCount != null && loginFailCount > 0) {
+                    "${ErrorCode.AUTHENTICATION_FAILED.defaultMessage} (로그인 실패 ${loginFailCount}회)"
+                } else {
+                    ErrorCode.AUTHENTICATION_FAILED.defaultMessage
+                }
+            }
             is DisabledException -> "비활성화된 계정입니다."
             else -> "인증에 실패했습니다."
         }
@@ -36,5 +52,9 @@ class LoginAuthenticationFailureHandler(
                 code = ErrorCode.AUTHENTICATION_FAILED.name,
             ),
         )
+    }
+
+    companion object {
+        const val LOGIN_USERNAME_ATTRIBUTE = "loginUsername"
     }
 }

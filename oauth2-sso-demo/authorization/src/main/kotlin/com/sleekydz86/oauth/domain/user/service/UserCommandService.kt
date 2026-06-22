@@ -9,11 +9,16 @@ import com.sleekydz86.oauth.domain.user.model.ActivateUserCommand
 import com.sleekydz86.oauth.domain.user.model.ApproveUserCommand
 import com.sleekydz86.oauth.domain.user.model.ChangePasswordWithVerifyCommand
 import com.sleekydz86.oauth.domain.user.model.ChangeUserRoleCommand
+import com.sleekydz86.oauth.domain.user.model.CreateUserByAdminCommand
 import com.sleekydz86.oauth.domain.user.model.DeleteUserCommand
 import com.sleekydz86.oauth.domain.user.model.JoinCommand
 import com.sleekydz86.oauth.domain.user.model.RecordLoginCommand
+import com.sleekydz86.oauth.domain.user.model.RecordLoginFailureCommand
+import com.sleekydz86.oauth.domain.user.model.ResetLoginFailCountCommand
+import com.sleekydz86.oauth.domain.user.model.ResetPasswordFailCountCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UnlockUserCommand
+import com.sleekydz86.oauth.domain.user.model.UpdateProfileCommand
 import com.sleekydz86.oauth.domain.user.model.User
 import com.sleekydz86.oauth.domain.user.model.UserStatus
 import com.sleekydz86.oauth.domain.user.model.WithdrawUserCommand
@@ -36,6 +41,22 @@ class UserCommandService(
         val user = User.createPending(
             username = command.username,
             encodedPassword = passwordEncoderPort.encode(command.password),
+            displayName = command.displayName,
+        )
+        return userPersistencePort.save(user)
+    }
+
+    fun createByAdmin(command: CreateUserByAdminCommand): User {
+        if (userPersistencePort.existsByUsername(command.username)) {
+            throw DuplicateUsernameException(command.username)
+        }
+
+        val user = User.createByAdmin(
+            username = command.username,
+            encodedPassword = passwordEncoderPort.encode(command.password),
+            role = command.role,
+            displayName = command.displayName,
+            activateImmediately = command.activateImmediately,
         )
         return userPersistencePort.save(user)
     }
@@ -49,6 +70,14 @@ class UserCommandService(
             encodedPassword = passwordEncoderPort.encode(rawPassword),
         )
         return userPersistencePort.save(admin)
+    }
+
+    fun updateProfile(command: UpdateProfileCommand): User {
+        val user = findUser(command.username)
+        if (user.status == UserStatus.WITHDRAWN) {
+            throw InvalidUserStatusException("탈퇴 상태에서는 프로필을 수정할 수 없습니다.")
+        }
+        return userPersistencePort.save(user.withDisplayName(command.displayName))
     }
 
     fun approve(command: ApproveUserCommand): User {
@@ -96,6 +125,16 @@ class UserCommandService(
         )
     }
 
+    fun resetPasswordFailCount(command: ResetPasswordFailCountCommand): User {
+        val user = findUser(command.username)
+        return userPersistencePort.save(user.withPasswordChangeFailCount(0))
+    }
+
+    fun resetLoginFailCount(command: ResetLoginFailCountCommand): User {
+        val user = findUser(command.username)
+        return userPersistencePort.save(user.withLoginFailCount(0))
+    }
+
     fun changePassword(command: ChangePasswordWithVerifyCommand): User {
         val user = findUser(command.username)
         if (user.status == UserStatus.PASSWORD_LOCKED) {
@@ -126,6 +165,11 @@ class UserCommandService(
     fun recordLogin(command: RecordLoginCommand): User {
         val user = findUser(command.username)
         return userPersistencePort.save(user.withLastLoginAt(Instant.now()))
+    }
+
+    fun recordLoginFailure(command: RecordLoginFailureCommand): User? {
+        val user = userPersistencePort.findByUsername(command.username) ?: return null
+        return userPersistencePort.save(user.withLoginFailCount(user.loginFailCount + 1))
     }
 
     fun delete(command: DeleteUserCommand) {

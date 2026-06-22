@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 import { login as loginApi } from '../api/authApi'
 import { ApiError } from '../api/http'
 import type { LoginRequest } from '../types/auth'
-import { isAdminRole, parseJwtRole } from '../utils/crypto'
+import { isAdminRole, parseJwtRole, parseJwtSubject } from '../utils/crypto'
 
 const TOKEN_KEY = 'accessToken'
 
@@ -33,6 +33,9 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => Boolean(accessToken.value))
   const role = computed(() =>
     accessToken.value ? parseJwtRole(accessToken.value) : null,
+  )
+  const username = computed(() =>
+    accessToken.value ? parseJwtSubject(accessToken.value) : null,
   )
   const isAdmin = computed(() => isAdminRole(role.value))
 
@@ -67,6 +70,7 @@ export const useAuth = () => {
     isLoading,
     isAuthenticated,
     role,
+    username,
     isAdmin,
     login,
     logout,

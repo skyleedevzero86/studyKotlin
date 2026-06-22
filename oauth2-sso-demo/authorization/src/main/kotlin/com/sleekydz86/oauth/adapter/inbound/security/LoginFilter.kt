@@ -7,6 +7,7 @@ import com.sleekydz86.oauth.global.exception.ApiErrorResponse
 import com.sleekydz86.oauth.global.exception.ErrorCode
 import com.sleekydz86.oauth.global.exception.ErrorResponseWriter
 import com.sleekydz86.oauth.global.security.login.LoginAccountValidator
+import com.sleekydz86.oauth.global.security.login.LoginAuthenticationFailureHandler
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -53,6 +54,8 @@ class LoginFilter(
         return try {
             val messageBody = StreamUtils.copyToString(request.inputStream, StandardCharsets.UTF_8)
             val loginRequest = objectMapper.readValue(messageBody, LoginUserRequest::class.java)
+
+            request.setAttribute(LoginAuthenticationFailureHandler.LOGIN_USERNAME_ATTRIBUTE, loginRequest.username)
 
             val authRequest = UsernamePasswordAuthenticationToken.unauthenticated(
                 loginRequest.username,

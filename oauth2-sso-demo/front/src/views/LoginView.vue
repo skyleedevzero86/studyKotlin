@@ -52,6 +52,11 @@ const handleSubmit = async () => {
           {{ isLoading ? '로그인 중...' : '로그인' }}
         </button>
       </form>
+
+      <p class="hint">
+        계정이 없으신가요?
+        <RouterLink to="/join">회원가입</RouterLink>
+      </p>
     </section>
   </main>
 </template>

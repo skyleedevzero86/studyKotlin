@@ -83,11 +83,13 @@ class LoginAccountValidatorUnitTest {
                 id = 1L,
                 username = "newbie",
                 password = "encoded:pass",
+                displayName = null,
                 role = UserRole.USER,
                 status = UserStatus.ACTIVE,
                 createdAt = oldChangedAt,
                 passwordChangedAt = oldChangedAt,
                 passwordChangeFailCount = 0,
+                loginFailCount = 0,
                 lastLoginAt = null,
             ),
         )

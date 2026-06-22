@@ -2,13 +2,18 @@ package com.sleekydz86.oauth.adapter.inbound.web.admin
 
 import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.ApproveUserRequest
 import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.ChangeRoleRequest
+import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.CreateUserByAdminRequest
 import com.sleekydz86.oauth.adapter.inbound.web.dto.ApiMessageResponse
 import com.sleekydz86.oauth.domain.user.model.ActivateUserCommand
 import com.sleekydz86.oauth.domain.user.model.ApproveUserCommand
 import com.sleekydz86.oauth.domain.user.model.ChangeUserRoleCommand
+import com.sleekydz86.oauth.domain.user.model.CreateUserByAdminCommand
 import com.sleekydz86.oauth.domain.user.model.DeleteUserCommand
+import com.sleekydz86.oauth.domain.user.model.ResetLoginFailCountCommand
+import com.sleekydz86.oauth.domain.user.model.ResetPasswordFailCountCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UnlockUserCommand
+import com.sleekydz86.oauth.domain.user.model.WithdrawUserCommand
 import com.sleekydz86.oauth.global.application.user.AdminUserQueryService
 import com.sleekydz86.oauth.global.application.user.AdminUserStreamService
 import com.sleekydz86.oauth.global.application.user.UserLifecycleApplicationService
@@ -25,6 +30,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -78,6 +84,24 @@ class AdminUserController(
     @ApiResponse(responseCode = "200", description = "SSE 연결 성공 (text/event-stream)")
     @GetMapping("/stream", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     fun streamUsers(): SseEmitter = adminUserStreamService.subscribe()
+
+    @Operation(summary = "회원 등록", description = "관리자가 직접 회원을 등록합니다. 즉시 활성화 여부를 선택할 수 있습니다.")
+    @ApiResponse(responseCode = "201", description = "등록 완료")
+    @PostMapping
+    fun createUser(@Valid @RequestBody request: CreateUserByAdminRequest): ResponseEntity<ApiMessageResponse> {
+        val user = userLifecycleApplicationService.createByAdmin(
+            CreateUserByAdminCommand(
+                username = request.username,
+                password = request.password,
+                role = request.role,
+                displayName = request.displayName,
+                activateImmediately = request.activateImmediately,
+            ),
+        )
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            ApiMessageResponse(message = "회원이 등록되었습니다.", status = user.status.name),
+        )
+    }
 
     @Operation(
         summary = "회원 승인",
@@ -185,6 +209,34 @@ class AdminUserController(
             ChangeUserRoleCommand(username = username, role = request.role),
         )
         return ResponseEntity.ok(ApiMessageResponse(message = "권한 변경 완료", role = user.role.name))
+    }
+
+    @Operation(summary = "회원 탈퇴 처리", description = "관리자가 회원을 WITHDRAWN 상태로 변경합니다.")
+    @PostMapping("/{username}/withdraw")
+    fun withdraw(
+        @Parameter(description = "탈퇴 처리할 회원 아이디", example = "user1")
+        @PathVariable username: String,
+    ): ResponseEntity<ApiMessageResponse> {
+        val user = userLifecycleApplicationService.withdraw(WithdrawUserCommand(username))
+        return ResponseEntity.ok(ApiMessageResponse(message = "탈퇴 처리 완료", status = user.status.name))
+    }
+
+    @Operation(summary = "비밀번호 변경 실패 횟수 초기화")
+    @PostMapping("/{username}/reset-password-fail-count")
+    fun resetPasswordFailCount(
+        @PathVariable username: String,
+    ): ResponseEntity<ApiMessageResponse> {
+        val user = userLifecycleApplicationService.resetPasswordFailCount(ResetPasswordFailCountCommand(username))
+        return ResponseEntity.ok(ApiMessageResponse(message = "비밀번호 변경 실패 횟수가 초기화되었습니다.", status = user.status.name))
+    }
+
+    @Operation(summary = "로그인 실패 횟수 초기화")
+    @PostMapping("/{username}/reset-login-fail-count")
+    fun resetLoginFailCount(
+        @PathVariable username: String,
+    ): ResponseEntity<ApiMessageResponse> {
+        val user = userLifecycleApplicationService.resetLoginFailCount(ResetLoginFailCountCommand(username))
+        return ResponseEntity.ok(ApiMessageResponse(message = "로그인 실패 횟수가 초기화되었습니다.", status = user.status.name))
     }
 
     @Operation(

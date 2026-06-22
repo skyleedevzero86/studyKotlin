@@ -50,11 +50,13 @@ class AdminUserQueryServiceUnitTest {
                 id = 1L,
                 username = "user1",
                 password = "encoded:pass",
+                displayName = null,
                 role = UserRole.USER,
                 status = UserStatus.ACTIVE,
                 createdAt = Instant.parse("2026-01-01T00:00:00Z"),
                 passwordChangedAt = Instant.parse("2026-01-01T00:00:00Z"),
                 passwordChangeFailCount = 0,
+                loginFailCount = 0,
                 lastLoginAt = null,
             ),
         )

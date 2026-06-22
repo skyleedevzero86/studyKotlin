@@ -14,11 +14,13 @@ class InMemoryUserPersistencePort : UserPersistencePort {
                 id = nextId++,
                 username = user.username,
                 password = user.password,
+                displayName = user.displayName,
                 role = user.role,
                 status = user.status,
                 createdAt = user.createdAt,
                 passwordChangedAt = user.passwordChangedAt,
                 passwordChangeFailCount = user.passwordChangeFailCount,
+                loginFailCount = user.loginFailCount,
                 lastLoginAt = user.lastLoginAt,
             )
         } else {

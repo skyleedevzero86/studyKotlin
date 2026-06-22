@@ -1,32 +1,33 @@
 package com.sleekydz86.oauth.global.application.user
 
+import com.sleekydz86.oauth.domain.user.exception.UserNotFoundException
 import com.sleekydz86.oauth.domain.user.model.User
 import com.sleekydz86.oauth.domain.user.port.out.UserPersistencePort
-import com.sleekydz86.oauth.global.crypto.AesEncryptionService
 import com.sleekydz86.oauth.global.util.KoreanDateTimeFormatter
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 @Service
-class AdminUserQueryService(
+class UserMeQueryService(
     private val userPersistencePort: UserPersistencePort,
-    private val aesEncryptionService: AesEncryptionService,
-    private val objectMapper: ObjectMapper,
 ) {
 
     @Transactional(readOnly = true)
-    fun findAllUserSummaries(): List<UserSummaryResponse> =
-        userPersistencePort.findAll().map { it.toEncryptedSummary() }
+    fun findProfile(username: String): UserProfileResponse {
+        val user = userPersistencePort.findByUsername(username)
+            ?: throw UserNotFoundException(username)
+        return user.toProfile()
+    }
 
-    private fun User.toEncryptedSummary(): UserSummaryResponse {
+    private fun User.toProfile(): UserProfileResponse {
         val now = Instant.now()
-        val daysUntilPasswordChange = User.PASSWORD_VALID_DAYS -
+        val daysUntilPasswordChange = PASSWORD_VALID_DAYS -
             ChronoUnit.DAYS.between(passwordChangedAt, now)
 
-        val sensitivePayload = UserSensitivePayload(
+        return UserProfileResponse(
+            username = username,
             displayName = displayName,
             role = role.name,
             status = status.name,
@@ -38,11 +39,9 @@ class AdminUserQueryService(
             passwordExpired = isPasswordExpired(now),
             daysUntilPasswordChange = daysUntilPasswordChange.coerceAtLeast(0),
         )
+    }
 
-        val json = objectMapper.writeValueAsString(sensitivePayload)
-        return UserSummaryResponse(
-            username = username,
-            encryptedPayload = aesEncryptionService.encrypt(json),
-        )
+    companion object {
+        private const val PASSWORD_VALID_DAYS = User.PASSWORD_VALID_DAYS
     }
 }

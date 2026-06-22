@@ -8,4 +8,6 @@ data class JoinResponse(
     val message: String,
     @field:Schema(description = "회원 상태", example = "PENDING")
     val status: String,
+    @field:Schema(description = "아이디", example = "user1")
+    val username: String,
 )

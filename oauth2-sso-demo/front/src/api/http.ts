@@ -33,36 +33,59 @@ const parseError = async (response: Response): Promise<ApiError> => {
   )
 }
 
+const requestJson = async <TResponse>(
+  path: string,
+  init: RequestInit,
+): Promise<TResponse> => {
+  const response = await fetch(`${baseUrl}${path}`, init)
+
+  if (!response.ok) {
+    throw await parseError(response)
+  }
+
+  if (response.status === 204) {
+    return undefined as TResponse
+  }
+
+  return (await response.json()) as TResponse
+}
+
 export const postJson = async <TResponse>(
   path: string,
   body: unknown,
   token?: string | null,
-): Promise<TResponse> => {
-  const response = await fetch(`${baseUrl}${path}`, {
+): Promise<TResponse> =>
+  requestJson(path, {
     method: 'POST',
     headers: buildHeaders(token, true),
     body: JSON.stringify(body),
   })
 
-  if (!response.ok) {
-    throw await parseError(response)
-  }
-
-  return (await response.json()) as TResponse
-}
-
 export const getJson = async <TResponse>(
   path: string,
   token?: string | null,
-): Promise<TResponse> => {
-  const response = await fetch(`${baseUrl}${path}`, {
+): Promise<TResponse> =>
+  requestJson(path, {
     method: 'GET',
     headers: buildHeaders(token),
   })
 
-  if (!response.ok) {
-    throw await parseError(response)
-  }
+export const putJson = async <TResponse>(
+  path: string,
+  body: unknown,
+  token?: string | null,
+): Promise<TResponse> =>
+  requestJson(path, {
+    method: 'PUT',
+    headers: buildHeaders(token, true),
+    body: JSON.stringify(body),
+  })
 
-  return (await response.json()) as TResponse
-}
+export const deleteJson = async <TResponse>(
+  path: string,
+  token?: string | null,
+): Promise<TResponse> =>
+  requestJson(path, {
+    method: 'DELETE',
+    headers: buildHeaders(token),
+  })

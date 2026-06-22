@@ -25,7 +25,8 @@ body {
 }
 
 .login-page,
-.home-page {
+.home-page,
+.profile-page {
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -33,7 +34,8 @@ body {
 }
 
 .login-card,
-.home-card {
+.home-card,
+.profile-card {
   width: 100%;
   max-width: 420px;
   background: #ffffff;
@@ -106,6 +108,20 @@ button:disabled {
   background: #fef2f2;
   color: #b91c1c;
   font-size: 0.9rem;
+}
+
+.success {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.9rem;
+}
+
+a {
+  color: #4f46e5;
+  font-weight: 600;
 }
 
 .token-box {
@@ -220,4 +236,113 @@ td.username {
   margin: 16px 0 0;
   color: #6b7280;
   font-size: 0.85rem;
+}
+
+.profile-card {
+  max-width: 640px;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.profile-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.profile-section h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.profile-form {
+  display: grid;
+  gap: 12px;
+}
+
+.info-list {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.info-list div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px;
+}
+
+.info-list dt {
+  margin: 0;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.info-list dd {
+  margin: 0;
+}
+
+.danger-zone .danger,
+button.danger {
+  background: #dc2626;
+}
+
+button.danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.admin-form-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.admin-form-section h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.admin-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-inline-form input,
+.admin-inline-form select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.admin-inline-form button {
+  margin-top: 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.actions-cell {
+  white-space: normal;
+  min-width: 280px;
+}
+
+.actions-cell button {
+  margin: 2px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
 }

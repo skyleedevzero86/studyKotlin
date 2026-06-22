@@ -25,6 +25,8 @@ class UserJpaEntity {
     @Column(nullable = false)
     var password: String? = null
 
+    var displayName: String? = null
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var role: UserRole? = null
@@ -41,6 +43,9 @@ class UserJpaEntity {
 
     @Column(nullable = false)
     var passwordChangeFailCount: Int = 0
+
+    @Column(nullable = false)
+    var loginFailCount: Int = 0
 
     var lastLoginAt: Instant? = null
 }

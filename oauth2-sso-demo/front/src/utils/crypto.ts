@@ -31,6 +31,16 @@ export const decryptAes256Gcm = async (
 }
 
 export const parseJwtRole = (token: string): string | null => {
+  const payload = parseJwtPayload(token)
+  return payload?.role ?? null
+}
+
+export const parseJwtSubject = (token: string): string | null => {
+  const payload = parseJwtPayload(token)
+  return payload?.sub ?? null
+}
+
+const parseJwtPayload = (token: string): { sub?: string; role?: string } | null => {
   const parts = token.split('.')
   if (parts.length !== 3) {
     return null
@@ -39,8 +49,11 @@ export const parseJwtRole = (token: string): string | null => {
   const payloadSegment = parts[1] ?? ''
   const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
-  const payload = JSON.parse(atob(padded)) as { role?: string }
-  return payload.role ?? null
+  try {
+    return JSON.parse(atob(padded)) as { sub?: string; role?: string }
+  } catch {
+    return null
+  }
 }
 
 export const isAdminRole = (role: string | null): boolean =>

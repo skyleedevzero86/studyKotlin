@@ -3,11 +3,15 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
 const router = useRouter()
-const { accessToken, logout, isAdmin } = useAuth()
+const { username, logout, isAdmin } = useAuth()
 
 const handleLogout = async () => {
   logout()
   await router.push({ name: 'login' })
+}
+
+const goProfile = async () => {
+  await router.push({ name: 'profile' })
 }
 
 const goAdminUsers = async () => {
@@ -19,14 +23,10 @@ const goAdminUsers = async () => {
   <main class="home-page">
     <section class="home-card">
       <h1>환영합니다</h1>
-      <p>JWT 로그인에 성공했습니다.</p>
-
-      <div class="token-box">
-        <span class="label">Access Token</span>
-        <code>{{ accessToken }}</code>
-      </div>
+      <p v-if="username">{{ username }}님, 로그인되었습니다.</p>
 
       <div class="actions">
+        <button type="button" @click="goProfile">내 정보</button>
         <button v-if="isAdmin" type="button" @click="goAdminUsers">관리자 사용자 목록</button>
         <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
       </div>
