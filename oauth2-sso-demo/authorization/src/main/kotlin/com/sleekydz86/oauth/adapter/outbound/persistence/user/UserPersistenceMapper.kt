@@ -21,15 +21,15 @@ object UserPersistenceMapper {
         )
 
     fun toEntity(user: User): UserJpaEntity =
-        UserJpaEntity(
-            id = user.id,
-            username = user.username,
-            password = user.password,
-            role = user.role,
-            status = user.status,
-            createdAt = user.createdAt,
-            passwordChangedAt = user.passwordChangedAt,
-            passwordChangeFailCount = user.passwordChangeFailCount,
-            lastLoginAt = user.lastLoginAt,
-        )
+        UserJpaEntity().apply {
+            id = user.id
+            username = user.username
+            password = user.password
+            role = user.role
+            status = user.status
+            createdAt = user.createdAt
+            passwordChangedAt = user.passwordChangedAt
+            passwordChangeFailCount = user.passwordChangeFailCount
+            lastLoginAt = user.lastLoginAt
+        }
 }

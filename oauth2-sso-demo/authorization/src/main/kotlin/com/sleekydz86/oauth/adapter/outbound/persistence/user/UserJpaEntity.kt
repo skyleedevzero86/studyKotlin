@@ -14,33 +14,33 @@ import java.time.Instant
 
 @Entity
 @Table(name = "users")
-class UserJpaEntity(
+class UserJpaEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Long? = null,
+    var id: Long? = null
 
     @Column(nullable = false, unique = true)
-    var username: String? = null,
+    var username: String? = null
 
     @Column(nullable = false)
-    var password: String? = null,
+    var password: String? = null
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var role: UserRole? = null,
+    var role: UserRole? = null
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var status: UserStatus? = null,
+    var status: UserStatus? = null
 
     @Column(nullable = false)
-    var createdAt: Instant? = null,
+    var createdAt: Instant? = null
 
     @Column(nullable = false)
-    var passwordChangedAt: Instant? = null,
+    var passwordChangedAt: Instant? = null
 
     @Column(nullable = false)
-    var passwordChangeFailCount: Int = 0,
+    var passwordChangeFailCount: Int = 0
 
-    var lastLoginAt: Instant? = null,
-)
+    var lastLoginAt: Instant? = null
+}
