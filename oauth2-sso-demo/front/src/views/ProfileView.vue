@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useProfile } from '../composables/useProfile'
+import { formatRole, formatStatus } from '../utils/labels'
 
 const router = useRouter()
 const { accessToken, username, logout } = useAuth()
@@ -51,6 +52,9 @@ const handleLogout = async () => {
   logout()
   await router.push({ name: 'login' })
 }
+
+const roleLabel = computed(() => formatRole(profile.value?.role))
+const statusLabel = computed(() => formatStatus(profile.value?.status))
 </script>
 
 <template>
@@ -59,7 +63,9 @@ const handleLogout = async () => {
       <header class="profile-header">
         <div>
           <h1>내 정보</h1>
-          <p v-if="profile">아이디: {{ profile.username }} · 상태: {{ profile.status }}</p>
+          <p v-if="profile">
+            아이디: {{ profile.username }} · 권한: {{ roleLabel }} · 상태: {{ statusLabel }}
+          </p>
         </div>
         <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
       </header>

@@ -4,6 +4,7 @@ import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.ApproveUserRequest
 import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.ChangeRoleRequest
 import com.sleekydz86.oauth.adapter.inbound.web.admin.dto.CreateUserByAdminRequest
 import com.sleekydz86.oauth.adapter.inbound.web.dto.ApiMessageResponse
+import com.sleekydz86.oauth.adapter.inbound.web.user.dto.UpdateProfileRequest
 import com.sleekydz86.oauth.domain.user.model.ActivateUserCommand
 import com.sleekydz86.oauth.domain.user.model.ApproveUserCommand
 import com.sleekydz86.oauth.domain.user.model.ChangeUserRoleCommand
@@ -11,8 +12,10 @@ import com.sleekydz86.oauth.domain.user.model.CreateUserByAdminCommand
 import com.sleekydz86.oauth.domain.user.model.DeleteUserCommand
 import com.sleekydz86.oauth.domain.user.model.ResetLoginFailCountCommand
 import com.sleekydz86.oauth.domain.user.model.ResetPasswordFailCountCommand
+import com.sleekydz86.oauth.domain.user.model.RestoreUserCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UnlockUserCommand
+import com.sleekydz86.oauth.domain.user.model.UpdateProfileCommand
 import com.sleekydz86.oauth.domain.user.model.WithdrawUserCommand
 import com.sleekydz86.oauth.global.application.user.AdminUserQueryService
 import com.sleekydz86.oauth.global.application.user.AdminUserStreamService
@@ -175,6 +178,26 @@ class AdminUserController(
         return ResponseEntity.ok(ApiMessageResponse(message = "활성화 완료", status = user.status.name))
     }
 
+    @Operation(
+        summary = "회원 복구",
+        description = "탈퇴(WITHDRAWN) 또는 이용 정지(SUSPENDED) 상태 회원을 ACTIVE로 복구합니다. 로그인 실패 횟수도 초기화됩니다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "복구 완료"),
+            ApiResponse(responseCode = "400", description = "복구 불가 상태"),
+            ApiResponse(responseCode = "404", description = "사용자 없음"),
+        ],
+    )
+    @PostMapping("/{username}/restore")
+    fun restore(
+        @Parameter(description = "복구할 회원 아이디", example = "user1")
+        @PathVariable username: String,
+    ): ResponseEntity<ApiMessageResponse> {
+        val user = userLifecycleApplicationService.restore(RestoreUserCommand(username))
+        return ResponseEntity.ok(ApiMessageResponse(message = "회원이 복구되었습니다.", status = user.status.name))
+    }
+
     @Operation(summary = "비밀번호 잠금 해제", description = "PASSWORD_LOCKED 상태 회원을 ACTIVE로 복구합니다.")
     @ApiResponses(
         value = [
@@ -190,6 +213,22 @@ class AdminUserController(
     ): ResponseEntity<ApiMessageResponse> {
         val user = userLifecycleApplicationService.unlock(UnlockUserCommand(username))
         return ResponseEntity.ok(ApiMessageResponse(message = "비밀번호 잠금 해제", status = user.status.name))
+    }
+
+    @Operation(summary = "회원 프로필 수정", description = "관리자가 회원의 표시 이름 등 프로필 정보를 수정합니다.")
+    @PutMapping("/{username}/profile")
+    fun updateProfile(
+        @Parameter(description = "수정할 회원 아이디", example = "user1")
+        @PathVariable username: String,
+        @Valid @RequestBody request: UpdateProfileRequest,
+    ): ResponseEntity<ApiMessageResponse> {
+        userLifecycleApplicationService.updateProfile(
+            UpdateProfileCommand(
+                username = username,
+                displayName = request.displayName,
+            ),
+        )
+        return ResponseEntity.ok(ApiMessageResponse(message = "회원 정보가 수정되었습니다."))
     }
 
     @Operation(summary = "권한 변경", description = "회원의 권한(USER/ADMIN)을 변경합니다.")

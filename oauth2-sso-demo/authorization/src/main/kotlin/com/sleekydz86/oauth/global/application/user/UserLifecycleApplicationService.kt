@@ -11,6 +11,7 @@ import com.sleekydz86.oauth.domain.user.model.RecordLoginCommand
 import com.sleekydz86.oauth.domain.user.model.RecordLoginFailureCommand
 import com.sleekydz86.oauth.domain.user.model.ResetLoginFailCountCommand
 import com.sleekydz86.oauth.domain.user.model.ResetPasswordFailCountCommand
+import com.sleekydz86.oauth.domain.user.model.RestoreUserCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UnlockUserCommand
 import com.sleekydz86.oauth.domain.user.model.UpdateProfileCommand
@@ -39,6 +40,8 @@ class UserLifecycleApplicationService(
     fun suspend(command: SuspendUserCommand): User = publish(userCommandService.suspend(command))
 
     fun activate(command: ActivateUserCommand): User = publish(userCommandService.activate(command))
+
+    fun restore(command: RestoreUserCommand): User = publish(userCommandService.restore(command))
 
     fun withdraw(command: WithdrawUserCommand): User = publish(userCommandService.withdraw(command))
 

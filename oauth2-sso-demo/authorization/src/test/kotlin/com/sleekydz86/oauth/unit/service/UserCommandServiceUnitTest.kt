@@ -8,6 +8,7 @@ import com.sleekydz86.oauth.domain.user.exception.UserNotFoundException
 import com.sleekydz86.oauth.domain.user.model.ApproveUserCommand
 import com.sleekydz86.oauth.domain.user.model.ChangePasswordWithVerifyCommand
 import com.sleekydz86.oauth.domain.user.model.JoinCommand
+import com.sleekydz86.oauth.domain.user.model.RestoreUserCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UserRole
 import com.sleekydz86.oauth.domain.user.model.UserStatus
@@ -175,6 +176,72 @@ class UserCommandServiceUnitTest {
             // then
             TestLog.then("withdraw", "status=WITHDRAWN")
             assertEquals(UserStatus.WITHDRAWN, withdrawn.status)
+
+            TestLog.end(name)
+        }
+    }
+
+    @Nested
+    @DisplayName("restore 기능")
+    inner class RestoreTests {
+
+        @Test
+        @DisplayName("역할: 회원 복구 - SUSPENDED 회원을 ACTIVE로 복구한다")
+        fun restoreSuspendedUser() {
+            val name = "restore - SUSPENDED → ACTIVE"
+            TestLog.start(name)
+
+            TestLog.given("UserCommandService", "SUSPENDED newbie")
+            userCommandService.join(JoinCommand("newbie", "pass1234"))
+            userCommandService.approve(ApproveUserCommand("newbie", UserRole.USER))
+            userCommandService.suspend(SuspendUserCommand("newbie"))
+
+            TestLog.`when`("restore", "RestoreUserCommand 실행")
+            val restored = userCommandService.restore(RestoreUserCommand("newbie"))
+
+            TestLog.then("restore", "status=ACTIVE, fail counts reset")
+            assertEquals(UserStatus.ACTIVE, restored.status)
+            assertEquals(0, restored.loginFailCount)
+            assertEquals(0, restored.passwordChangeFailCount)
+
+            TestLog.end(name)
+        }
+
+        @Test
+        @DisplayName("역할: 회원 복구 - WITHDRAWN 회원을 ACTIVE로 복구한다")
+        fun restoreWithdrawnUser() {
+            val name = "restore - WITHDRAWN → ACTIVE"
+            TestLog.start(name)
+
+            TestLog.given("UserCommandService", "WITHDRAWN newbie")
+            userCommandService.join(JoinCommand("newbie", "pass1234"))
+            userCommandService.approve(ApproveUserCommand("newbie", UserRole.USER))
+            userCommandService.withdraw(WithdrawUserCommand("newbie"))
+
+            TestLog.`when`("restore", "RestoreUserCommand 실행")
+            val restored = userCommandService.restore(RestoreUserCommand("newbie"))
+
+            TestLog.then("restore", "status=ACTIVE")
+            assertEquals(UserStatus.ACTIVE, restored.status)
+
+            TestLog.end(name)
+        }
+
+        @Test
+        @DisplayName("역할: 회원 복구 - ACTIVE 회원은 복구할 수 없다")
+        fun cannotRestoreActiveUser() {
+            val name = "restore - ACTIVE 거부"
+            TestLog.start(name)
+
+            TestLog.given("UserCommandService", "ACTIVE newbie")
+            userCommandService.join(JoinCommand("newbie", "pass1234"))
+            userCommandService.approve(ApproveUserCommand("newbie", UserRole.USER))
+
+            TestLog.`when`("restore", "ACTIVE 회원 복구 시도")
+            TestLog.then("restore", "InvalidUserStatusException 발생")
+            assertThrows<InvalidUserStatusException> {
+                userCommandService.restore(RestoreUserCommand("newbie"))
+            }
 
             TestLog.end(name)
         }

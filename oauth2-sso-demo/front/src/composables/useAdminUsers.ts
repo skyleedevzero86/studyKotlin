@@ -8,8 +8,10 @@ import {
   fetchAdminUsers,
   resetLoginFailCount,
   resetPasswordFailCount,
+  restoreUser,
   suspendUser,
   unlockUser,
+  updateUserProfileByAdmin,
   withdrawUserByAdmin,
 } from '../api/userApi'
 import { ApiError } from '../api/http'
@@ -105,6 +107,9 @@ export const useAdminUsers = () => {
   const activate = (token: string, username: string) =>
     runAction(token, () => activateUser(token, username))
 
+  const restore = (token: string, username: string) =>
+    runAction(token, () => restoreUser(token, username))
+
   const unlock = (token: string, username: string) =>
     runAction(token, () => unlockUser(token, username))
 
@@ -134,6 +139,12 @@ export const useAdminUsers = () => {
     },
   ) => runAction(token, () => createAdminUser(token, body))
 
+  const updateProfile = (
+    token: string,
+    username: string,
+    displayName: string | null,
+  ) => runAction(token, () => updateUserProfileByAdmin(token, username, { displayName }))
+
   return {
     users,
     isLoading,
@@ -145,6 +156,7 @@ export const useAdminUsers = () => {
     approve,
     suspend,
     activate,
+    restore,
     unlock,
     withdraw,
     changeRole,
@@ -152,5 +164,6 @@ export const useAdminUsers = () => {
     resetPwdFail,
     resetLoginFail,
     addUser,
+    updateProfile,
   }
 }

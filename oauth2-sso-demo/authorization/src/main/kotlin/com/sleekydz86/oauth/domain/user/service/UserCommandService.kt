@@ -16,6 +16,7 @@ import com.sleekydz86.oauth.domain.user.model.RecordLoginCommand
 import com.sleekydz86.oauth.domain.user.model.RecordLoginFailureCommand
 import com.sleekydz86.oauth.domain.user.model.ResetLoginFailCountCommand
 import com.sleekydz86.oauth.domain.user.model.ResetPasswordFailCountCommand
+import com.sleekydz86.oauth.domain.user.model.RestoreUserCommand
 import com.sleekydz86.oauth.domain.user.model.SuspendUserCommand
 import com.sleekydz86.oauth.domain.user.model.UnlockUserCommand
 import com.sleekydz86.oauth.domain.user.model.UpdateProfileCommand
@@ -99,6 +100,18 @@ class UserCommandService(
         }
         return userPersistencePort.save(
             user.withStatus(UserStatus.ACTIVE).withPasswordChangeFailCount(0),
+        )
+    }
+
+    fun restore(command: RestoreUserCommand): User {
+        val user = findUser(command.username)
+        if (user.status != UserStatus.WITHDRAWN && user.status != UserStatus.SUSPENDED) {
+            throw InvalidUserStatusException("탈퇴 또는 정지 상태의 회원만 복구할 수 있습니다.")
+        }
+        return userPersistencePort.save(
+            user.withStatus(UserStatus.ACTIVE)
+                .withPasswordChangeFailCount(0)
+                .withLoginFailCount(0),
         )
     }
 

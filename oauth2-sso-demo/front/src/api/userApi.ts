@@ -47,6 +47,9 @@ export const suspendUser = (token: string, username: string): Promise<ApiMessage
 export const activateUser = (token: string, username: string): Promise<ApiMessageResponse> =>
   postJson<ApiMessageResponse>(`/api/v1/admin/users/${username}/activate`, {}, token)
 
+export const restoreUser = (token: string, username: string): Promise<ApiMessageResponse> =>
+  postJson<ApiMessageResponse>(`/api/v1/admin/users/${username}/restore`, {}, token)
+
 export const unlockUser = (token: string, username: string): Promise<ApiMessageResponse> =>
   postJson<ApiMessageResponse>(`/api/v1/admin/users/${username}/unlock`, {}, token)
 
@@ -68,3 +71,10 @@ export const resetPasswordFailCount = (token: string, username: string): Promise
 
 export const resetLoginFailCount = (token: string, username: string): Promise<ApiMessageResponse> =>
   postJson<ApiMessageResponse>(`/api/v1/admin/users/${username}/reset-login-fail-count`, {}, token)
+
+export const updateUserProfileByAdmin = (
+  token: string,
+  username: string,
+  body: { displayName: string | null },
+): Promise<ApiMessageResponse> =>
+  putJson<ApiMessageResponse>(`/api/v1/admin/users/${username}/profile`, body, token)
