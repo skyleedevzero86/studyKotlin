@@ -7,3 +7,5 @@ backend/gradle.properties
 frontend/.env
 frontend/.gitignore
 backend/.gitignore
+backend/**/application.properties
+backend/**/application-*.properties
