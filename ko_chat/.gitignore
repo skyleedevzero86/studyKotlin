@@ -3,3 +3,7 @@ backend/problems
 backend/gradle
 frontend/node_modules
 frontend/pnpm-lock.yaml
+backend/gradle.properties
+frontend/.env
+frontend/.gitignore
+backend/.gitignore

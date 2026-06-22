@@ -1,25 +1,35 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+
+const router = useRouter()
+const { username, logout, isAdmin } = useAuth()
+
+const handleLogout = async () => {
+  logout()
+  await router.push({ name: 'login' })
+}
+
+const goProfile = async () => {
+  await router.push({ name: 'profile' })
+}
+
+const goAdminUsers = async () => {
+  await router.push({ name: 'admin-users' })
+}
 </script>
 
 <template>
-  <main>
-    <h1>Ko Chat</h1>
-    <p>홈 화면입니다.</p>
+  <main class="home-page">
+    <section class="home-card">
+      <h1>환영합니다</h1>
+      <p v-if="username">{{ username }}님, 로그인되었습니다.</p>
+
+      <div class="actions">
+        <button type="button" @click="goProfile">내 정보</button>
+        <button v-if="isAdmin" type="button" @click="goAdminUsers">관리자 사용자 목록</button>
+        <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
+      </div>
+    </section>
   </main>
 </template>
-
-<style scoped>
-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  gap: 1rem;
-}
-
-h1 {
-  font-size: 2rem;
-  color: #2c3e50;
-}
-</style>
