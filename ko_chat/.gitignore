@@ -9,3 +9,4 @@ frontend/.gitignore
 backend/.gitignore
 backend/**/application.properties
 backend/**/application-*.properties
+Samples/**
