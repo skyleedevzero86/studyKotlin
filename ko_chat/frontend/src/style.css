@@ -434,6 +434,33 @@ button.danger:hover:not(:disabled) {
   border-bottom: 1px solid #e5e7eb;
 }
 
+.chat-sidebar-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sidebar-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.sidebar-tabs button {
+  margin-top: 0;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+}
+
+.sidebar-tabs button.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
 .chat-user-info {
   display: flex;
   gap: 12px;
@@ -527,6 +554,26 @@ button.danger:hover:not(:disabled) {
   font-size: 0.75rem;
   color: #9ca3af;
   white-space: nowrap;
+}
+
+.chat-room-side {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.unread-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .chat-room-list {
@@ -632,6 +679,73 @@ button.danger:hover:not(:disabled) {
   color: #047857;
 }
 
+.chat-window-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+button.compact {
+  margin-top: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.member-panel {
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 12px 16px;
+}
+
+.member-list,
+.relationship-list {
+  display: grid;
+  gap: 8px;
+}
+
+.member-item,
+.relationship-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.member-item span,
+.relationship-item span {
+  display: block;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.member-actions,
+.relationship-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.relationship-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 12px;
+}
+
+.relationship-section {
+  display: grid;
+  gap: 8px;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -682,6 +796,9 @@ button.danger:hover:not(:disabled) {
   padding: 16px;
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
 }
 
 .chat-input-area form {
@@ -714,6 +831,11 @@ button.danger:hover:not(:disabled) {
   text-align: left;
   margin: 16px auto 0;
   max-width: 280px;
+}
+
+.chat-empty.slim {
+  min-height: auto;
+  padding: 12px;
 }
 
 .chat-welcome-icon {

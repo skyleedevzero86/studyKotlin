@@ -1,6 +1,11 @@
 import { deleteJson, getJson, postJson, putJson } from './http'
 import type { ApiMessageResponse } from '../types/user'
-import type { UserProfileResponse, UserSummaryResponse } from '../types/user'
+import type {
+  UserBlockHistoryResponse,
+  UserProfileResponse,
+  UserRelationshipResponse,
+  UserSummaryResponse,
+} from '../types/user'
 import type { ChatUser } from '../types/chat'
 
 export const fetchMyProfile = (token: string): Promise<UserProfileResponse> =>
@@ -29,6 +34,33 @@ export const changePassword = (
 
 export const withdraw = (token: string): Promise<ApiMessageResponse> =>
   postJson<ApiMessageResponse>('/api/v1/user/withdraw', {}, token)
+
+export const fetchFriends = (token: string): Promise<UserRelationshipResponse[]> =>
+  getJson<UserRelationshipResponse[]>('/api/v1/users/friends', token)
+
+export const addFriend = (
+  token: string,
+  targetUserId: number,
+): Promise<UserRelationshipResponse> =>
+  postJson<UserRelationshipResponse>(`/api/v1/users/friends/${targetUserId}`, {}, token)
+
+export const removeFriend = (token: string, targetUserId: number): Promise<void> =>
+  deleteJson<void>(`/api/v1/users/friends/${targetUserId}`, token)
+
+export const fetchBlocks = (token: string): Promise<UserRelationshipResponse[]> =>
+  getJson<UserRelationshipResponse[]>('/api/v1/users/blocks', token)
+
+export const fetchBlockHistory = (token: string): Promise<UserBlockHistoryResponse[]> =>
+  getJson<UserBlockHistoryResponse[]>('/api/v1/users/blocks/history', token)
+
+export const blockUser = (
+  token: string,
+  targetUserId: number,
+): Promise<UserRelationshipResponse> =>
+  postJson<UserRelationshipResponse>(`/api/v1/users/blocks/${targetUserId}`, {}, token)
+
+export const unblockUser = (token: string, targetUserId: number): Promise<void> =>
+  deleteJson<void>(`/api/v1/users/blocks/${targetUserId}`, token)
 
 export const fetchAdminUsers = (token: string): Promise<UserSummaryResponse[]> =>
   getJson<UserSummaryResponse[]>('/api/v1/admin/users', token)

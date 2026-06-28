@@ -114,6 +114,17 @@ class ChatController(
     fun getChatRoomMembers(@PathVariable id: Long): ResponseEntity<List<ChatRoomMemberDto>> =
         ResponseEntity.ok(chatService.getChatRoomMembers(id))
 
+    @Operation(summary = "채팅방 읽음 처리")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/{id}/read")
+    fun markRoomAsRead(
+        authentication: Authentication,
+        @PathVariable id: Long,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.markRoomAsRead(id, userId))
+    }
+
     @Operation(summary = "메시지 목록 (페이지)")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}/messages")

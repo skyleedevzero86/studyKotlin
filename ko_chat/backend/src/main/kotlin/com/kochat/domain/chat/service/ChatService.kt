@@ -19,6 +19,7 @@ interface ChatService {
     fun joinChatRoom(roomId: Long, userId: Long)
     fun leaveChatRoom(roomId: Long, userId: Long)
     fun getChatRoomMembers(roomId: Long): List<ChatRoomMemberDto>
+    fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto
     fun sendMessage(request: SendMessageRequest, senderId: Long): MessageDto
     fun getMessages(roomId: Long, userId: Long, pageable: Pageable): Page<MessageDto>
     fun getMessagesByCursor(request: MessagePageRequest, userId: Long): MessagePageResponse

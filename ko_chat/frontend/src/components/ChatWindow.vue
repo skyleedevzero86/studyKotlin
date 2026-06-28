@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { getMessages } from '../api/chatApi'
+import { getChatRoomMembers, getMessages, markChatRoomRead } from '../api/chatApi'
 import { ApiError } from '../api/http'
+import { addFriend, blockUser } from '../api/userApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import type {
   ChatRoom,
+  ChatRoomMember,
   IncomingWebSocketMessage,
   Message,
   OutgoingWebSocketMessage,
@@ -18,11 +20,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   error: [message: string]
+  read: [room: ChatRoom]
+  relationshipChanged: []
 }>()
 
 const messages = ref<Message[]>([])
+const members = ref<ChatRoomMember[]>([])
 const messageInput = ref('')
 const isLoadingMessages = ref(false)
+const membersLoading = ref(false)
+const showMembers = ref(false)
+const actionUserId = ref<number | null>(null)
 const messagesEndRef = ref<HTMLElement | null>(null)
 
 const resolveError = (error: unknown, fallback: string): string => {
@@ -40,6 +48,15 @@ const scrollToBottom = async () => {
   messagesEndRef.value?.scrollIntoView({ behavior: 'smooth' })
 }
 
+const markRead = async () => {
+  try {
+    const room = await markChatRoomRead(props.token, props.chatRoom.id)
+    emit('read', room)
+  } catch (error) {
+    emit('error', resolveError(error, '읽음 처리에 실패했습니다'))
+  }
+}
+
 const loadMessages = async () => {
   isLoadingMessages.value = true
   try {
@@ -49,10 +66,22 @@ const loadMessages = async () => {
     )
     messages.value = sorted
     await scrollToBottom()
+    await markRead()
   } catch (error) {
-    emit('error', resolveError(error, '메시지를 불러올 수 없습니다'))
+    emit('error', resolveError(error, '메시지를 불러오지 못했습니다'))
   } finally {
     isLoadingMessages.value = false
+  }
+}
+
+const loadMembers = async () => {
+  membersLoading.value = true
+  try {
+    members.value = await getChatRoomMembers(props.token, props.chatRoom.id)
+  } catch (error) {
+    emit('error', resolveError(error, '참여자 목록을 불러오지 못했습니다'))
+  } finally {
+    membersLoading.value = false
   }
 }
 
@@ -83,11 +112,7 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
     return
   }
 
-  if (!isChatMessage(payload)) {
-    return
-  }
-
-  if (payload.chatRoomId !== props.chatRoom.id) {
+  if (!isChatMessage(payload) || payload.chatRoomId !== props.chatRoom.id) {
     return
   }
 
@@ -114,6 +139,7 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
 
   messages.value = [...messages.value, newMessage]
   void scrollToBottom()
+  void markRead()
 }
 
 const { isConnected, sendMessage, error: wsError } = useWebSocket({
@@ -137,6 +163,30 @@ const handleSendMessage = () => {
 
   if (sendMessage(wsMessage)) {
     messageInput.value = ''
+  }
+}
+
+const handleAddFriend = async (userId: number) => {
+  actionUserId.value = userId
+  try {
+    await addFriend(props.token, userId)
+    emit('relationshipChanged')
+  } catch (error) {
+    emit('error', resolveError(error, '친구 추가에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleBlockUser = async (userId: number) => {
+  actionUserId.value = userId
+  try {
+    await blockUser(props.token, userId)
+    emit('relationshipChanged')
+  } catch (error) {
+    emit('error', resolveError(error, '차단에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
   }
 }
 
@@ -164,10 +214,18 @@ const formatTime = (dateString: string): string => {
 watch(
   () => props.chatRoom.id,
   () => {
+    showMembers.value = false
+    members.value = []
     void loadMessages()
   },
   { immediate: true },
 )
+
+watch(showMembers, (open) => {
+  if (open && members.value.length === 0) {
+    void loadMembers()
+  }
+})
 
 watch(wsError, (value) => {
   if (value) {
@@ -183,14 +241,49 @@ watch(wsError, (value) => {
         <h2>{{ roomTitle }}</h2>
         <p>{{ roomSubtitle }}</p>
       </div>
-      <span class="connection-badge" :class="{ online: isConnected }">
-        {{ isConnected ? '연결됨' : '연결 중...' }}
-      </span>
+      <div class="chat-window-actions">
+        <button type="button" class="secondary compact" @click="showMembers = !showMembers">
+          참여자
+        </button>
+        <span class="connection-badge" :class="{ online: isConnected }">
+          {{ isConnected ? '연결됨' : '연결 중...' }}
+        </span>
+      </div>
     </header>
+
+    <div v-if="showMembers" class="member-panel">
+      <p v-if="membersLoading" class="chat-empty slim">참여자를 불러오는 중...</p>
+      <div v-else class="member-list">
+        <div v-for="member in members" :key="member.id" class="member-item">
+          <div>
+            <strong>{{ member.user.displayName ?? member.user.username }}</strong>
+            <span>@{{ member.user.username }} · {{ member.role }}</span>
+          </div>
+          <div v-if="member.user.id !== currentUserId" class="member-actions">
+            <button
+              type="button"
+              class="secondary compact"
+              :disabled="actionUserId === member.user.id"
+              @click="handleAddFriend(member.user.id)"
+            >
+              친구 추가
+            </button>
+            <button
+              type="button"
+              class="danger compact"
+              :disabled="actionUserId === member.user.id"
+              @click="handleBlockUser(member.user.id)"
+            >
+              차단
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="chat-messages">
       <p v-if="isLoadingMessages" class="chat-empty">메시지를 불러오는 중...</p>
-      <p v-else-if="messages.length === 0" class="chat-empty">첫 번째 메시지를 보내보세요!</p>
+      <p v-else-if="messages.length === 0" class="chat-empty">첫 번째 메시지를 보내보세요</p>
 
       <div
         v-for="message in messages"

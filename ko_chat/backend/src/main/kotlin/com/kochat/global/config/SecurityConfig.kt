@@ -103,7 +103,7 @@ class SecurityConfig(
                     .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                     .requestMatchers("/api/v1/ws/**").permitAll()
                     .requestMatchers("/api/v1/chat-rooms/**").hasAnyRole("USER", "ADMIN")
-                    .requestMatchers("/api/v1/users/search").hasAnyRole("USER", "ADMIN")
+                    .requestMatchers("/api/v1/users/**").hasAnyRole("USER", "ADMIN")
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/v1/user/**").hasAnyRole("USER", "ADMIN")
                     .anyRequest().hasRole("ADMIN")

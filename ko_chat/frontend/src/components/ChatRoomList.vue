@@ -3,18 +3,28 @@ import { computed, onMounted, ref, watch } from 'vue'
 import {
   createChatRoom,
   findOrCreateDirectRoom,
-  getChatRooms,
   getChatRoom,
+  getChatRooms,
   joinChatRoom,
 } from '../api/chatApi'
-import { searchUsers } from '../api/userApi'
 import { ApiError } from '../api/http'
+import {
+  addFriend,
+  blockUser,
+  fetchBlocks,
+  fetchFriends,
+  removeFriend,
+  searchUsers,
+  unblockUser,
+} from '../api/userApi'
 import type { ChatRoom, ChatRoomType, ChatUser, CreateChatRoomRequest } from '../types/chat'
+import type { UserRelationshipResponse } from '../types/user'
 
 const props = defineProps<{
   token: string
   currentUserId: number
   selectedChatRoomId?: number | null
+  refreshKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -22,8 +32,14 @@ const emit = defineEmits<{
   error: [message: string]
 }>()
 
+type SidebarTab = 'rooms' | 'friends' | 'blocks'
+
+const activeTab = ref<SidebarTab>('rooms')
 const chatRooms = ref<ChatRoom[]>([])
+const friends = ref<UserRelationshipResponse[]>([])
+const blocks = ref<UserRelationshipResponse[]>([])
 const loading = ref(true)
+const relationLoading = ref(false)
 const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showJoinModal = ref(false)
@@ -31,6 +47,7 @@ const showDirectModal = ref(false)
 const createLoading = ref(false)
 const joinLoading = ref(false)
 const directLoading = ref(false)
+const actionUserId = ref<number | null>(null)
 const userSearchQuery = ref('')
 const userSearchLoading = ref(false)
 const userSearchResults = ref<ChatUser[]>([])
@@ -79,15 +96,40 @@ const roomDisplayName = (room: ChatRoom): string => {
   return room.name
 }
 
+const userLabel = (user: ChatUser | UserRelationshipResponse['user']): string =>
+  user.displayName ?? user.username
+
 const loadChatRooms = async () => {
   loading.value = true
   try {
     const response = await getChatRooms(props.token)
     chatRooms.value = response.content
   } catch (error) {
-    emit('error', resolveError(error, '채팅방 목록을 불러오는데 실패했습니다'))
+    emit('error', resolveError(error, '채팅방 목록을 불러오지 못했습니다'))
   } finally {
     loading.value = false
+  }
+}
+
+const loadFriends = async () => {
+  relationLoading.value = true
+  try {
+    friends.value = await fetchFriends(props.token)
+  } catch (error) {
+    emit('error', resolveError(error, '친구 목록을 불러오지 못했습니다'))
+  } finally {
+    relationLoading.value = false
+  }
+}
+
+const loadBlocks = async () => {
+  relationLoading.value = true
+  try {
+    blocks.value = await fetchBlocks(props.token)
+  } catch (error) {
+    emit('error', resolveError(error, '차단 목록을 불러오지 못했습니다'))
+  } finally {
+    relationLoading.value = false
   }
 }
 
@@ -100,6 +142,10 @@ const loadUserSearch = async () => {
   } finally {
     userSearchLoading.value = false
   }
+}
+
+const refreshRelationships = async () => {
+  await Promise.all([loadFriends(), loadBlocks()])
 }
 
 const handleCreateRoom = async () => {
@@ -122,22 +168,27 @@ const handleCreateRoom = async () => {
   }
 }
 
-const handleStartDirectChat = async (user: ChatUser) => {
+const upsertRoom = (room: ChatRoom) => {
+  const existingIndex = chatRooms.value.findIndex((item) => item.id === room.id)
+  if (existingIndex >= 0) {
+    chatRooms.value[existingIndex] = room
+    chatRooms.value = [...chatRooms.value]
+  } else {
+    chatRooms.value = [room, ...chatRooms.value]
+  }
+}
+
+const handleStartDirectChat = async (user: ChatUser | UserRelationshipResponse['user']) => {
   directLoading.value = true
   try {
     const room = await findOrCreateDirectRoom(props.token, { targetUserId: user.id })
-    const existingIndex = chatRooms.value.findIndex((item) => item.id === room.id)
-    if (existingIndex >= 0) {
-      chatRooms.value[existingIndex] = room
-      chatRooms.value = [...chatRooms.value]
-    } else {
-      chatRooms.value = [room, ...chatRooms.value]
-    }
+    upsertRoom(room)
     showDirectModal.value = false
     userSearchQuery.value = ''
+    activeTab.value = 'rooms'
     emit('select', room)
   } catch (error) {
-    emit('error', resolveError(error, '1:1 채팅을 시작할 수 없습니다'))
+    emit('error', resolveError(error, '1:1 채팅을 시작하지 못했습니다'))
   } finally {
     directLoading.value = false
   }
@@ -162,15 +213,60 @@ const handleJoinRoom = async () => {
     const joinedRoom = await getChatRoom(props.token, roomId)
     showJoinModal.value = false
     joinRoomId.value = ''
+    activeTab.value = 'rooms'
     emit('select', joinedRoom)
   } catch (error) {
-    if (error instanceof ApiError && error.status === 409) {
-      emit('error', '이미 참여한 채팅방입니다')
-    } else {
-      emit('error', resolveError(error, '채팅방 참여에 실패했습니다'))
-    }
+    emit('error', resolveError(error, '채팅방 참여에 실패했습니다'))
   } finally {
     joinLoading.value = false
+  }
+}
+
+const handleAddFriend = async (user: ChatUser) => {
+  actionUserId.value = user.id
+  try {
+    await addFriend(props.token, user.id)
+    await loadFriends()
+  } catch (error) {
+    emit('error', resolveError(error, '친구 추가에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleRemoveFriend = async (userId: number) => {
+  actionUserId.value = userId
+  try {
+    await removeFriend(props.token, userId)
+    await loadFriends()
+  } catch (error) {
+    emit('error', resolveError(error, '친구 삭제에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleBlockUser = async (userId: number) => {
+  actionUserId.value = userId
+  try {
+    await blockUser(props.token, userId)
+    await refreshRelationships()
+  } catch (error) {
+    emit('error', resolveError(error, '차단에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleUnblockUser = async (userId: number) => {
+  actionUserId.value = userId
+  try {
+    await unblockUser(props.token, userId)
+    await loadBlocks()
+  } catch (error) {
+    emit('error', resolveError(error, '차단 해제에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
   }
 }
 
@@ -210,9 +306,26 @@ watch(showDirectModal, (open) => {
   }
 })
 
+watch(activeTab, (tab) => {
+  if (tab === 'friends' && friends.value.length === 0) {
+    void loadFriends()
+    void loadUserSearch()
+  }
+  if (tab === 'blocks' && blocks.value.length === 0) {
+    void loadBlocks()
+  }
+})
+
+watch(
+  () => props.refreshKey,
+  () => {
+    void loadChatRooms()
+  },
+)
+
 let searchDebounce: ReturnType<typeof setTimeout> | undefined
 watch(userSearchQuery, () => {
-  if (!showDirectModal.value) {
+  if (!showDirectModal.value && activeTab.value !== 'friends') {
     return
   }
   clearTimeout(searchDebounce)
@@ -224,88 +337,208 @@ watch(userSearchQuery, () => {
 onMounted(() => {
   void loadChatRooms()
 })
+
+defineExpose({
+  loadChatRooms,
+  loadFriends,
+  loadBlocks,
+})
 </script>
 
 <template>
   <aside class="chat-sidebar">
     <div class="chat-sidebar-header">
-      <h2>채팅</h2>
+      <h2>내 메뉴</h2>
+      <div class="sidebar-tabs" role="tablist">
+        <button type="button" :class="{ active: activeTab === 'rooms' }" @click="activeTab = 'rooms'">
+          대화
+        </button>
+        <button type="button" :class="{ active: activeTab === 'friends' }" @click="activeTab = 'friends'">
+          친구
+        </button>
+        <button type="button" :class="{ active: activeTab === 'blocks' }" @click="activeTab = 'blocks'">
+          차단
+        </button>
+      </div>
+    </div>
+
+    <template v-if="activeTab === 'rooms'">
       <div class="chat-sidebar-actions">
         <button type="button" @click="showDirectModal = true">1:1 채팅</button>
         <button type="button" class="secondary" @click="showCreateModal = true">그룹방</button>
         <button type="button" class="secondary" @click="showJoinModal = true">참여</button>
       </div>
-      <input
-        v-model="searchQuery"
-        type="search"
-        placeholder="대화 검색..."
-        class="chat-search"
-      />
-    </div>
+      <div class="chat-sidebar-search">
+        <input v-model="searchQuery" type="search" placeholder="대화 검색..." class="chat-search" />
+      </div>
 
-    <div class="chat-room-list">
-      <p v-if="loading" class="chat-empty">채팅방을 불러오는 중...</p>
-      <template v-else>
-        <p v-if="filteredChatRooms.length === 0" class="chat-empty">
-          {{ searchQuery ? '검색 결과가 없습니다' : '채팅방이 없습니다' }}
-        </p>
+      <div class="chat-room-list">
+        <p v-if="loading" class="chat-empty">채팅방을 불러오는 중...</p>
+        <template v-else>
+          <p v-if="filteredChatRooms.length === 0" class="chat-empty">
+            {{ searchQuery ? '검색 결과가 없습니다' : '참여한 채팅방이 없습니다' }}
+          </p>
 
-        <section v-if="directRooms.length > 0" class="chat-room-section">
-          <h3 class="chat-room-section-title">1:1 대화</h3>
-          <button
-            v-for="room in directRooms"
-            :key="room.id"
-            type="button"
-            class="chat-room-item"
-            :class="{ selected: selectedChatRoomId === room.id }"
-            @click="emit('select', room)"
-          >
-            <div class="chat-room-item-main">
-              <strong>{{ roomDisplayName(room) }}</strong>
-              <span class="chat-room-meta">{{ roomTypeLabel(room.type) }}</span>
-              <span class="chat-room-preview">
-                {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
-              </span>
+          <section v-if="directRooms.length > 0" class="chat-room-section">
+            <h3 class="chat-room-section-title">1:1 대화</h3>
+            <button
+              v-for="room in directRooms"
+              :key="room.id"
+              type="button"
+              class="chat-room-item"
+              :class="{ selected: selectedChatRoomId === room.id }"
+              @click="emit('select', room)"
+            >
+              <div class="chat-room-item-main">
+                <strong>{{ roomDisplayName(room) }}</strong>
+                <span class="chat-room-meta">{{ roomTypeLabel(room.type) }}</span>
+                <span class="chat-room-preview">
+                  {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
+                </span>
+              </div>
+              <div class="chat-room-side">
+                <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
+                <span v-if="room.unreadCount > 0" class="unread-badge">
+                  {{ room.unreadCount > 99 ? '99+' : room.unreadCount }}
+                </span>
+              </div>
+            </button>
+          </section>
+
+          <section v-if="groupRooms.length > 0" class="chat-room-section">
+            <h3 class="chat-room-section-title">그룹 · 채널</h3>
+            <button
+              v-for="room in groupRooms"
+              :key="room.id"
+              type="button"
+              class="chat-room-item"
+              :class="{ selected: selectedChatRoomId === room.id }"
+              @click="emit('select', room)"
+            >
+              <div class="chat-room-item-main">
+                <strong>{{ roomDisplayName(room) }}</strong>
+                <span class="chat-room-meta">
+                  {{ roomTypeLabel(room.type) }} · 멤버 {{ room.memberCount }}
+                </span>
+                <span class="chat-room-preview">
+                  {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
+                </span>
+              </div>
+              <div class="chat-room-side">
+                <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
+                <span v-if="room.unreadCount > 0" class="unread-badge">
+                  {{ room.unreadCount > 99 ? '99+' : room.unreadCount }}
+                </span>
+              </div>
+            </button>
+          </section>
+        </template>
+      </div>
+    </template>
+
+    <template v-else-if="activeTab === 'friends'">
+      <div class="relationship-panel">
+        <input v-model="userSearchQuery" type="search" placeholder="친구로 추가할 사용자 검색..." class="chat-search" />
+
+        <section class="relationship-section">
+          <h3 class="chat-room-section-title">검색 결과</h3>
+          <p v-if="userSearchLoading" class="chat-empty slim">검색 중...</p>
+          <p v-else-if="userSearchResults.length === 0" class="chat-empty slim">검색 결과가 없습니다</p>
+          <div v-else class="relationship-list">
+            <div v-for="user in userSearchResults" :key="user.id" class="relationship-item">
+              <div>
+                <strong>{{ userLabel(user) }}</strong>
+                <span>@{{ user.username }}</span>
+              </div>
+              <div class="relationship-actions">
+                <button
+                  type="button"
+                  class="compact"
+                  :disabled="actionUserId === user.id"
+                  @click="handleAddFriend(user)"
+                >
+                  추가
+                </button>
+                <button
+                  type="button"
+                  class="secondary compact"
+                  :disabled="directLoading"
+                  @click="handleStartDirectChat(user)"
+                >
+                  대화
+                </button>
+              </div>
             </div>
-            <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
-          </button>
+          </div>
         </section>
 
-        <section v-if="groupRooms.length > 0" class="chat-room-section">
-          <h3 class="chat-room-section-title">그룹 · 채널</h3>
-          <button
-            v-for="room in groupRooms"
-            :key="room.id"
-            type="button"
-            class="chat-room-item"
-            :class="{ selected: selectedChatRoomId === room.id }"
-            @click="emit('select', room)"
-          >
-            <div class="chat-room-item-main">
-              <strong>{{ roomDisplayName(room) }}</strong>
-              <span class="chat-room-meta">
-                {{ roomTypeLabel(room.type) }} · 멤버 {{ room.memberCount }}
-              </span>
-              <span class="chat-room-preview">
-                {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
-              </span>
+        <section class="relationship-section">
+          <h3 class="chat-room-section-title">내 친구</h3>
+          <p v-if="relationLoading" class="chat-empty slim">친구 목록을 불러오는 중...</p>
+          <p v-else-if="friends.length === 0" class="chat-empty slim">등록한 친구가 없습니다</p>
+          <div v-else class="relationship-list">
+            <div v-for="friend in friends" :key="friend.id" class="relationship-item">
+              <div>
+                <strong>{{ userLabel(friend.user) }}</strong>
+                <span>@{{ friend.user.username }}</span>
+              </div>
+              <div class="relationship-actions">
+                <button type="button" class="compact" @click="handleStartDirectChat(friend.user)">
+                  대화
+                </button>
+                <button
+                  type="button"
+                  class="secondary compact"
+                  :disabled="actionUserId === friend.user.id"
+                  @click="handleRemoveFriend(friend.user.id)"
+                >
+                  삭제
+                </button>
+                <button
+                  type="button"
+                  class="danger compact"
+                  :disabled="actionUserId === friend.user.id"
+                  @click="handleBlockUser(friend.user.id)"
+                >
+                  차단
+                </button>
+              </div>
             </div>
-            <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
-          </button>
+          </div>
         </section>
-      </template>
-    </div>
+      </div>
+    </template>
+
+    <template v-else>
+      <div class="relationship-panel">
+        <section class="relationship-section">
+          <h3 class="chat-room-section-title">차단한 사용자</h3>
+          <p v-if="relationLoading" class="chat-empty slim">차단 목록을 불러오는 중...</p>
+          <p v-else-if="blocks.length === 0" class="chat-empty slim">차단한 사용자가 없습니다</p>
+          <div v-else class="relationship-list">
+            <div v-for="block in blocks" :key="block.id" class="relationship-item">
+              <div>
+                <strong>{{ userLabel(block.user) }}</strong>
+                <span>@{{ block.user.username }}</span>
+              </div>
+              <button
+                type="button"
+                class="secondary compact"
+                :disabled="actionUserId === block.user.id"
+                @click="handleUnblockUser(block.user.id)"
+              >
+                해제
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </template>
 
     <div v-if="showDirectModal" class="modal-overlay" @click="showDirectModal = false">
       <div class="modal-card" @click.stop>
         <h2>1:1 채팅 시작</h2>
-        <p class="hint">대화할 사용자를 검색하고 선택하세요.</p>
-        <input
-          v-model="userSearchQuery"
-          type="search"
-          placeholder="이름 또는 아이디 검색..."
-          class="chat-search"
-        />
+        <input v-model="userSearchQuery" type="search" placeholder="이름 또는 아이디 검색..." class="chat-search" />
         <div class="user-search-list">
           <p v-if="userSearchLoading" class="chat-empty">검색 중...</p>
           <p v-else-if="userSearchResults.length === 0" class="chat-empty">
@@ -319,7 +552,7 @@ onMounted(() => {
             :disabled="directLoading"
             @click="handleStartDirectChat(user)"
           >
-            <strong>{{ user.displayName ?? user.username }}</strong>
+            <strong>{{ userLabel(user) }}</strong>
             <span>@{{ user.username }}</span>
           </button>
         </div>
@@ -366,7 +599,6 @@ onMounted(() => {
             채팅방 ID
             <input v-model="joinRoomId" type="number" required />
           </label>
-          <p class="hint">채팅방 ID는 채팅방 헤더에서 확인할 수 있습니다.</p>
           <div class="modal-actions">
             <button type="button" class="secondary" @click="showJoinModal = false">취소</button>
             <button type="submit" :disabled="joinLoading">

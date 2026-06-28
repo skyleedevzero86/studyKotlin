@@ -44,3 +44,23 @@ export type ApiMessageResponse = {
   status?: string
   role?: string
 }
+
+export type UserRelationshipResponse = {
+  id: number
+  user: {
+    id: number
+    username: string
+    displayName: string | null
+    isActive: boolean
+    createdAt?: string | null
+  }
+  createdAt: string
+}
+
+export type UserBlockHistoryResponse = {
+  id: number
+  user: UserRelationshipResponse['user']
+  blockedAt: string
+  unblockedAt: string | null
+  isActive: boolean
+}

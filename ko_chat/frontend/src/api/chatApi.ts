@@ -47,6 +47,11 @@ export const leaveChatRoom = (
   chatRoomId: number,
 ): Promise<void> => deleteJson(`${chatPath}/${chatRoomId}/members/me`, token)
 
+export const markChatRoomRead = (
+  token: string,
+  chatRoomId: number,
+): Promise<ChatRoom> => postJson(`${chatPath}/${chatRoomId}/read`, {}, token)
+
 export const searchChatRooms = (
   token: string,
   query: string,

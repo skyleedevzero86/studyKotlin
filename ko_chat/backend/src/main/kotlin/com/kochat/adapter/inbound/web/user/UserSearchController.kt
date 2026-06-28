@@ -35,7 +35,7 @@ class UserSearchController(
         val currentUserId = chatUserResolver.resolveUserId(authentication.name)
         val pageable = PageRequest.of(0, limit.coerceIn(1, 50))
         val users = if (q.isBlank()) {
-            userJpaRepository.findByStatusAndIdNotOrderByUsernameAsc(UserStatus.ACTIVE, currentUserId, pageable)
+            userJpaRepository.findSearchableActiveUsers(currentUserId, pageable)
         } else {
             userJpaRepository.searchActiveUsers(currentUserId, q.trim(), pageable)
         }

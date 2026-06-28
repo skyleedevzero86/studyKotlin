@@ -2,7 +2,10 @@ package com.kochat.adapter.outbound.websocket
 
 import com.kochat.adapter.inbound.web.chat.dto.ChatMessage
 import com.kochat.adapter.outbound.persistence.chat.ChatRoomMemberJpaRepository
+import com.kochat.adapter.outbound.persistence.user.UserBlockJpaRepository
+import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.adapter.outbound.redis.RedisMessageBroker
+import com.kochat.domain.user.model.UserRole
 import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
@@ -19,6 +22,8 @@ class WebSocketSessionManager(
     @Qualifier("distributedObjectMapper") private val objectMapper: ObjectMapper,
     private val redisMessageBroker: RedisMessageBroker,
     private val chatRoomMemberJpaRepository: ChatRoomMemberJpaRepository,
+    private val userBlockJpaRepository: UserBlockJpaRepository,
+    private val userJpaRepository: UserJpaRepository,
 ) {
     private val logger = LoggerFactory.getLogger(WebSocketSessionManager::class.java)
     private val userSession = ConcurrentHashMap<Long, MutableSet<WebSocketSession>>()
@@ -81,8 +86,9 @@ class WebSocketSessionManager(
         userSession.forEach { (userId, sessions) ->
             if (userId != excludeUserId) {
                 val isMember = chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+                val canReceive = canReceiveMessage(userId, message)
 
-                if (isMember) {
+                if (isMember && canReceive) {
                     val closedSessions = mutableSetOf<WebSocketSession>()
 
                     sessions.forEach { session ->
@@ -105,6 +111,25 @@ class WebSocketSessionManager(
             }
         }
     }
+
+    private fun canReceiveMessage(viewerUserId: Long, message: ChatMessage): Boolean {
+        if (viewerUserId == message.senderId) {
+            return true
+        }
+        if (isAdminUser(viewerUserId)) {
+            return true
+        }
+        return !userBlockJpaRepository.existsBlockCoveringMessage(
+            blockerId = viewerUserId,
+            blockedId = message.senderId,
+            messageCreatedAt = message.timestamp,
+        )
+    }
+
+    private fun isAdminUser(userId: Long): Boolean =
+        userJpaRepository.findById(userId)
+            .map { it.role == UserRole.ADMIN }
+            .orElse(false)
 
     fun isUserOnlineLocally(userId: Long): Boolean {
         val sessions = userSession[userId] ?: return false

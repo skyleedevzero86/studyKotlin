@@ -18,6 +18,7 @@ import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.model.MessageType
 import com.kochat.domain.chat.service.ChatService
+import com.kochat.domain.user.model.UserRole
 import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
@@ -47,8 +48,32 @@ class ChatServiceImpl(
 
     private fun chatRoomToDto(chatRoom: ChatRoomJpaEntity, viewerUserId: Long? = null): ChatRoomDto {
         val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다")
+        val viewerIsAdmin = viewerUserId?.let { isAdminUser(it) } ?: false
+        val viewerMember = viewerUserId?.let {
+            chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, it).orElse(null)
+        }
         val memberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId).toInt()
-        val lastMessage = messageJpaRepository.findLatestMessage(roomId)?.let { messageToDto(it) }
+        val lastMessage = if (viewerUserId != null) {
+            messageJpaRepository.findLatestVisibleMessages(
+                chatRoomId = roomId,
+                viewerUserId = viewerUserId,
+                viewerIsAdmin = viewerIsAdmin,
+                pageable = PageRequest.of(0, 1),
+            ).firstOrNull()
+        } else {
+            messageJpaRepository.findLatestMessage(roomId)
+        }?.let { messageToDto(it) }
+        val unreadCount = if (viewerUserId != null && viewerMember != null) {
+            messageJpaRepository.countUnreadVisibleMessages(
+                chatRoomId = roomId,
+                viewerUserId = viewerUserId,
+                joinedAt = viewerMember.joinedAt,
+                lastReadMessageId = viewerMember.lastReadMessageId,
+                viewerIsAdmin = viewerIsAdmin,
+            )
+        } else {
+            0L
+        }
         val creator = chatRoom.createdBy ?: throw IllegalArgumentException("채팅방 생성자가 없습니다")
         val peerUser = if (chatRoom.type == ChatRoomType.DIRECT && viewerUserId != null) {
             resolvePeerUser(roomId, viewerUserId)
@@ -69,8 +94,14 @@ class ChatServiceImpl(
             createdAt = chatRoom.createdAt ?: LocalDateTime.now(),
             lastMessage = lastMessage,
             peerUser = peerUser,
+            unreadCount = unreadCount,
         )
     }
+
+    private fun isAdminUser(userId: Long): Boolean =
+        userJpaRepository.findById(userId)
+            .map { it.role == UserRole.ADMIN }
+            .orElse(false)
 
     private fun resolvePeerUser(roomId: Long, viewerUserId: Long): ChatUserDto? =
         chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId)
@@ -139,8 +170,8 @@ class ChatServiceImpl(
         val savedRoom = chatRoomJpaRepository.save(chatRoom)
 
         val ownerMember = ChatRoomMemberJpaEntity().apply {
-            chatRoom = savedRoom
-            user = creator
+            this.chatRoom = savedRoom
+            this.user = creator
             role = MemberRole.OWNER
         }
         chatRoomMemberJpaRepository.save(ownerMember)
@@ -189,13 +220,13 @@ class ChatServiceImpl(
         val savedRoom = chatRoomJpaRepository.save(chatRoom)
 
         val ownerMember = ChatRoomMemberJpaEntity().apply {
-            chatRoom = savedRoom
-            user = currentUser
+            this.chatRoom = savedRoom
+            this.user = currentUser
             role = MemberRole.OWNER
         }
         val peerMember = ChatRoomMemberJpaEntity().apply {
-            chatRoom = savedRoom
-            user = targetUser
+            this.chatRoom = savedRoom
+            this.user = targetUser
             role = MemberRole.MEMBER
         }
         chatRoomMemberJpaRepository.save(ownerMember)
@@ -281,11 +312,33 @@ class ChatServiceImpl(
     override fun getChatRoomMembers(roomId: Long): List<ChatRoomMemberDto> =
         chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId).map { memberToDto(it) }
 
+    override fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto {
+        val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+            .orElseThrow { IllegalArgumentException("채팅방 멤버가 아닙니다") }
+        val latestVisibleMessage = messageJpaRepository.findLatestVisibleMessages(
+            chatRoomId = roomId,
+            viewerUserId = userId,
+            viewerIsAdmin = isAdminUser(userId),
+            pageable = PageRequest.of(0, 1),
+        ).firstOrNull()
+        member.lastReadMessageId = latestVisibleMessage?.id
+        chatRoomMemberJpaRepository.save(member)
+
+        val chatRoom = member.chatRoom ?: chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        return chatRoomToDto(chatRoom, userId)
+    }
+
     override fun getMessages(roomId: Long, userId: Long, pageable: Pageable): Page<MessageDto> {
         if (!chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
             throw IllegalArgumentException("채팅방 멤버가 아닙니다")
         }
-        return messageJpaRepository.findByChatRoomId(roomId, pageable).map { messageToDto(it) }
+        return messageJpaRepository.findByChatRoomIdVisibleTo(
+            chatRoomId = roomId,
+            viewerUserId = userId,
+            viewerIsAdmin = isAdminUser(userId),
+            pageable = pageable,
+        ).map { messageToDto(it) }
     }
 
     override fun getMessagesByCursor(request: MessagePageRequest, userId: Long): MessagePageResponse {
@@ -295,13 +348,31 @@ class ChatServiceImpl(
 
         val pageable = PageRequest.of(0, request.limit)
         val cursor = request.cursor
+        val viewerIsAdmin = isAdminUser(userId)
 
         val messages = when {
-            cursor == null -> messageJpaRepository.findLatestMessages(request.chatRoomId, pageable)
+            cursor == null -> messageJpaRepository.findLatestMessagesVisibleTo(
+                chatRoomId = request.chatRoomId,
+                viewerUserId = userId,
+                viewerIsAdmin = viewerIsAdmin,
+                pageable = pageable,
+            )
             request.direction == MessageDirection.BEFORE ->
-                messageJpaRepository.findMessagesBefore(request.chatRoomId, cursor, pageable)
+                messageJpaRepository.findMessagesBeforeVisibleTo(
+                    chatRoomId = request.chatRoomId,
+                    cursor = cursor,
+                    viewerUserId = userId,
+                    viewerIsAdmin = viewerIsAdmin,
+                    pageable = pageable,
+                )
             else ->
-                messageJpaRepository.findMessagesAfter(request.chatRoomId, cursor, pageable).reversed()
+                messageJpaRepository.findMessagesAfterVisibleTo(
+                    chatRoomId = request.chatRoomId,
+                    cursor = cursor,
+                    viewerUserId = userId,
+                    viewerIsAdmin = viewerIsAdmin,
+                    pageable = pageable,
+                ).reversed()
         }
 
         val messageDtos = messages.map { messageToDto(it) }
@@ -326,7 +397,7 @@ class ChatServiceImpl(
         val sender = userJpaRepository.findById(senderId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $senderId") }
 
-        chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(request.chatRoomId, senderId)
+        val senderMember = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(request.chatRoomId, senderId)
             .orElseThrow { IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.") }
 
         val sequenceNumber = messageSequenceService.getNextSequence(request.chatRoomId)
@@ -341,6 +412,9 @@ class ChatServiceImpl(
         val savedMessage = messageJpaRepository.save(message)
 
         val messageId = savedMessage.id ?: throw IllegalArgumentException("메시지 저장에 실패했습니다")
+        senderMember.lastReadMessageId = messageId
+        chatRoomMemberJpaRepository.save(senderMember)
+
         val chatMessage = ChatMessage(
             id = messageId,
             content = savedMessage.content ?: "",

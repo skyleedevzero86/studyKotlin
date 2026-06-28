@@ -16,6 +16,7 @@ const profile = ref<UserProfileResponse | null>(null)
 const selectedChatRoom = ref<ChatRoom | null>(null)
 const notifications = ref<ChatNotification[]>([])
 const serverStatus = ref<'checking' | 'online' | 'offline'>('checking')
+const roomListRefreshKey = ref(0)
 
 const addNotification = (type: ChatNotification['type'], title: string, message: string) => {
   const notification: ChatNotification = {
@@ -37,6 +38,17 @@ const handleError = (message: string) => {
 
 const handleChatRoomSelect = (room: ChatRoom) => {
   selectedChatRoom.value = room
+}
+
+const handleRoomRead = (room: ChatRoom) => {
+  if (selectedChatRoom.value?.id === room.id) {
+    selectedChatRoom.value = room
+  }
+  roomListRefreshKey.value += 1
+}
+
+const handleRelationshipChanged = () => {
+  roomListRefreshKey.value += 1
 }
 
 const handleLogout = async () => {
@@ -110,6 +122,7 @@ onMounted(async () => {
         :token="accessToken"
         :current-user-id="profile.id"
         :selected-chat-room-id="selectedChatRoom?.id ?? null"
+        :refresh-key="roomListRefreshKey"
         @select="handleChatRoomSelect"
         @error="handleError"
       />
@@ -120,6 +133,8 @@ onMounted(async () => {
         :chat-room="selectedChatRoom"
         :current-user-id="profile.id"
         @error="handleError"
+        @read="handleRoomRead"
+        @relationship-changed="handleRelationshipChanged"
       />
 
       <section v-else class="chat-welcome">
