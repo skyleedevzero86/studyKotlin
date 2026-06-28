@@ -1,11 +1,14 @@
 ﻿package com.kochat
 
+import com.kochat.support.ChatTestRedisConfig
 import com.kochat.support.TestLog
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 
 @SpringBootTest
+@Import(ChatTestRedisConfig::class)
 @DisplayName("애플리케이션 컨텍스트 로드 테스트 - Spring Boot 기동 역할")
 class KoChatApplicationTests {
 

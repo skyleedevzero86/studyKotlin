@@ -21,6 +21,10 @@ class UserPersistenceAdapter(
         userJpaRepository.findByUsername(username)?.let(UserPersistenceMapper::toDomain)
 
     @Transactional(readOnly = true)
+    override fun findById(id: Long): User? =
+        userJpaRepository.findById(id).orElse(null)?.let(UserPersistenceMapper::toDomain)
+
+    @Transactional(readOnly = true)
     override fun findAll(): List<User> =
         userJpaRepository.findAll().map(UserPersistenceMapper::toDomain)
 

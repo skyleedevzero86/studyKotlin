@@ -17,6 +17,7 @@ export type UserSummaryResponse = {
 }
 
 export type UserProfileResponse = {
+  id: number
   username: string
   displayName: string | null
   role: string

@@ -1,4 +1,4 @@
-﻿package com.kochat.global.application.user
+package com.kochat.global.application.user
 
 import com.kochat.domain.user.exception.UserNotFoundException
 import com.kochat.domain.user.model.User
@@ -27,6 +27,7 @@ class UserMeQueryService(
             ChronoUnit.DAYS.between(passwordChangedAt, now)
 
         return UserProfileResponse(
+            id = id ?: throw UserNotFoundException(username),
             username = username,
             displayName = displayName,
             role = role.name,

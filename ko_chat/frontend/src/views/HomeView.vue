@@ -14,6 +14,10 @@ const goProfile = async () => {
   await router.push({ name: 'profile' })
 }
 
+const goChat = async () => {
+  await router.push({ name: 'home' })
+}
+
 const goAdminUsers = async () => {
   await router.push({ name: 'admin-users' })
 }
@@ -26,6 +30,7 @@ const goAdminUsers = async () => {
       <p v-if="username">{{ username }}님, 로그인되었습니다.</p>
 
       <div class="actions">
+        <button type="button" @click="goChat">채팅</button>
         <button type="button" @click="goProfile">내 정보</button>
         <button v-if="isAdmin" type="button" @click="goAdminUsers">관리자 사용자 목록</button>
         <button type="button" class="secondary" @click="handleLogout">로그아웃</button>

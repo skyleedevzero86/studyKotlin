@@ -1,4 +1,4 @@
-﻿package com.kochat.global.config
+package com.kochat.global.config
 
 import com.kochat.adapter.inbound.security.LoginFilter
 import com.kochat.domain.user.port.out.UserPersistencePort
@@ -100,6 +100,9 @@ class SecurityConfig(
                     .requestMatchers("/api/v1/login").permitAll()
                     .requestMatchers("/api/v1/user/password/change").permitAll()
                     .requestMatchers("/api/v1/").permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                    .requestMatchers("/api/v1/ws/**").permitAll()
+                    .requestMatchers("/api/v1/chat-rooms/**").hasAnyRole("USER", "ADMIN")
                     .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                     .requestMatchers("/api/v1/user/**").hasAnyRole("USER", "ADMIN")
                     .anyRequest().hasRole("ADMIN")

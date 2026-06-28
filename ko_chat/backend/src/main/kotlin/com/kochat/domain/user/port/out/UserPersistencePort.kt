@@ -7,6 +7,8 @@ interface UserPersistencePort {
 
     fun findByUsername(username: String): User?
 
+    fun findById(id: Long): User?
+
     fun findAll(): List<User>
 
     fun existsByUsername(username: String): Boolean

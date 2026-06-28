@@ -1,9 +1,11 @@
-﻿package com.kochat.global.application.user
+package com.kochat.global.application.user
 
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "내 프로필 조회 응답")
 data class UserProfileResponse(
+    @field:Schema(description = "사용자 PK", example = "1")
+    val id: Long,
     @field:Schema(description = "아이디", example = "user1")
     val username: String,
     @field:Schema(description = "표시 이름", example = "홍길동")

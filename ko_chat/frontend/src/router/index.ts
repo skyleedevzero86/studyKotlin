@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AdminUsersView from '../views/AdminUsersView.vue'
+import ChatView from '../views/ChatView.vue'
 import HomeView from '../views/HomeView.vue'
 import JoinView from '../views/JoinView.vue'
 import LoginView from '../views/LoginView.vue'
@@ -24,6 +25,12 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
+      component: ChatView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/welcome',
+      name: 'welcome',
       component: HomeView,
       meta: { requiresAuth: true },
     },

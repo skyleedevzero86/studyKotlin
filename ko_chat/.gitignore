@@ -10,3 +10,4 @@ backend/.gitignore
 backend/**/application.properties
 backend/**/application-*.properties
 Samples/**
+backend/.gradle-user-home/**

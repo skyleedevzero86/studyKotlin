@@ -1,4 +1,4 @@
-﻿package com.kochat.global.exception
+package com.kochat.global.exception
 
 import com.kochat.domain.user.exception.DuplicateUsernameException
 import com.kochat.domain.user.exception.InvalidCurrentPasswordException
@@ -81,6 +81,24 @@ class GlobalExceptionHandler {
             ApiErrorResponse(
                 error = ex.message ?: ErrorCode.LOGIN_DENIED.defaultMessage,
                 code = ErrorCode.LOGIN_DENIED.name,
+            ),
+        )
+
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgument(ex: IllegalArgumentException): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            ApiErrorResponse(
+                error = ex.message ?: ErrorCode.VALIDATION_FAILED.defaultMessage,
+                code = ErrorCode.VALIDATION_FAILED.name,
+            ),
+        )
+
+    @ExceptionHandler(IllegalStateException::class)
+    fun handleIllegalState(ex: IllegalStateException): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                error = ex.message ?: ErrorCode.INVALID_USER_STATUS.defaultMessage,
+                code = ErrorCode.INVALID_USER_STATUS.name,
             ),
         )
 

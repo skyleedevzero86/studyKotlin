@@ -32,6 +32,8 @@ class InMemoryUserPersistencePort : UserPersistencePort {
 
     override fun findByUsername(username: String): User? = users[username]
 
+    override fun findById(id: Long): User? = users.values.find { it.id == id }
+
     override fun findAll(): List<User> = users.values.toList()
 
     override fun existsByUsername(username: String): Boolean = users.containsKey(username)
