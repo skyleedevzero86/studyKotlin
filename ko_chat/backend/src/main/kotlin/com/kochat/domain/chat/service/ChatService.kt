@@ -12,7 +12,8 @@ import org.springframework.data.domain.Pageable
 
 interface ChatService {
     fun createChatRoom(request: CreateChatRoomRequest, createdBy: Long): ChatRoomDto
-    fun getChatRoom(roomId: Long): ChatRoomDto
+    fun findOrCreateDirectRoom(targetUserId: Long, currentUserId: Long): ChatRoomDto
+    fun getChatRoom(roomId: Long, viewerUserId: Long): ChatRoomDto
     fun getChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto>
     fun searchChatRooms(query: String, userId: Long): List<ChatRoomDto>
     fun joinChatRoom(roomId: Long, userId: Long)

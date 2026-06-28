@@ -26,6 +26,7 @@ export interface ChatRoom {
   createdBy: ChatUser
   createdAt: string
   lastMessage?: Message | null
+  peerUser?: ChatUser | null
 }
 
 export interface CreateChatRoomRequest {
@@ -34,6 +35,10 @@ export interface CreateChatRoomRequest {
   type: ChatRoomType
   imageUrl?: string | null
   maxMembers?: number
+}
+
+export interface CreateDirectChatRequest {
+  targetUserId: number
 }
 
 export interface Message {
@@ -108,6 +113,13 @@ export interface IncomingErrorMessage {
 }
 
 export type IncomingWebSocketMessage = IncomingChatMessage | IncomingErrorMessage | Record<string, unknown>
+
+export const getChatRoomDisplayName = (room: ChatRoom): string => {
+  if (room.type === 'DIRECT' && room.peerUser) {
+    return room.peerUser.displayName ?? room.peerUser.username
+  }
+  return room.name
+}
 
 export interface ChatNotification {
   id: string

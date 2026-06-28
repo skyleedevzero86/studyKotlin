@@ -13,10 +13,12 @@ import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.adapter.outbound.redis.RedisMessageBroker
 import com.kochat.adapter.outbound.websocket.WebSocketSessionManager
+import com.kochat.domain.chat.model.ChatRoomType
 import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.model.MessageType
 import com.kochat.domain.chat.service.ChatService
+import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
@@ -43,11 +45,16 @@ class ChatServiceImpl(
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
 
-    private fun chatRoomToDto(chatRoom: ChatRoomJpaEntity): ChatRoomDto {
+    private fun chatRoomToDto(chatRoom: ChatRoomJpaEntity, viewerUserId: Long? = null): ChatRoomDto {
         val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다")
         val memberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId).toInt()
         val lastMessage = messageJpaRepository.findLatestMessage(roomId)?.let { messageToDto(it) }
         val creator = chatRoom.createdBy ?: throw IllegalArgumentException("채팅방 생성자가 없습니다")
+        val peerUser = if (chatRoom.type == ChatRoomType.DIRECT && viewerUserId != null) {
+            resolvePeerUser(roomId, viewerUserId)
+        } else {
+            null
+        }
 
         return ChatRoomDto(
             id = roomId,
@@ -61,8 +68,15 @@ class ChatServiceImpl(
             createdBy = userToDto(creator),
             createdAt = chatRoom.createdAt ?: LocalDateTime.now(),
             lastMessage = lastMessage,
+            peerUser = peerUser,
         )
     }
+
+    private fun resolvePeerUser(roomId: Long, viewerUserId: Long): ChatUserDto? =
+        chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId)
+            .mapNotNull { it.user }
+            .firstOrNull { it.id != viewerUserId }
+            ?.let { userToDto(it) }
 
     private fun messageToDto(message: MessageJpaEntity): MessageDto {
         val sender = message.sender ?: throw IllegalArgumentException("메시지 발신자가 없습니다")
@@ -136,26 +150,85 @@ class ChatServiceImpl(
             webSocketSessionManager.joinRoom(createdBy, roomId)
         }
 
-        return chatRoomToDto(savedRoom)
+        return chatRoomToDto(savedRoom, createdBy)
     }
 
-    @Cacheable(value = ["chatRooms"], key = "#roomId")
-    override fun getChatRoom(roomId: Long): ChatRoomDto {
+    @CacheEvict(value = ["chatRooms"], allEntries = true)
+    override fun findOrCreateDirectRoom(targetUserId: Long, currentUserId: Long): ChatRoomDto {
+        if (targetUserId == currentUserId) {
+            throw IllegalArgumentException("자기 자신과는 1:1 채팅을 시작할 수 없습니다")
+        }
+
+        val currentUser = userJpaRepository.findById(currentUserId)
+            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $currentUserId") }
+        val targetUser = userJpaRepository.findById(targetUserId)
+            .orElseThrow { IllegalArgumentException("대화 상대를 찾을 수 없습니다: $targetUserId") }
+
+        if (targetUser.status != UserStatus.ACTIVE) {
+            throw IllegalArgumentException("대화할 수 없는 사용자입니다")
+        }
+
+        val existingRoom = chatRoomJpaRepository.findDirectRoomBetweenUsers(currentUserId, targetUserId)
+            .firstOrNull()
+        if (existingRoom != null) {
+            return chatRoomToDto(existingRoom, currentUserId)
+        }
+
+        val currentName = currentUser.displayName ?: currentUser.username ?: "사용자"
+        val targetName = targetUser.displayName ?: targetUser.username ?: "사용자"
+        val minId = minOf(currentUserId, targetUserId)
+        val maxId = maxOf(currentUserId, targetUserId)
+
+        val chatRoom = ChatRoomJpaEntity().apply {
+            name = "$currentName, $targetName"
+            description = "1:1 채팅"
+            type = ChatRoomType.DIRECT
+            maxMembers = 2
+            createdBy = currentUser
+        }
+        val savedRoom = chatRoomJpaRepository.save(chatRoom)
+
+        val ownerMember = ChatRoomMemberJpaEntity().apply {
+            chatRoom = savedRoom
+            user = currentUser
+            role = MemberRole.OWNER
+        }
+        val peerMember = ChatRoomMemberJpaEntity().apply {
+            chatRoom = savedRoom
+            user = targetUser
+            role = MemberRole.MEMBER
+        }
+        chatRoomMemberJpaRepository.save(ownerMember)
+        chatRoomMemberJpaRepository.save(peerMember)
+
+        val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
+        listOf(currentUserId, targetUserId).forEach { userId ->
+            if (webSocketSessionManager.isUserOnlineLocally(userId)) {
+                webSocketSessionManager.joinRoom(userId, roomId)
+            }
+        }
+
+        logger.info("Created direct room id={} between users {} and {}", roomId, minId, maxId)
+        return chatRoomToDto(savedRoom, currentUserId)
+    }
+
+    @Cacheable(value = ["chatRooms"], key = "#roomId + '-' + #viewerUserId")
+    override fun getChatRoom(roomId: Long, viewerUserId: Long): ChatRoomDto {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
-        return chatRoomToDto(chatRoom)
+        return chatRoomToDto(chatRoom, viewerUserId)
     }
 
     override fun getChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto> =
-        chatRoomJpaRepository.findUserChatRooms(userId, pageable).map { chatRoomToDto(it) }
+        chatRoomJpaRepository.findUserChatRooms(userId, pageable).map { chatRoomToDto(it, userId) }
 
     override fun searchChatRooms(query: String, userId: Long): List<ChatRoomDto> {
         val chatRooms = if (query.isBlank()) {
-            chatRoomJpaRepository.findByIsActiveTrueOrderByCreatedAtDesc()
+            chatRoomJpaRepository.findUserChatRooms(userId, PageRequest.of(0, 50)).content
         } else {
-            chatRoomJpaRepository.findByNameContainingIgnoreCaseAndIsActiveTrueOrderByCreatedAtDesc(query)
+            chatRoomJpaRepository.searchUserChatRooms(userId, query)
         }
-        return chatRooms.map { chatRoomToDto(it) }
+        return chatRooms.map { chatRoomToDto(it, userId) }
     }
 
     @Caching(
@@ -173,6 +246,13 @@ class ChatServiceImpl(
 
         if (chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
             throw IllegalStateException("이미 참여한 채팅방입니다")
+        }
+
+        if (chatRoom.type == ChatRoomType.DIRECT) {
+            val memberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId)
+            if (memberCount >= chatRoom.maxMembers) {
+                throw IllegalStateException("1:1 채팅방은 두 명만 참여할 수 있습니다")
+            }
         }
 
         val member = ChatRoomMemberJpaEntity().apply {

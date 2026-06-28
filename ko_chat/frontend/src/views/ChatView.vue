@@ -108,6 +108,7 @@ onMounted(async () => {
     <div v-else-if="accessToken && profile" class="chat-layout">
       <ChatRoomList
         :token="accessToken"
+        :current-user-id="profile.id"
         :selected-chat-room-id="selectedChatRoom?.id ?? null"
         @select="handleChatRoomSelect"
         @error="handleError"
@@ -123,12 +124,12 @@ onMounted(async () => {
 
       <section v-else class="chat-welcome">
         <h2>채팅을 시작해보세요</h2>
-        <p>왼쪽에서 채팅방을 선택하거나 새로운 채팅방을 만들어 실시간 대화를 시작할 수 있습니다.</p>
+        <p>왼쪽에서 1:1 대화를 시작하거나 그룹 채팅방을 만들어 실시간 대화를 시작할 수 있습니다.</p>
         <ul>
-          <li>실시간 메시지 전송</li>
-          <li>채팅방 생성 및 참여</li>
-          <li>Redis 기반 분산 브로드캐스트</li>
-          <li>커서 기반 메시지 페이징</li>
+          <li>1:1 개인 채팅 (상대 검색 후 바로 시작)</li>
+          <li>실시간 메시지 전송 (WebSocket)</li>
+          <li>그룹 채팅방 생성 및 참여</li>
+          <li>메시지 기록 조회</li>
         </ul>
       </section>
     </div>

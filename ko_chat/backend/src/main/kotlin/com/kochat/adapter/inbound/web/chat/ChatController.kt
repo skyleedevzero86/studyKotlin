@@ -3,6 +3,7 @@ package com.kochat.adapter.inbound.web.chat
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.CreateChatRoomRequest
+import com.kochat.adapter.inbound.web.chat.dto.CreateDirectChatRequest
 import com.kochat.adapter.inbound.web.chat.dto.JoinChatRoomRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
@@ -48,11 +49,28 @@ class ChatController(
         return ResponseEntity.ok(chatRoom)
     }
 
+    @Operation(summary = "1:1 채팅방 찾기 또는 생성")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/direct")
+    fun findOrCreateDirectRoom(
+        authentication: Authentication,
+        @Valid @RequestBody request: CreateDirectChatRequest,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        val chatRoom = chatService.findOrCreateDirectRoom(request.targetUserId, userId)
+        return ResponseEntity.ok(chatRoom)
+    }
+
     @Operation(summary = "채팅방 조회")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}")
-    fun getChatRoom(@PathVariable id: Long): ResponseEntity<ChatRoomDto> =
-        ResponseEntity.ok(chatService.getChatRoom(id))
+    fun getChatRoom(
+        authentication: Authentication,
+        @PathVariable id: Long,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.getChatRoom(id, userId))
+    }
 
     @Operation(summary = "내 채팅방 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { getMessages } from '../api/chatApi'
 import { ApiError } from '../api/http'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -140,6 +140,22 @@ const handleSendMessage = () => {
   }
 }
 
+const roomTitle = computed(() => {
+  if (props.chatRoom.type === 'DIRECT' && props.chatRoom.peerUser) {
+    return props.chatRoom.peerUser.displayName ?? props.chatRoom.peerUser.username
+  }
+  return props.chatRoom.name
+})
+
+const roomSubtitle = computed(() => {
+  if (props.chatRoom.type === 'DIRECT' && props.chatRoom.peerUser) {
+    return `@${props.chatRoom.peerUser.username} · 1:1 채팅`
+  }
+  return `멤버 ${props.chatRoom.memberCount}명 · ID: ${props.chatRoom.id}${
+    props.chatRoom.description ? ` · ${props.chatRoom.description}` : ''
+  }`
+})
+
 const formatTime = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
@@ -164,13 +180,10 @@ watch(wsError, (value) => {
   <section class="chat-window">
     <header class="chat-window-header">
       <div>
-        <h2>{{ chatRoom.name }}</h2>
-        <p>
-          멤버 {{ chatRoom.memberCount }}명 · ID: {{ chatRoom.id }}
-          <span v-if="chatRoom.description"> · {{ chatRoom.description }}</span>
-        </p>
+        <h2>{{ roomTitle }}</h2>
+        <p>{{ roomSubtitle }}</p>
       </div>
-      <span class="chat-connection" :class="{ online: isConnected }">
+      <span class="connection-badge" :class="{ online: isConnected }">
         {{ isConnected ? '연결됨' : '연결 중...' }}
       </span>
     </header>
@@ -185,10 +198,10 @@ watch(wsError, (value) => {
         class="chat-message-row"
         :class="{ own: message.sender.id === currentUserId }"
       >
-        <span v-if="message.sender.id !== currentUserId" class="chat-sender">
+        <span v-if="message.sender.id !== currentUserId" class="chat-message-author">
           {{ message.sender.displayName ?? message.sender.username }}
         </span>
-        <div class="chat-bubble">
+        <div class="chat-message-bubble">
           <p>{{ message.content }}</p>
           <time>{{ formatTime(message.createdAt) }}</time>
         </div>

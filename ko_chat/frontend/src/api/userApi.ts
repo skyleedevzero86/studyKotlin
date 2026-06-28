@@ -1,9 +1,20 @@
 import { deleteJson, getJson, postJson, putJson } from './http'
 import type { ApiMessageResponse } from '../types/user'
 import type { UserProfileResponse, UserSummaryResponse } from '../types/user'
+import type { ChatUser } from '../types/chat'
 
 export const fetchMyProfile = (token: string): Promise<UserProfileResponse> =>
   getJson<UserProfileResponse>('/api/v1/user/me', token)
+
+export const searchUsers = (
+  token: string,
+  query = '',
+  limit = 20,
+): Promise<ChatUser[]> =>
+  getJson(
+    `/api/v1/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    token,
+  )
 
 export const updateProfile = (
   token: string,

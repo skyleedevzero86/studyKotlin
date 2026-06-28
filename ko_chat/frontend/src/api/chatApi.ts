@@ -3,6 +3,7 @@ import type {
   ChatRoom,
   ChatRoomMember,
   CreateChatRoomRequest,
+  CreateDirectChatRequest,
   Message,
   MessageDirection,
   MessagePageResponse,
@@ -15,6 +16,11 @@ export const createChatRoom = (
   token: string,
   data: CreateChatRoomRequest,
 ): Promise<ChatRoom> => postJson(chatPath, data, token)
+
+export const findOrCreateDirectRoom = (
+  token: string,
+  data: CreateDirectChatRequest,
+): Promise<ChatRoom> => postJson(`${chatPath}/direct`, data, token)
 
 export const getChatRooms = (
   token: string,

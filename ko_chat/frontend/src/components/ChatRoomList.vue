@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   createChatRoom,
+  findOrCreateDirectRoom,
   getChatRooms,
   getChatRoom,
   joinChatRoom,
 } from '../api/chatApi'
+import { searchUsers } from '../api/userApi'
 import { ApiError } from '../api/http'
-import type { ChatRoom, ChatRoomType, CreateChatRoomRequest } from '../types/chat'
+import type { ChatRoom, ChatRoomType, ChatUser, CreateChatRoomRequest } from '../types/chat'
 
 const props = defineProps<{
   token: string
+  currentUserId: number
   selectedChatRoomId?: number | null
 }>()
 
@@ -24,8 +27,13 @@ const loading = ref(true)
 const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showJoinModal = ref(false)
+const showDirectModal = ref(false)
 const createLoading = ref(false)
 const joinLoading = ref(false)
+const directLoading = ref(false)
+const userSearchQuery = ref('')
+const userSearchLoading = ref(false)
+const userSearchResults = ref<ChatUser[]>([])
 const joinRoomId = ref('')
 const newRoomData = ref<CreateChatRoomRequest>({
   name: '',
@@ -34,12 +42,24 @@ const newRoomData = ref<CreateChatRoomRequest>({
   maxMembers: 100,
 })
 
-const filteredChatRooms = computed(() =>
-  chatRooms.value.filter(
-    (room) =>
-      room.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      room.description?.toLowerCase().includes(searchQuery.value.toLowerCase()),
-  ),
+const filteredChatRooms = computed(() => {
+  const query = searchQuery.value.toLowerCase()
+  return chatRooms.value.filter((room) => {
+    const displayName = roomDisplayName(room).toLowerCase()
+    return (
+      displayName.includes(query) ||
+      room.description?.toLowerCase().includes(query) ||
+      room.lastMessage?.content?.toLowerCase().includes(query)
+    )
+  })
+})
+
+const directRooms = computed(() =>
+  filteredChatRooms.value.filter((room) => room.type === 'DIRECT'),
+)
+
+const groupRooms = computed(() =>
+  filteredChatRooms.value.filter((room) => room.type !== 'DIRECT'),
 )
 
 const resolveError = (error: unknown, fallback: string): string => {
@@ -52,6 +72,13 @@ const resolveError = (error: unknown, fallback: string): string => {
   return fallback
 }
 
+const roomDisplayName = (room: ChatRoom): string => {
+  if (room.type === 'DIRECT' && room.peerUser) {
+    return room.peerUser.displayName ?? room.peerUser.username
+  }
+  return room.name
+}
+
 const loadChatRooms = async () => {
   loading.value = true
   try {
@@ -61,6 +88,17 @@ const loadChatRooms = async () => {
     emit('error', resolveError(error, '채팅방 목록을 불러오는데 실패했습니다'))
   } finally {
     loading.value = false
+  }
+}
+
+const loadUserSearch = async () => {
+  userSearchLoading.value = true
+  try {
+    userSearchResults.value = await searchUsers(props.token, userSearchQuery.value)
+  } catch (error) {
+    emit('error', resolveError(error, '사용자 검색에 실패했습니다'))
+  } finally {
+    userSearchLoading.value = false
   }
 }
 
@@ -81,6 +119,27 @@ const handleCreateRoom = async () => {
     emit('error', resolveError(error, '채팅방 생성에 실패했습니다'))
   } finally {
     createLoading.value = false
+  }
+}
+
+const handleStartDirectChat = async (user: ChatUser) => {
+  directLoading.value = true
+  try {
+    const room = await findOrCreateDirectRoom(props.token, { targetUserId: user.id })
+    const existingIndex = chatRooms.value.findIndex((item) => item.id === room.id)
+    if (existingIndex >= 0) {
+      chatRooms.value[existingIndex] = room
+      chatRooms.value = [...chatRooms.value]
+    } else {
+      chatRooms.value = [room, ...chatRooms.value]
+    }
+    showDirectModal.value = false
+    userSearchQuery.value = ''
+    emit('select', room)
+  } catch (error) {
+    emit('error', resolveError(error, '1:1 채팅을 시작할 수 없습니다'))
+  } finally {
+    directLoading.value = false
   }
 }
 
@@ -145,6 +204,23 @@ const roomTypeLabel = (type: ChatRoomType): string => {
   }
 }
 
+watch(showDirectModal, (open) => {
+  if (open) {
+    void loadUserSearch()
+  }
+})
+
+let searchDebounce: ReturnType<typeof setTimeout> | undefined
+watch(userSearchQuery, () => {
+  if (!showDirectModal.value) {
+    return
+  }
+  clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    void loadUserSearch()
+  }, 300)
+})
+
 onMounted(() => {
   void loadChatRooms()
 })
@@ -153,48 +229,109 @@ onMounted(() => {
 <template>
   <aside class="chat-sidebar">
     <div class="chat-sidebar-header">
-      <h2>채팅방</h2>
+      <h2>채팅</h2>
       <div class="chat-sidebar-actions">
-        <button type="button" @click="showCreateModal = true">새 채팅방</button>
-        <button type="button" class="secondary" @click="showJoinModal = true">참여하기</button>
+        <button type="button" @click="showDirectModal = true">1:1 채팅</button>
+        <button type="button" class="secondary" @click="showCreateModal = true">그룹방</button>
+        <button type="button" class="secondary" @click="showJoinModal = true">참여</button>
       </div>
       <input
         v-model="searchQuery"
         type="search"
-        placeholder="채팅방 검색..."
+        placeholder="대화 검색..."
         class="chat-search"
       />
     </div>
 
     <div class="chat-room-list">
       <p v-if="loading" class="chat-empty">채팅방을 불러오는 중...</p>
-      <p v-else-if="filteredChatRooms.length === 0" class="chat-empty">
-        {{ searchQuery ? '검색 결과가 없습니다' : '채팅방이 없습니다' }}
-      </p>
-      <button
-        v-for="room in filteredChatRooms"
-        :key="room.id"
-        type="button"
-        class="chat-room-item"
-        :class="{ selected: selectedChatRoomId === room.id }"
-        @click="emit('select', room)"
-      >
-        <div class="chat-room-item-main">
-          <strong>{{ room.name }}</strong>
-          <span class="chat-room-meta">
-            {{ roomTypeLabel(room.type) }} · 멤버 {{ room.memberCount }}
-          </span>
-          <span class="chat-room-preview">
-            {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
-          </span>
+      <template v-else>
+        <p v-if="filteredChatRooms.length === 0" class="chat-empty">
+          {{ searchQuery ? '검색 결과가 없습니다' : '채팅방이 없습니다' }}
+        </p>
+
+        <section v-if="directRooms.length > 0" class="chat-room-section">
+          <h3 class="chat-room-section-title">1:1 대화</h3>
+          <button
+            v-for="room in directRooms"
+            :key="room.id"
+            type="button"
+            class="chat-room-item"
+            :class="{ selected: selectedChatRoomId === room.id }"
+            @click="emit('select', room)"
+          >
+            <div class="chat-room-item-main">
+              <strong>{{ roomDisplayName(room) }}</strong>
+              <span class="chat-room-meta">{{ roomTypeLabel(room.type) }}</span>
+              <span class="chat-room-preview">
+                {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
+              </span>
+            </div>
+            <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
+          </button>
+        </section>
+
+        <section v-if="groupRooms.length > 0" class="chat-room-section">
+          <h3 class="chat-room-section-title">그룹 · 채널</h3>
+          <button
+            v-for="room in groupRooms"
+            :key="room.id"
+            type="button"
+            class="chat-room-item"
+            :class="{ selected: selectedChatRoomId === room.id }"
+            @click="emit('select', room)"
+          >
+            <div class="chat-room-item-main">
+              <strong>{{ roomDisplayName(room) }}</strong>
+              <span class="chat-room-meta">
+                {{ roomTypeLabel(room.type) }} · 멤버 {{ room.memberCount }}
+              </span>
+              <span class="chat-room-preview">
+                {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
+              </span>
+            </div>
+            <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
+          </button>
+        </section>
+      </template>
+    </div>
+
+    <div v-if="showDirectModal" class="modal-overlay" @click="showDirectModal = false">
+      <div class="modal-card" @click.stop>
+        <h2>1:1 채팅 시작</h2>
+        <p class="hint">대화할 사용자를 검색하고 선택하세요.</p>
+        <input
+          v-model="userSearchQuery"
+          type="search"
+          placeholder="이름 또는 아이디 검색..."
+          class="chat-search"
+        />
+        <div class="user-search-list">
+          <p v-if="userSearchLoading" class="chat-empty">검색 중...</p>
+          <p v-else-if="userSearchResults.length === 0" class="chat-empty">
+            {{ userSearchQuery ? '검색 결과가 없습니다' : '사용자가 없습니다' }}
+          </p>
+          <button
+            v-for="user in userSearchResults"
+            :key="user.id"
+            type="button"
+            class="user-search-item"
+            :disabled="directLoading"
+            @click="handleStartDirectChat(user)"
+          >
+            <strong>{{ user.displayName ?? user.username }}</strong>
+            <span>@{{ user.username }}</span>
+          </button>
         </div>
-        <span class="chat-room-time">{{ formatLastMessageTime(room) }}</span>
-      </button>
+        <div class="modal-actions">
+          <button type="button" class="secondary" @click="showDirectModal = false">닫기</button>
+        </div>
+      </div>
     </div>
 
     <div v-if="showCreateModal" class="modal-overlay" @click="showCreateModal = false">
       <div class="modal-card" @click.stop>
-        <h2>새 채팅방 만들기</h2>
+        <h2>그룹 채팅방 만들기</h2>
         <form class="profile-form" @submit.prevent="handleCreateRoom">
           <label>
             채팅방 이름
@@ -208,7 +345,6 @@ onMounted(() => {
             타입
             <select v-model="newRoomData.type">
               <option value="GROUP">그룹</option>
-              <option value="DIRECT">1:1</option>
               <option value="CHANNEL">채널</option>
             </select>
           </label>
