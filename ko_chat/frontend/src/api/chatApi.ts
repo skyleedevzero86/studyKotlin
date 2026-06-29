@@ -74,7 +74,8 @@ export const getChatRoomMembers = (
 export const joinChatRoom = (
   token: string,
   chatRoomId: number,
-): Promise<void> => postJson(`${chatPath}/${chatRoomId}/members`, {}, token)
+  password?: string,
+): Promise<void> => postJson(`${chatPath}/${chatRoomId}/members`, { password: password ?? null }, token)
 
 export const leaveChatRoom = (
   token: string,
@@ -90,10 +91,20 @@ export const discoverChatRooms = (
   token: string,
   query = '',
   page = 0,
-  size = 20,
+  size = 10,
 ): Promise<PageResponse<ChatRoom>> =>
   getJson(
-    `${chatPath}/discover?q=${encodeURIComponent(query)}&page=${page}&size=${size}&sort=updatedAt,desc`,
+    `${chatPath}/discover?q=${encodeURIComponent(query)}&page=${page}&size=${size}&sort=createdAt,desc`,
+    token,
+  )
+
+export const getRecommendedChatRooms = (
+  token: string,
+  page = 0,
+  size = 10,
+): Promise<PageResponse<ChatRoom>> =>
+  getJson(
+    `${chatPath}/discover/recommended?page=${page}&size=${size}&sort=createdAt,desc`,
     token,
   )
 

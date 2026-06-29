@@ -22,6 +22,7 @@ export interface ChatRoom {
   imageUrl?: string | null
   isActive: boolean
   maxMembers: number
+  isPrivate?: boolean
   memberCount: number
   createdBy: ChatUser
   createdAt: string
@@ -37,6 +38,8 @@ export interface CreateChatRoomRequest {
   type: ChatRoomType
   imageUrl?: string | null
   maxMembers?: number
+  isPrivate?: boolean
+  password?: string | null
 }
 
 export interface CreateDirectChatRequest {

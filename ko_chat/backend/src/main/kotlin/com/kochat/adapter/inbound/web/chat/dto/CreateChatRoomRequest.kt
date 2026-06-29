@@ -14,4 +14,6 @@ data class CreateChatRoomRequest(
     val type: ChatRoomType,
     val imageUrl: String? = null,
     val maxMembers: Int = 100,
+    val isPrivate: Boolean = false,
+    val password: String? = null,
 )

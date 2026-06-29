@@ -27,6 +27,7 @@ import java.time.LocalDateTime
         Index(name = "idx_chat_room_created_by", columnList = "created_by"),
         Index(name = "idx_chat_room_type", columnList = "type"),
         Index(name = "idx_chat_room_active", columnList = "is_active"),
+        Index(name = "idx_chat_room_private", columnList = "is_private"),
     ],
 )
 @EntityListeners(AuditingEntityListener::class)
@@ -53,6 +54,12 @@ class ChatRoomJpaEntity {
 
     @Column(nullable = false)
     var maxMembers: Int = 100
+
+    @Column(nullable = false)
+    var isPrivate: Boolean = false
+
+    @Column(length = 100)
+    var passwordHash: String? = null
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)

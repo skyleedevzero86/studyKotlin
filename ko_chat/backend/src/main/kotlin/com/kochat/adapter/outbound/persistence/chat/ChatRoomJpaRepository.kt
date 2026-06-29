@@ -51,6 +51,7 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         """
         SELECT cr FROM ChatRoomJpaEntity cr
         WHERE cr.isActive = true
+          AND cr.isPrivate = false
           AND cr.type IN (
             com.kochat.domain.chat.model.ChatRoomType.GROUP,
             com.kochat.domain.chat.model.ChatRoomType.CHANNEL
@@ -60,8 +61,7 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
             OR LOWER(cr.name) LIKE LOWER(CONCAT('%', :query, '%'))
             OR LOWER(cr.description) LIKE LOWER(CONCAT('%', :query, '%'))
           )
-        ORDER BY cr.updatedAt DESC
         """,
     )
-    fun discoverChatRooms(query: String?, pageable: Pageable): Page<ChatRoomJpaEntity>
+    fun discoverPublicChatRooms(query: String?, pageable: Pageable): Page<ChatRoomJpaEntity>
 }

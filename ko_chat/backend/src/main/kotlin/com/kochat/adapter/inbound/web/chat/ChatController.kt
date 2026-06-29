@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.data.web.PageableDefault
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -93,7 +94,7 @@ class ChatController(
         @RequestBody request: JoinChatRoomRequest,
     ): ResponseEntity<Void> {
         val userId = request.userId ?: chatUserResolver.resolveUserId(authentication.name)
-        chatService.joinChatRoom(id, userId)
+        chatService.joinChatRoom(id, userId, request.password)
         return ResponseEntity.ok().build()
     }
 
@@ -225,13 +226,24 @@ class ChatController(
         return ResponseEntity.ok(chatService.getMessagesByCursor(request, userId))
     }
 
-    @Operation(summary = "참여 가능한 채팅방 검색")
+    @Operation(summary = "추천 채팅방 목록", description = "공개 그룹·채널 방을 생성일 기준 최신순으로 조회합니다")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/discover/recommended")
+    fun getRecommendedChatRooms(
+        authentication: Authentication,
+        @PageableDefault(size = 10, sort = ["createdAt"], direction = Sort.Direction.DESC) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomDto>> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.getRecommendedChatRooms(userId, pageable))
+    }
+
+    @Operation(summary = "참여 가능한 채팅방 검색", description = "공개 그룹·채널 방만 검색됩니다")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/discover")
     fun discoverChatRooms(
         authentication: Authentication,
         @RequestParam(required = false, defaultValue = "") q: String,
-        @PageableDefault(size = 20) pageable: Pageable,
+        @PageableDefault(size = 10, sort = ["createdAt"], direction = Sort.Direction.DESC) pageable: Pageable,
     ): ResponseEntity<Page<ChatRoomDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
         return ResponseEntity.ok(chatService.discoverChatRooms(q, userId, pageable))

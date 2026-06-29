@@ -29,6 +29,7 @@ import org.springframework.cache.annotation.Caching
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -46,6 +47,7 @@ class ChatServiceImpl(
     private val redisMessageBroker: RedisMessageBroker,
     private val messageSequenceService: MessageSequenceService,
     private val webSocketSessionManager: WebSocketSessionManager,
+    private val passwordEncoder: PasswordEncoder,
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
@@ -103,6 +105,7 @@ class ChatServiceImpl(
             peerUser = peerUser,
             unreadCount = unreadCount,
             isJoined = isJoined,
+            isPrivate = chatRoom.isPrivate,
         )
     }
 
@@ -224,12 +227,24 @@ class ChatServiceImpl(
         val creator = userJpaRepository.findById(createdBy)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $createdBy") }
 
+        if (request.isPrivate) {
+            val password = request.password?.trim()
+            require(!password.isNullOrEmpty()) { "비공개 채팅방은 비밀번호가 필요합니다" }
+            require(password.length >= 4) { "비밀번호는 4자 이상이어야 합니다" }
+        }
+
         val chatRoom = ChatRoomJpaEntity().apply {
             name = request.name
             description = request.description
             type = request.type
             imageUrl = request.imageUrl
             maxMembers = request.maxMembers.coerceIn(1, 100)
+            isPrivate = request.isPrivate
+            passwordHash = if (request.isPrivate) {
+                passwordEncoder.encode(request.password!!.trim())
+            } else {
+                null
+            }
             this.createdBy = creator
         }
 
@@ -337,9 +352,13 @@ class ChatServiceImpl(
 
     override fun discoverChatRooms(query: String, userId: Long, pageable: Pageable): Page<ChatRoomDto> {
         val normalizedQuery = query.trim().ifBlank { null }
-        return chatRoomJpaRepository.discoverChatRooms(normalizedQuery, pageable)
+        return chatRoomJpaRepository.discoverPublicChatRooms(normalizedQuery, pageable)
             .map { chatRoomToDto(it, userId) }
     }
+
+    override fun getRecommendedChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto> =
+        chatRoomJpaRepository.discoverPublicChatRooms(null, pageable)
+            .map { chatRoomToDto(it, userId) }
 
     @Caching(
         evict = [
@@ -347,7 +366,7 @@ class ChatServiceImpl(
             org.springframework.cache.annotation.CacheEvict(value = ["chatRooms"], key = "#roomId"),
         ],
     )
-    override fun joinChatRoom(roomId: Long, userId: Long) {
+    override fun joinChatRoom(roomId: Long, userId: Long, password: String?) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
 
@@ -363,7 +382,18 @@ class ChatServiceImpl(
         }
 
         if (chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
-            throw IllegalStateException("이미 참여한 채팅방입니다")
+            return
+        }
+
+        if (chatRoom.isPrivate) {
+            val providedPassword = password?.trim()
+            if (providedPassword.isNullOrEmpty()) {
+                throw IllegalStateException("비공개 방은 비밀번호를 입력해야 합니다")
+            }
+            val passwordHash = chatRoom.passwordHash
+            if (passwordHash.isNullOrEmpty() || !passwordEncoder.matches(providedPassword, passwordHash)) {
+                throw IllegalStateException("비밀번호가 올바르지 않습니다")
+            }
         }
 
         if (chatRoomBanJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {

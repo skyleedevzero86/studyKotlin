@@ -6,6 +6,7 @@ import {
   findOrCreateDirectRoom,
   getChatRoom,
   getChatRooms,
+  getRecommendedChatRooms,
   joinChatRoom,
 } from '../api/chatApi'
 import { ApiError } from '../api/http'
@@ -36,6 +37,10 @@ const emit = defineEmits<{
 }>()
 
 type SidebarTab = 'rooms' | 'friends' | 'blocks'
+type JoinDiscoverTab = 'recommended' | 'search'
+
+const ROOM_PAGE_SIZE = 20
+const DISCOVER_PAGE_SIZE = 10
 
 const activeTab = ref<SidebarTab>('rooms')
 const chatRooms = ref<ChatRoom[]>([])
@@ -43,6 +48,9 @@ const friends = ref<UserRelationshipResponse[]>([])
 const blocks = ref<UserRelationshipResponse[]>([])
 const rejectedFriendRequests = ref<UserFriendRequestResponse[]>([])
 const loading = ref(true)
+const roomsLoadingMore = ref(false)
+const roomsPage = ref(0)
+const roomsHasMore = ref(false)
 const relationLoading = ref(false)
 const searchQuery = ref('')
 const showCreateModal = ref(false)
@@ -56,15 +64,22 @@ const userSearchQuery = ref('')
 const userSearchLoading = ref(false)
 const userSearchResults = ref<ChatUser[]>([])
 const joinRoomId = ref('')
+const joinPassword = ref('')
+const joinDiscoverTab = ref<JoinDiscoverTab>('recommended')
 const discoverQuery = ref('')
 const discoverResults = ref<ChatRoom[]>([])
 const discoverLoading = ref(false)
+const discoverLoadingMore = ref(false)
+const discoverPage = ref(0)
+const discoverHasMore = ref(false)
 const joiningRoomId = ref<number | null>(null)
 const newRoomData = ref<CreateChatRoomRequest>({
   name: '',
   description: '',
   type: 'GROUP',
   maxMembers: 100,
+  isPrivate: false,
+  password: '',
 })
 
 const filteredChatRooms = computed(() => {
@@ -107,16 +122,37 @@ const roomDisplayName = (room: ChatRoom): string => {
 const userLabel = (user: ChatUser | UserRelationshipResponse['user']): string =>
   user.displayName ?? user.username
 
-const loadChatRooms = async () => {
-  loading.value = true
+const loadChatRooms = async (reset = true) => {
+  if (reset) {
+    loading.value = true
+    roomsPage.value = 0
+    chatRooms.value = []
+  } else {
+    roomsLoadingMore.value = true
+  }
+
   try {
-    const response = await getChatRooms(props.token)
-    chatRooms.value = response.content
+    const response = await getChatRooms(props.token, roomsPage.value, ROOM_PAGE_SIZE)
+    if (reset) {
+      chatRooms.value = response.content
+    } else {
+      chatRooms.value = [...chatRooms.value, ...response.content]
+    }
+    roomsHasMore.value = !response.last
   } catch (error) {
     emit('error', resolveError(error, '채팅방 목록을 불러오지 못했습니다'))
   } finally {
     loading.value = false
+    roomsLoadingMore.value = false
   }
+}
+
+const loadMoreChatRooms = async () => {
+  if (!roomsHasMore.value || roomsLoadingMore.value || loading.value) {
+    return
+  }
+  roomsPage.value += 1
+  await loadChatRooms(false)
 }
 
 const loadFriends = async () => {
@@ -173,12 +209,35 @@ const handleCreateRoom = async () => {
     return
   }
 
+  if (newRoomData.value.isPrivate) {
+    const password = newRoomData.value.password?.trim() ?? ''
+    if (password.length < 4) {
+      emit('error', '비공개 방 비밀번호는 4자 이상이어야 합니다')
+      return
+    }
+  }
+
   createLoading.value = true
   try {
-    const newRoom = await createChatRoom(props.token, newRoomData.value)
-    chatRooms.value = [newRoom, ...chatRooms.value]
+    const payload: CreateChatRoomRequest = {
+      name: newRoomData.value.name.trim(),
+      description: newRoomData.value.description?.trim() || null,
+      type: newRoomData.value.type,
+      maxMembers: newRoomData.value.maxMembers,
+      isPrivate: newRoomData.value.isPrivate,
+      password: newRoomData.value.isPrivate ? newRoomData.value.password?.trim() : null,
+    }
+    const newRoom = await createChatRoom(props.token, payload)
+    await loadChatRooms(true)
     showCreateModal.value = false
-    newRoomData.value = { name: '', description: '', type: 'GROUP', maxMembers: 100 }
+    newRoomData.value = {
+      name: '',
+      description: '',
+      type: 'GROUP',
+      maxMembers: 100,
+      isPrivate: false,
+      password: '',
+    }
     emit('select', newRoom)
   } catch (error) {
     emit('error', resolveError(error, '채팅방 생성에 실패했습니다'))
@@ -225,35 +284,77 @@ const handleJoinRoom = async () => {
     return
   }
 
-  await enterRoom(roomId)
+  await enterRoom(roomId, joinPassword.value.trim() || undefined)
 }
 
-const loadDiscoverRooms = async () => {
-  discoverLoading.value = true
+const loadDiscoverRooms = async (reset = true) => {
+  if (reset) {
+    discoverLoading.value = true
+    discoverPage.value = 0
+    discoverResults.value = []
+  } else {
+    discoverLoadingMore.value = true
+  }
+
   try {
-    const response = await discoverChatRooms(props.token, discoverQuery.value)
-    discoverResults.value = response.content
+    const response =
+      joinDiscoverTab.value === 'recommended'
+        ? await getRecommendedChatRooms(props.token, discoverPage.value, DISCOVER_PAGE_SIZE)
+        : await discoverChatRooms(
+            props.token,
+            discoverQuery.value,
+            discoverPage.value,
+            DISCOVER_PAGE_SIZE,
+          )
+
+    if (reset) {
+      discoverResults.value = response.content
+    } else {
+      discoverResults.value = [...discoverResults.value, ...response.content]
+    }
+    discoverHasMore.value = !response.last
   } catch (error) {
-    emit('error', resolveError(error, '채팅방 검색에 실패했습니다'))
+    emit('error', resolveError(error, '채팅방 목록을 불러오지 못했습니다'))
   } finally {
     discoverLoading.value = false
+    discoverLoadingMore.value = false
   }
 }
 
-const enterRoom = async (roomId: number) => {
+const loadMoreDiscoverRooms = async () => {
+  if (!discoverHasMore.value || discoverLoadingMore.value || discoverLoading.value) {
+    return
+  }
+  discoverPage.value += 1
+  await loadDiscoverRooms(false)
+}
+
+const resetJoinModalState = () => {
+  joinRoomId.value = ''
+  joinPassword.value = ''
+  discoverQuery.value = ''
+  discoverResults.value = []
+  discoverPage.value = 0
+  discoverHasMore.value = false
+}
+
+const enterRoom = async (roomId: number, password?: string) => {
   joinLoading.value = true
   joiningRoomId.value = roomId
   try {
     const existing = chatRooms.value.find((room) => room.id === roomId)
     if (!existing) {
-      await joinChatRoom(props.token, roomId)
+      const roomInfo = await getChatRoom(props.token, roomId)
+      if (roomInfo.isPrivate && !password?.trim()) {
+        emit('error', '비공개 방은 비밀번호를 입력해야 합니다')
+        return
+      }
+      await joinChatRoom(props.token, roomId, password?.trim() || undefined)
     }
-    await loadChatRooms()
+    await loadChatRooms(true)
     const joinedRoom = await getChatRoom(props.token, roomId)
     showJoinModal.value = false
-    joinRoomId.value = ''
-    discoverQuery.value = ''
-    discoverResults.value = []
+    resetJoinModalState()
     activeTab.value = 'rooms'
     emit('select', joinedRoom)
   } catch (error) {
@@ -267,8 +368,7 @@ const enterRoom = async (roomId: number) => {
 const handleDiscoverJoin = async (room: ChatRoom) => {
   if (room.isJoined) {
     showJoinModal.value = false
-    discoverQuery.value = ''
-    discoverResults.value = []
+    resetJoinModalState()
     activeTab.value = 'rooms'
     emit('select', room)
     return
@@ -284,8 +384,18 @@ const handleDiscoverJoin = async (room: ChatRoom) => {
 
 const openJoinModal = () => {
   showJoinModal.value = true
-  discoverQuery.value = ''
-  void loadDiscoverRooms()
+  joinDiscoverTab.value = 'recommended'
+  resetJoinModalState()
+  void loadDiscoverRooms(true)
+}
+
+const switchJoinDiscoverTab = (tab: JoinDiscoverTab) => {
+  if (joinDiscoverTab.value === tab) {
+    return
+  }
+  joinDiscoverTab.value = tab
+  resetJoinModalState()
+  void loadDiscoverRooms(true)
 }
 
 const handleAddFriend = async (user: ChatUser) => {
@@ -367,6 +477,8 @@ const roomTypeLabel = (type: ChatRoomType): string => {
   }
 }
 
+const roomVisibilityLabel = (room: ChatRoom): string => (room.isPrivate ? '비공개' : '공개')
+
 watch(showDirectModal, (open) => {
   if (open) {
     void loadUserSearch()
@@ -387,7 +499,7 @@ watch(activeTab, (tab) => {
 watch(
   () => props.refreshKey,
   () => {
-    void loadChatRooms()
+    void loadChatRooms(true)
     if (activeTab.value === 'friends') {
       void loadFriends()
       void loadRejectedFriendRequests()
@@ -400,12 +512,12 @@ watch(
 
 let discoverDebounce: ReturnType<typeof setTimeout> | undefined
 watch(discoverQuery, () => {
-  if (!showJoinModal.value) {
+  if (!showJoinModal.value || joinDiscoverTab.value !== 'search') {
     return
   }
   clearTimeout(discoverDebounce)
   discoverDebounce = setTimeout(() => {
-    void loadDiscoverRooms()
+    void loadDiscoverRooms(true)
   }, 300)
 })
 
@@ -421,7 +533,7 @@ watch(userSearchQuery, () => {
 })
 
 onMounted(() => {
-  void loadChatRooms()
+  void loadChatRooms(true)
 })
 
 defineExpose({
@@ -505,7 +617,7 @@ defineExpose({
               <div class="chat-room-item-main">
                 <strong>{{ roomDisplayName(room) }}</strong>
                 <span class="chat-room-meta">
-                  {{ roomTypeLabel(room.type) }} · 멤버 {{ room.memberCount }}
+                  {{ roomTypeLabel(room.type) }} · {{ roomVisibilityLabel(room) }} · 멤버 {{ room.memberCount }}
                 </span>
                 <span class="chat-room-preview">
                   {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
@@ -519,6 +631,16 @@ defineExpose({
               </div>
             </button>
           </section>
+
+          <button
+            v-if="roomsHasMore"
+            type="button"
+            class="load-more-button"
+            :disabled="roomsLoadingMore"
+            @click="loadMoreChatRooms"
+          >
+            {{ roomsLoadingMore ? '불러오는 중...' : '대화 더 보기' }}
+          </button>
         </template>
       </div>
     </template>
@@ -696,6 +818,23 @@ defineExpose({
             최대 인원
             <input v-model.number="newRoomData.maxMembers" type="number" min="1" max="100" />
           </label>
+          <label>
+            공개 설정
+            <select v-model="newRoomData.isPrivate">
+              <option :value="false">공개 (검색·추천 목록에 표시)</option>
+              <option :value="true">비공개 (비밀번호로만 참여)</option>
+            </select>
+          </label>
+          <label v-if="newRoomData.isPrivate">
+            비밀번호
+            <input
+              v-model="newRoomData.password"
+              type="password"
+              minlength="4"
+              placeholder="4자 이상"
+              required
+            />
+          </label>
           <div class="modal-actions">
             <button type="button" class="secondary" @click="showCreateModal = false">취소</button>
             <button type="submit" :disabled="createLoading">
@@ -709,9 +848,26 @@ defineExpose({
     <div v-if="showJoinModal" class="modal-overlay" @click="showJoinModal = false">
       <div class="modal-card join-room-modal" @click.stop>
         <h2>채팅방 찾기 · 참여</h2>
-        <p class="hint">그룹·채널 방을 검색해서 바로 참여하거나, 방 ID로 직접 들어갈 수 있습니다.</p>
+
+        <div class="join-discover-tabs" role="tablist">
+          <button
+            type="button"
+            :class="{ active: joinDiscoverTab === 'recommended' }"
+            @click="switchJoinDiscoverTab('recommended')"
+          >
+            추천
+          </button>
+          <button
+            type="button"
+            :class="{ active: joinDiscoverTab === 'search' }"
+            @click="switchJoinDiscoverTab('search')"
+          >
+            검색
+          </button>
+        </div>
 
         <input
+          v-if="joinDiscoverTab === 'search'"
           v-model="discoverQuery"
           type="search"
           placeholder="방 이름 또는 설명 검색..."
@@ -719,16 +875,20 @@ defineExpose({
         />
 
         <div class="discover-room-list">
-          <p v-if="discoverLoading" class="chat-empty slim">검색 중...</p>
+          <p v-if="discoverLoading" class="chat-empty slim">불러오는 중...</p>
           <p v-else-if="discoverResults.length === 0" class="chat-empty slim">
-            {{ discoverQuery ? '검색 결과가 없습니다' : '참여 가능한 채팅방이 없습니다' }}
+            {{
+              joinDiscoverTab === 'search' && discoverQuery
+                ? '검색 결과가 없습니다'
+                : '참여 가능한 공개 채팅방이 없습니다'
+            }}
           </p>
           <div v-else class="relationship-list">
             <div v-for="room in discoverResults" :key="room.id" class="relationship-item discover-room-item">
               <div>
                 <strong>{{ room.name }}</strong>
                 <span>
-                  {{ roomTypeLabel(room.type) }} · ID {{ room.id }} ·
+                  {{ roomTypeLabel(room.type) }} · 공개 · ID {{ room.id }} ·
                   {{ room.memberCount }}/{{ room.maxMembers }}명
                 </span>
                 <span v-if="room.description" class="discover-room-description">
@@ -753,12 +913,26 @@ defineExpose({
               </button>
             </div>
           </div>
+
+          <button
+            v-if="discoverHasMore"
+            type="button"
+            class="load-more-button"
+            :disabled="discoverLoadingMore"
+            @click="loadMoreDiscoverRooms"
+          >
+            {{ discoverLoadingMore ? '불러오는 중...' : '더 보기' }}
+          </button>
         </div>
 
         <form class="profile-form join-by-id-form" @submit.prevent="handleJoinRoom">
           <label>
             방 ID로 참여
             <input v-model="joinRoomId" type="number" placeholder="예: 12" />
+          </label>
+          <label>
+            비공개하기
+            <input v-model="joinPassword" type="password" placeholder="비밀번호 입력" />
           </label>
           <div class="modal-actions">
             <button type="button" class="secondary" @click="showJoinModal = false">닫기</button>
