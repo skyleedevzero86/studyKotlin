@@ -1,4 +1,9 @@
-# ko_chat
+
+<img width="1231" height="689" alt="image" src="https://github.com/user-attachments/assets/e123df7d-54f8-4e70-96ab-92f2e713e0dd" />
+
+<br/>
+
+# 코틀린기반의 채팅 Ko_Chat!
 
 Kotlin + Spring Boot 백엔드와 Vue 3 프론트엔드로 구성된 **실시간 채팅·화상 통화** 학습/실습 프로젝트입니다.
 
