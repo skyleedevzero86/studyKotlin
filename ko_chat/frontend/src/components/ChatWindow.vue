@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { getChatRoomMembers, getMessages, markChatRoomRead } from '../api/chatApi'
+import {
+  getChatRoom,
+  getChatRoomMembers,
+  getMessages,
+  inviteToChatRoom,
+  kickChatRoomMember,
+  markChatRoomRead,
+  updateChatRoomCapacity,
+} from '../api/chatApi'
 import { ApiError } from '../api/http'
-import { addFriend, blockUser } from '../api/userApi'
+import { addFriend, blockUser, searchUsers } from '../api/userApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import type {
   ChatRoom,
   ChatRoomMember,
+  ChatUser,
   IncomingWebSocketMessage,
   Message,
   OutgoingWebSocketMessage,
@@ -20,7 +29,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   error: [message: string]
+  notice: [message: string]
   read: [room: ChatRoom]
+  roomUpdated: [room: ChatRoom]
   relationshipChanged: []
 }>()
 
@@ -31,6 +42,11 @@ const isLoadingMessages = ref(false)
 const membersLoading = ref(false)
 const showMembers = ref(false)
 const actionUserId = ref<number | null>(null)
+const inviteQuery = ref('')
+const inviteResults = ref<ChatUser[]>([])
+const inviteLoading = ref(false)
+const capacityInput = ref(props.chatRoom.maxMembers)
+const capacityLoading = ref(false)
 const messagesEndRef = ref<HTMLElement | null>(null)
 
 const resolveError = (error: unknown, fallback: string): string => {
@@ -82,6 +98,26 @@ const loadMembers = async () => {
     emit('error', resolveError(error, '참여자 목록을 불러오지 못했습니다'))
   } finally {
     membersLoading.value = false
+  }
+}
+
+const loadInviteCandidates = async () => {
+  if (!canManageRoom.value) {
+    inviteResults.value = []
+    return
+  }
+
+  inviteLoading.value = true
+  try {
+    const results = await searchUsers(props.token, inviteQuery.value)
+    const activeMemberIds = new Set(members.value.map((member) => member.user.id))
+    inviteResults.value = results.filter(
+      (user) => user.id !== props.currentUserId && !activeMemberIds.has(user.id),
+    )
+  } catch (error) {
+    emit('error', resolveError(error, '초대할 사용자를 검색하지 못했습니다'))
+  } finally {
+    inviteLoading.value = false
   }
 }
 
@@ -170,11 +206,59 @@ const handleAddFriend = async (userId: number) => {
   actionUserId.value = userId
   try {
     await addFriend(props.token, userId)
+    emit('notice', '친구 요청을 보냈습니다')
     emit('relationshipChanged')
   } catch (error) {
     emit('error', resolveError(error, '친구 추가에 실패했습니다'))
   } finally {
     actionUserId.value = null
+  }
+}
+
+const handleInviteUser = async (user: ChatUser) => {
+  actionUserId.value = user.id
+  try {
+    await inviteToChatRoom(props.token, props.chatRoom.id, user.id)
+    emit('notice', `${user.displayName ?? user.username} 님에게 채팅 초대를 보냈습니다`)
+    inviteQuery.value = ''
+    inviteResults.value = []
+  } catch (error) {
+    emit('error', resolveError(error, '채팅 초대에 실패했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleKickMember = async (user: ChatUser) => {
+  actionUserId.value = user.id
+  try {
+    await kickChatRoomMember(props.token, props.chatRoom.id, user.id)
+    await loadMembers()
+    const room = await getChatRoom(props.token, props.chatRoom.id)
+    emit('roomUpdated', room)
+    emit('notice', `${user.displayName ?? user.username} 님을 채팅방에서 내보냈습니다`)
+  } catch (error) {
+    emit('error', resolveError(error, '참여자를 내보내지 못했습니다'))
+  } finally {
+    actionUserId.value = null
+  }
+}
+
+const handleUpdateCapacity = async () => {
+  capacityLoading.value = true
+  try {
+    const room = await updateChatRoomCapacity(
+      props.token,
+      props.chatRoom.id,
+      Math.trunc(capacityInput.value),
+    )
+    capacityInput.value = room.maxMembers
+    emit('roomUpdated', room)
+    emit('notice', `채팅방 정원을 ${room.maxMembers}명으로 변경했습니다`)
+  } catch (error) {
+    emit('error', resolveError(error, '정원 변경에 실패했습니다'))
+  } finally {
+    capacityLoading.value = false
   }
 }
 
@@ -206,6 +290,10 @@ const roomSubtitle = computed(() => {
   }`
 })
 
+const canManageRoom = computed(
+  () => props.chatRoom.type !== 'DIRECT' && props.chatRoom.createdBy.id === props.currentUserId,
+)
+
 const formatTime = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
@@ -216,15 +304,36 @@ watch(
   () => {
     showMembers.value = false
     members.value = []
+    inviteQuery.value = ''
+    inviteResults.value = []
+    capacityInput.value = props.chatRoom.maxMembers
     void loadMessages()
   },
   { immediate: true },
+)
+
+watch(
+  () => props.chatRoom.maxMembers,
+  (maxMembers) => {
+    capacityInput.value = maxMembers
+  },
 )
 
 watch(showMembers, (open) => {
   if (open && members.value.length === 0) {
     void loadMembers()
   }
+})
+
+let inviteSearchDebounce: ReturnType<typeof setTimeout> | undefined
+watch(inviteQuery, () => {
+  if (!showMembers.value || !canManageRoom.value) {
+    return
+  }
+  clearTimeout(inviteSearchDebounce)
+  inviteSearchDebounce = setTimeout(() => {
+    void loadInviteCandidates()
+  }, 300)
 })
 
 watch(wsError, (value) => {
@@ -252,6 +361,47 @@ watch(wsError, (value) => {
     </header>
 
     <div v-if="showMembers" class="member-panel">
+      <div v-if="canManageRoom" class="member-management">
+        <form class="capacity-form" @submit.prevent="handleUpdateCapacity">
+          <label>
+            최대 인원
+            <input
+              v-model.number="capacityInput"
+              type="number"
+              :min="Math.max(1, members.length)"
+              max="100"
+            />
+          </label>
+          <button type="submit" class="compact" :disabled="capacityLoading">
+            {{ capacityLoading ? '저장 중...' : '저장' }}
+          </button>
+        </form>
+
+        <div class="invite-user-panel">
+          <input
+            v-model="inviteQuery"
+            type="search"
+            placeholder="초대할 사용자 검색..."
+            class="chat-search"
+          />
+          <div v-if="inviteQuery || inviteResults.length > 0" class="invite-result-list">
+            <p v-if="inviteLoading" class="chat-empty slim">검색 중...</p>
+            <p v-else-if="inviteResults.length === 0" class="chat-empty slim">초대할 사용자가 없습니다</p>
+            <button
+              v-for="user in inviteResults"
+              :key="user.id"
+              type="button"
+              class="user-search-item"
+              :disabled="actionUserId === user.id"
+              @click="handleInviteUser(user)"
+            >
+              <strong>{{ user.displayName ?? user.username }}</strong>
+              <span>@{{ user.username }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <p v-if="membersLoading" class="chat-empty slim">참여자를 불러오는 중...</p>
       <div v-else class="member-list">
         <div v-for="member in members" :key="member.id" class="member-item">
@@ -276,6 +426,15 @@ watch(wsError, (value) => {
             >
               차단
             </button>
+            <button
+              v-if="canManageRoom"
+              type="button"
+              class="danger compact"
+              :disabled="actionUserId === member.user.id"
+              @click="handleKickMember(member.user)"
+            >
+              내보내기
+            </button>
           </div>
         </div>
       </div>
@@ -289,9 +448,9 @@ watch(wsError, (value) => {
         v-for="message in messages"
         :key="message.id"
         class="chat-message-row"
-        :class="{ own: message.sender.id === currentUserId }"
+        :class="{ own: message.sender.id === currentUserId, system: message.type === 'SYSTEM' }"
       >
-        <span v-if="message.sender.id !== currentUserId" class="chat-message-author">
+        <span v-if="message.sender.id !== currentUserId && message.type !== 'SYSTEM'" class="chat-message-author">
           {{ message.sender.displayName ?? message.sender.username }}
         </span>
         <div class="chat-message-bubble">

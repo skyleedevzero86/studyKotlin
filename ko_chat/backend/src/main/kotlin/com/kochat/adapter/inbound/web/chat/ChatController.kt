@@ -225,6 +225,18 @@ class ChatController(
         return ResponseEntity.ok(chatService.getMessagesByCursor(request, userId))
     }
 
+    @Operation(summary = "참여 가능한 채팅방 검색")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/discover")
+    fun discoverChatRooms(
+        authentication: Authentication,
+        @RequestParam(required = false, defaultValue = "") q: String,
+        @PageableDefault(size = 20) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomDto>> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.discoverChatRooms(q, userId, pageable))
+    }
+
     @Operation(summary = "채팅방 검색")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/search")

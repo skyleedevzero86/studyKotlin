@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   createChatRoom,
+  discoverChatRooms,
   findOrCreateDirectRoom,
   getChatRoom,
   getChatRooms,
@@ -13,12 +14,13 @@ import {
   blockUser,
   fetchBlocks,
   fetchFriends,
+  fetchRejectedFriendRequests,
   removeFriend,
   searchUsers,
   unblockUser,
 } from '../api/userApi'
 import type { ChatRoom, ChatRoomType, ChatUser, CreateChatRoomRequest } from '../types/chat'
-import type { UserRelationshipResponse } from '../types/user'
+import type { UserFriendRequestResponse, UserRelationshipResponse } from '../types/user'
 
 const props = defineProps<{
   token: string
@@ -30,6 +32,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [room: ChatRoom]
   error: [message: string]
+  notice: [message: string]
 }>()
 
 type SidebarTab = 'rooms' | 'friends' | 'blocks'
@@ -38,6 +41,7 @@ const activeTab = ref<SidebarTab>('rooms')
 const chatRooms = ref<ChatRoom[]>([])
 const friends = ref<UserRelationshipResponse[]>([])
 const blocks = ref<UserRelationshipResponse[]>([])
+const rejectedFriendRequests = ref<UserFriendRequestResponse[]>([])
 const loading = ref(true)
 const relationLoading = ref(false)
 const searchQuery = ref('')
@@ -52,6 +56,10 @@ const userSearchQuery = ref('')
 const userSearchLoading = ref(false)
 const userSearchResults = ref<ChatUser[]>([])
 const joinRoomId = ref('')
+const discoverQuery = ref('')
+const discoverResults = ref<ChatRoom[]>([])
+const discoverLoading = ref(false)
+const joiningRoomId = ref<number | null>(null)
 const newRoomData = ref<CreateChatRoomRequest>({
   name: '',
   description: '',
@@ -133,6 +141,17 @@ const loadBlocks = async () => {
   }
 }
 
+const loadRejectedFriendRequests = async () => {
+  relationLoading.value = true
+  try {
+    rejectedFriendRequests.value = await fetchRejectedFriendRequests(props.token)
+  } catch (error) {
+    emit('error', resolveError(error, '거부한 친구 요청을 불러오지 못했습니다'))
+  } finally {
+    relationLoading.value = false
+  }
+}
+
 const loadUserSearch = async () => {
   userSearchLoading.value = true
   try {
@@ -145,7 +164,7 @@ const loadUserSearch = async () => {
 }
 
 const refreshRelationships = async () => {
-  await Promise.all([loadFriends(), loadBlocks()])
+  await Promise.all([loadFriends(), loadBlocks(), loadRejectedFriendRequests()])
 }
 
 const handleCreateRoom = async () => {
@@ -206,27 +225,75 @@ const handleJoinRoom = async () => {
     return
   }
 
-  joinLoading.value = true
+  await enterRoom(roomId)
+}
+
+const loadDiscoverRooms = async () => {
+  discoverLoading.value = true
   try {
-    await joinChatRoom(props.token, roomId)
+    const response = await discoverChatRooms(props.token, discoverQuery.value)
+    discoverResults.value = response.content
+  } catch (error) {
+    emit('error', resolveError(error, '채팅방 검색에 실패했습니다'))
+  } finally {
+    discoverLoading.value = false
+  }
+}
+
+const enterRoom = async (roomId: number) => {
+  joinLoading.value = true
+  joiningRoomId.value = roomId
+  try {
+    const existing = chatRooms.value.find((room) => room.id === roomId)
+    if (!existing) {
+      await joinChatRoom(props.token, roomId)
+    }
     await loadChatRooms()
     const joinedRoom = await getChatRoom(props.token, roomId)
     showJoinModal.value = false
     joinRoomId.value = ''
+    discoverQuery.value = ''
+    discoverResults.value = []
     activeTab.value = 'rooms'
     emit('select', joinedRoom)
   } catch (error) {
     emit('error', resolveError(error, '채팅방 참여에 실패했습니다'))
   } finally {
     joinLoading.value = false
+    joiningRoomId.value = null
   }
+}
+
+const handleDiscoverJoin = async (room: ChatRoom) => {
+  if (room.isJoined) {
+    showJoinModal.value = false
+    discoverQuery.value = ''
+    discoverResults.value = []
+    activeTab.value = 'rooms'
+    emit('select', room)
+    return
+  }
+
+  if (room.memberCount >= room.maxMembers) {
+    emit('error', '정원이 찼습니다')
+    return
+  }
+
+  await enterRoom(room.id)
+}
+
+const openJoinModal = () => {
+  showJoinModal.value = true
+  discoverQuery.value = ''
+  void loadDiscoverRooms()
 }
 
 const handleAddFriend = async (user: ChatUser) => {
   actionUserId.value = user.id
   try {
     await addFriend(props.token, user.id)
-    await loadFriends()
+    emit('notice', `${userLabel(user)} 님에게 친구 요청을 보냈습니다`)
+    await loadRejectedFriendRequests()
   } catch (error) {
     emit('error', resolveError(error, '친구 추가에 실패했습니다'))
   } finally {
@@ -309,6 +376,7 @@ watch(showDirectModal, (open) => {
 watch(activeTab, (tab) => {
   if (tab === 'friends' && friends.value.length === 0) {
     void loadFriends()
+    void loadRejectedFriendRequests()
     void loadUserSearch()
   }
   if (tab === 'blocks' && blocks.value.length === 0) {
@@ -320,8 +388,26 @@ watch(
   () => props.refreshKey,
   () => {
     void loadChatRooms()
+    if (activeTab.value === 'friends') {
+      void loadFriends()
+      void loadRejectedFriendRequests()
+    }
+    if (activeTab.value === 'blocks') {
+      void loadBlocks()
+    }
   },
 )
+
+let discoverDebounce: ReturnType<typeof setTimeout> | undefined
+watch(discoverQuery, () => {
+  if (!showJoinModal.value) {
+    return
+  }
+  clearTimeout(discoverDebounce)
+  discoverDebounce = setTimeout(() => {
+    void loadDiscoverRooms()
+  }, 300)
+})
 
 let searchDebounce: ReturnType<typeof setTimeout> | undefined
 watch(userSearchQuery, () => {
@@ -342,6 +428,7 @@ defineExpose({
   loadChatRooms,
   loadFriends,
   loadBlocks,
+  loadRejectedFriendRequests,
 })
 </script>
 
@@ -366,7 +453,7 @@ defineExpose({
       <div class="chat-sidebar-actions">
         <button type="button" @click="showDirectModal = true">1:1 채팅</button>
         <button type="button" class="secondary" @click="showCreateModal = true">그룹방</button>
-        <button type="button" class="secondary" @click="showJoinModal = true">참여</button>
+        <button type="button" class="secondary" @click="openJoinModal">참여</button>
       </div>
       <div class="chat-sidebar-search">
         <input v-model="searchQuery" type="search" placeholder="대화 검색..." class="chat-search" />
@@ -506,6 +593,30 @@ defineExpose({
             </div>
           </div>
         </section>
+
+        <section class="relationship-section">
+          <h3 class="chat-room-section-title">거부한 친구 요청</h3>
+          <p v-if="relationLoading" class="chat-empty slim">거부 목록을 불러오는 중...</p>
+          <p v-else-if="rejectedFriendRequests.length === 0" class="chat-empty slim">
+            거부한 친구 요청이 없습니다
+          </p>
+          <div v-else class="relationship-list">
+            <div v-for="request in rejectedFriendRequests" :key="request.id" class="relationship-item">
+              <div>
+                <strong>{{ userLabel(request.requester) }}</strong>
+                <span>@{{ request.requester.username }}</span>
+              </div>
+              <button
+                type="button"
+                class="secondary compact"
+                :disabled="actionUserId === request.requester.id"
+                @click="handleAddFriend(request.requester)"
+              >
+                다시 요청
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
     </template>
 
@@ -581,6 +692,10 @@ defineExpose({
               <option value="CHANNEL">채널</option>
             </select>
           </label>
+          <label>
+            최대 인원
+            <input v-model.number="newRoomData.maxMembers" type="number" min="1" max="100" />
+          </label>
           <div class="modal-actions">
             <button type="button" class="secondary" @click="showCreateModal = false">취소</button>
             <button type="submit" :disabled="createLoading">
@@ -592,17 +707,63 @@ defineExpose({
     </div>
 
     <div v-if="showJoinModal" class="modal-overlay" @click="showJoinModal = false">
-      <div class="modal-card" @click.stop>
-        <h2>채팅방 참여하기</h2>
-        <form class="profile-form" @submit.prevent="handleJoinRoom">
+      <div class="modal-card join-room-modal" @click.stop>
+        <h2>채팅방 찾기 · 참여</h2>
+        <p class="hint">그룹·채널 방을 검색해서 바로 참여하거나, 방 ID로 직접 들어갈 수 있습니다.</p>
+
+        <input
+          v-model="discoverQuery"
+          type="search"
+          placeholder="방 이름 또는 설명 검색..."
+          class="chat-search"
+        />
+
+        <div class="discover-room-list">
+          <p v-if="discoverLoading" class="chat-empty slim">검색 중...</p>
+          <p v-else-if="discoverResults.length === 0" class="chat-empty slim">
+            {{ discoverQuery ? '검색 결과가 없습니다' : '참여 가능한 채팅방이 없습니다' }}
+          </p>
+          <div v-else class="relationship-list">
+            <div v-for="room in discoverResults" :key="room.id" class="relationship-item discover-room-item">
+              <div>
+                <strong>{{ room.name }}</strong>
+                <span>
+                  {{ roomTypeLabel(room.type) }} · ID {{ room.id }} ·
+                  {{ room.memberCount }}/{{ room.maxMembers }}명
+                </span>
+                <span v-if="room.description" class="discover-room-description">
+                  {{ room.description }}
+                </span>
+              </div>
+              <button
+                type="button"
+                class="compact"
+                :disabled="joiningRoomId === room.id || (!room.isJoined && room.memberCount >= room.maxMembers)"
+                @click="handleDiscoverJoin(room)"
+              >
+                {{
+                  joiningRoomId === room.id
+                    ? '처리 중...'
+                    : room.isJoined
+                      ? '열기'
+                      : room.memberCount >= room.maxMembers
+                        ? '정원 초과'
+                        : '참여'
+                }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <form class="profile-form join-by-id-form" @submit.prevent="handleJoinRoom">
           <label>
-            채팅방 ID
-            <input v-model="joinRoomId" type="number" required />
+            방 ID로 참여
+            <input v-model="joinRoomId" type="number" placeholder="예: 12" />
           </label>
           <div class="modal-actions">
-            <button type="button" class="secondary" @click="showJoinModal = false">취소</button>
-            <button type="submit" :disabled="joinLoading">
-              {{ joinLoading ? '참여 중...' : '참여' }}
+            <button type="button" class="secondary" @click="showJoinModal = false">닫기</button>
+            <button type="submit" :disabled="joinLoading || !joinRoomId.trim()">
+              {{ joinLoading ? '참여 중...' : 'ID로 참여' }}
             </button>
           </div>
         </form>

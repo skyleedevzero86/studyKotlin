@@ -46,4 +46,22 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         """,
     )
     fun findDirectRoomBetweenUsers(userId1: Long, userId2: Long): List<ChatRoomJpaEntity>
+
+    @Query(
+        """
+        SELECT cr FROM ChatRoomJpaEntity cr
+        WHERE cr.isActive = true
+          AND cr.type IN (
+            com.kochat.domain.chat.model.ChatRoomType.GROUP,
+            com.kochat.domain.chat.model.ChatRoomType.CHANNEL
+          )
+          AND (
+            :query IS NULL OR :query = ''
+            OR LOWER(cr.name) LIKE LOWER(CONCAT('%', :query, '%'))
+            OR LOWER(cr.description) LIKE LOWER(CONCAT('%', :query, '%'))
+          )
+        ORDER BY cr.updatedAt DESC
+        """,
+    )
+    fun discoverChatRooms(query: String?, pageable: Pageable): Page<ChatRoomJpaEntity>
 }

@@ -86,6 +86,17 @@ export const markChatRoomRead = (
   chatRoomId: number,
 ): Promise<ChatRoom> => postJson(`${chatPath}/${chatRoomId}/read`, {}, token)
 
+export const discoverChatRooms = (
+  token: string,
+  query = '',
+  page = 0,
+  size = 20,
+): Promise<PageResponse<ChatRoom>> =>
+  getJson(
+    `${chatPath}/discover?q=${encodeURIComponent(query)}&page=${page}&size=${size}&sort=updatedAt,desc`,
+    token,
+  )
+
 export const searchChatRooms = (
   token: string,
   query: string,

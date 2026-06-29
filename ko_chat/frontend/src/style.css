@@ -699,6 +699,47 @@ button.compact {
   padding: 12px 16px;
 }
 
+.member-management {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.capacity-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.capacity-form label {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.capacity-form input {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.invite-user-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.invite-result-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
 .member-list,
 .relationship-list {
   display: grid;
@@ -746,6 +787,30 @@ button.compact {
   gap: 8px;
 }
 
+.join-room-modal {
+  max-width: 480px;
+}
+
+.discover-room-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 12px 0 16px;
+}
+
+.discover-room-item {
+  align-items: flex-start;
+}
+
+.discover-room-description {
+  margin-top: 4px;
+  color: #4b5563 !important;
+}
+
+.join-by-id-form {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -765,6 +830,10 @@ button.compact {
   align-items: flex-end;
 }
 
+.chat-message-row.system {
+  align-items: center;
+}
+
 .chat-message-author {
   font-size: 0.75rem;
   color: #6b7280;
@@ -782,6 +851,15 @@ button.compact {
 .chat-message-row.own .chat-message-bubble {
   background: #667eea;
   color: #ffffff;
+}
+
+.chat-message-row.system .chat-message-bubble {
+  max-width: 80%;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
 .chat-message-bubble time {
@@ -871,4 +949,50 @@ button.compact {
 .chat-notification.system {
   border-color: #bbf7d0;
   background: #ecfdf5;
+}
+
+.pending-actions-popup {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 210;
+  width: min(520px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+
+.pending-action-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pending-action-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.pending-action-item p {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.pending-action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
 }

@@ -2,6 +2,7 @@ import { deleteJson, getJson, postJson, putJson } from './http'
 import type { ApiMessageResponse } from '../types/user'
 import type {
   UserBlockHistoryResponse,
+  UserFriendRequestResponse,
   UserProfileResponse,
   UserRelationshipResponse,
   UserSummaryResponse,
@@ -41,8 +42,26 @@ export const fetchFriends = (token: string): Promise<UserRelationshipResponse[]>
 export const addFriend = (
   token: string,
   targetUserId: number,
-): Promise<UserRelationshipResponse> =>
-  postJson<UserRelationshipResponse>(`/api/v1/users/friends/${targetUserId}`, {}, token)
+): Promise<UserFriendRequestResponse> =>
+  postJson<UserFriendRequestResponse>(`/api/v1/users/friends/${targetUserId}`, {}, token)
+
+export const fetchIncomingFriendRequests = (token: string): Promise<UserFriendRequestResponse[]> =>
+  getJson<UserFriendRequestResponse[]>('/api/v1/users/friend-requests/incoming', token)
+
+export const fetchRejectedFriendRequests = (token: string): Promise<UserFriendRequestResponse[]> =>
+  getJson<UserFriendRequestResponse[]>('/api/v1/users/friend-requests/rejected', token)
+
+export const acceptFriendRequest = (
+  token: string,
+  requestId: number,
+): Promise<UserFriendRequestResponse> =>
+  postJson<UserFriendRequestResponse>(`/api/v1/users/friend-requests/${requestId}/accept`, {}, token)
+
+export const rejectFriendRequest = (
+  token: string,
+  requestId: number,
+): Promise<UserFriendRequestResponse> =>
+  postJson<UserFriendRequestResponse>(`/api/v1/users/friend-requests/${requestId}/reject`, {}, token)
 
 export const removeFriend = (token: string, targetUserId: number): Promise<void> =>
   deleteJson<void>(`/api/v1/users/friends/${targetUserId}`, token)

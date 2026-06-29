@@ -28,6 +28,7 @@ export interface ChatRoom {
   lastMessage?: Message | null
   peerUser?: ChatUser | null
   unreadCount: number
+  isJoined?: boolean
 }
 
 export interface CreateChatRoomRequest {

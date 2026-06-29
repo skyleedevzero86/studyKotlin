@@ -17,4 +17,5 @@ data class ChatRoomDto(
     val lastMessage: MessageDto?,
     val peerUser: ChatUserDto? = null,
     val unreadCount: Long = 0,
+    val isJoined: Boolean = false,
 )

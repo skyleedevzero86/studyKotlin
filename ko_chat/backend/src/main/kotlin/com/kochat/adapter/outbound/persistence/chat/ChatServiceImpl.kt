@@ -84,6 +84,9 @@ class ChatServiceImpl(
         } else {
             null
         }
+        val isJoined = viewerUserId?.let {
+            chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, it)
+        } ?: false
 
         return ChatRoomDto(
             id = roomId,
@@ -99,6 +102,7 @@ class ChatServiceImpl(
             lastMessage = lastMessage,
             peerUser = peerUser,
             unreadCount = unreadCount,
+            isJoined = isJoined,
         )
     }
 
@@ -331,6 +335,12 @@ class ChatServiceImpl(
         return chatRooms.map { chatRoomToDto(it, userId) }
     }
 
+    override fun discoverChatRooms(query: String, userId: Long, pageable: Pageable): Page<ChatRoomDto> {
+        val normalizedQuery = query.trim().ifBlank { null }
+        return chatRoomJpaRepository.discoverChatRooms(normalizedQuery, pageable)
+            .map { chatRoomToDto(it, userId) }
+    }
+
     @Caching(
         evict = [
             org.springframework.cache.annotation.CacheEvict(value = ["chatRoomMembers"], key = "#roomId"),
@@ -344,6 +354,14 @@ class ChatServiceImpl(
         val user = userJpaRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $userId") }
 
+        if (!chatRoom.isActive) {
+            throw IllegalStateException("참여할 수 없는 채팅방입니다")
+        }
+
+        if (chatRoom.type == ChatRoomType.DIRECT) {
+            throw IllegalStateException("1:1 채팅방은 초대를 통해서만 참여할 수 있습니다")
+        }
+
         if (chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
             throw IllegalStateException("이미 참여한 채팅방입니다")
         }
@@ -355,13 +373,6 @@ class ChatServiceImpl(
         val activeMemberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId)
         if (activeMemberCount >= chatRoom.maxMembers) {
             throw IllegalStateException("정원이 찼습니다.")
-        }
-
-        if (chatRoom.type == ChatRoomType.DIRECT) {
-            val memberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId)
-            if (memberCount >= chatRoom.maxMembers) {
-                throw IllegalStateException("1:1 채팅방은 두 명만 참여할 수 있습니다")
-            }
         }
 
         addOrReactivateMember(chatRoom, user)
