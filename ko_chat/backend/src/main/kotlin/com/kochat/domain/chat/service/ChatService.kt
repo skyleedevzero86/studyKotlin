@@ -8,6 +8,7 @@ import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageResponse
 import com.kochat.adapter.inbound.web.chat.dto.SendMessageRequest
+import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomSettingsRequest
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 
@@ -28,6 +29,7 @@ interface ChatService {
     fun rejectInvitation(invitationId: Long, inviteeId: Long): ChatRoomInvitationDto
     fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long)
     fun updateMaxMembers(roomId: Long, maxMembers: Int, ownerUserId: Long): ChatRoomDto
+    fun updateChatRoomSettings(roomId: Long, request: UpdateChatRoomSettingsRequest, ownerUserId: Long): ChatRoomDto
     fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto
     fun sendMessage(request: SendMessageRequest, senderId: Long): MessageDto
     fun getMessages(roomId: Long, userId: Long, pageable: Pageable): Page<MessageDto>

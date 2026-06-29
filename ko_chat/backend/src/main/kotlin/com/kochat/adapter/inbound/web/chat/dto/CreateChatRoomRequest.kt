@@ -1,5 +1,6 @@
 package com.kochat.adapter.inbound.web.chat.dto
 
+import com.kochat.domain.chat.model.ChatMediaMode
 import com.kochat.domain.chat.model.ChatRoomType
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -16,4 +17,5 @@ data class CreateChatRoomRequest(
     val maxMembers: Int = 100,
     val isPrivate: Boolean = false,
     val password: String? = null,
+    val mediaMode: ChatMediaMode = ChatMediaMode.TEXT,
 )

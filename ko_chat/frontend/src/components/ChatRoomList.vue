@@ -20,7 +20,7 @@ import {
   searchUsers,
   unblockUser,
 } from '../api/userApi'
-import type { ChatRoom, ChatRoomType, ChatUser, CreateChatRoomRequest } from '../types/chat'
+import type { ChatRoom, ChatRoomType, ChatUser, CreateChatRoomRequest, ChatMediaMode } from '../types/chat'
 import type { UserFriendRequestResponse, UserRelationshipResponse } from '../types/user'
 
 const props = defineProps<{
@@ -80,6 +80,7 @@ const newRoomData = ref<CreateChatRoomRequest>({
   maxMembers: 100,
   isPrivate: false,
   password: '',
+  mediaMode: 'TEXT',
 })
 
 const filteredChatRooms = computed(() => {
@@ -209,6 +210,14 @@ const handleCreateRoom = async () => {
     return
   }
 
+  if (newRoomData.value.mediaMode === 'WEBRTC') {
+    const members = newRoomData.value.maxMembers ?? 4
+    if (members < 2 || members > 6) {
+      emit('error', 'WebRTC 방은 2~6명까지 설정할 수 있습니다')
+      return
+    }
+  }
+
   if (newRoomData.value.isPrivate) {
     const password = newRoomData.value.password?.trim() ?? ''
     if (password.length < 4) {
@@ -226,6 +235,7 @@ const handleCreateRoom = async () => {
       maxMembers: newRoomData.value.maxMembers,
       isPrivate: newRoomData.value.isPrivate,
       password: newRoomData.value.isPrivate ? newRoomData.value.password?.trim() : null,
+      mediaMode: newRoomData.value.mediaMode ?? 'TEXT',
     }
     const newRoom = await createChatRoom(props.token, payload)
     await loadChatRooms(true)
@@ -237,6 +247,7 @@ const handleCreateRoom = async () => {
       maxMembers: 100,
       isPrivate: false,
       password: '',
+      mediaMode: 'TEXT',
     }
     emit('select', newRoom)
   } catch (error) {
@@ -479,6 +490,21 @@ const roomTypeLabel = (type: ChatRoomType): string => {
 
 const roomVisibilityLabel = (room: ChatRoom): string => (room.isPrivate ? '비공개' : '공개')
 
+const roomMediaLabel = (room: ChatRoom): string =>
+  room.mediaMode === 'WEBRTC' ? 'WebRTC' : '채팅'
+
+const onMediaModeChange = (mode: ChatMediaMode) => {
+  newRoomData.value.mediaMode = mode
+  if (mode === 'WEBRTC') {
+    newRoomData.value.maxMembers = 4
+    if (newRoomData.value.type === 'DIRECT') {
+      newRoomData.value.type = 'GROUP'
+    }
+  } else {
+    newRoomData.value.maxMembers = 100
+  }
+}
+
 watch(showDirectModal, (open) => {
   if (open) {
     void loadUserSearch()
@@ -617,7 +643,8 @@ defineExpose({
               <div class="chat-room-item-main">
                 <strong>{{ roomDisplayName(room) }}</strong>
                 <span class="chat-room-meta">
-                  {{ roomTypeLabel(room.type) }} · {{ roomVisibilityLabel(room) }} · 멤버 {{ room.memberCount }}
+                  {{ roomTypeLabel(room.type) }} · {{ roomMediaLabel(room) }} ·
+                  {{ roomVisibilityLabel(room) }} · 멤버 {{ room.memberCount }}
                 </span>
                 <span class="chat-room-preview">
                   {{ room.lastMessage?.content ?? '메시지가 없습니다' }}
@@ -800,6 +827,16 @@ defineExpose({
         <h2>그룹 채팅방 만들기</h2>
         <form class="profile-form" @submit.prevent="handleCreateRoom">
           <label>
+            방 종류
+            <select
+              :value="newRoomData.mediaMode ?? 'TEXT'"
+              @change="onMediaModeChange(($event.target as HTMLSelectElement).value as ChatMediaMode)"
+            >
+              <option value="TEXT">일반 채팅</option>
+              <option value="WEBRTC">WebRTC 화상</option>
+            </select>
+          </label>
+          <label>
             채팅방 이름
             <input v-model="newRoomData.name" type="text" maxlength="100" required />
           </label>
@@ -816,7 +853,12 @@ defineExpose({
           </label>
           <label>
             최대 인원
-            <input v-model.number="newRoomData.maxMembers" type="number" min="1" max="100" />
+            <input
+              v-model.number="newRoomData.maxMembers"
+              type="number"
+              :min="newRoomData.mediaMode === 'WEBRTC' ? 2 : 1"
+              :max="newRoomData.mediaMode === 'WEBRTC' ? 6 : 100"
+            />
           </label>
           <label>
             공개 설정
@@ -888,7 +930,8 @@ defineExpose({
               <div>
                 <strong>{{ room.name }}</strong>
                 <span>
-                  {{ roomTypeLabel(room.type) }} · 공개 · ID {{ room.id }} ·
+                  {{ roomTypeLabel(room.type) }} ·
+                  {{ room.mediaMode === 'WEBRTC' ? 'WebRTC' : '채팅' }} · 공개 · ID {{ room.id }} ·
                   {{ room.memberCount }}/{{ room.maxMembers }}명
                 </span>
                 <span v-if="room.description" class="discover-room-description">

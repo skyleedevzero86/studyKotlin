@@ -1,6 +1,7 @@
 package com.kochat.adapter.outbound.persistence.chat
 
 import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
+import com.kochat.domain.chat.model.ChatMediaMode
 import com.kochat.domain.chat.model.ChatRoomType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -54,6 +55,10 @@ class ChatRoomJpaEntity {
 
     @Column(nullable = false)
     var maxMembers: Int = 100
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    var mediaMode: ChatMediaMode = ChatMediaMode.TEXT
 
     @Column(nullable = false)
     var isPrivate: Boolean = false

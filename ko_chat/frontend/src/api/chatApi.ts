@@ -9,6 +9,7 @@ import type {
   MessageDirection,
   MessagePageResponse,
   PageResponse,
+  UpdateChatRoomSettingsRequest,
 } from '../types/chat'
 
 const chatPath = '/api/v1/chat-rooms'
@@ -49,6 +50,12 @@ export const kickChatRoomMember = (
   chatRoomId: number,
   targetUserId: number,
 ): Promise<void> => postJson(`${chatPath}/${chatRoomId}/members/${targetUserId}/kick`, {}, token)
+
+export const updateChatRoomSettings = (
+  token: string,
+  chatRoomId: number,
+  data: UpdateChatRoomSettingsRequest,
+): Promise<ChatRoom> => putJson(`${chatPath}/${chatRoomId}/settings`, data, token)
 
 export const updateChatRoomCapacity = (
   token: string,

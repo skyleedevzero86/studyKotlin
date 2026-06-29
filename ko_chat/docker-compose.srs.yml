@@ -1,0 +1,12 @@
+services:
+  srs:
+    image: ossrs/srs:5
+    container_name: ko-chat-srs
+    ports:
+      - "1985:1985"
+      - "8080:8080"
+      - "8000:8000/udp"
+    environment:
+      CANDIDATE: ${SRS_CANDIDATE:-127.0.0.1}
+    command: ./objs/srs -c conf/rtc.conf
+    restart: unless-stopped

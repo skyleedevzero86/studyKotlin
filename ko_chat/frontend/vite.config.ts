@@ -20,6 +20,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/srs': {
+        target: 'http://localhost:1985',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/srs/, ''),
+      },
     },
   },
 })

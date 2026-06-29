@@ -10,11 +10,14 @@ import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageResponse
 import com.kochat.adapter.inbound.web.chat.dto.SendMessageRequest
+import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomSettingsRequest
+import com.kochat.adapter.inbound.websocket.webmedia.WebMediaSessionRegistry
 import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.adapter.outbound.redis.RedisMessageBroker
 import com.kochat.adapter.outbound.websocket.WebSocketSessionManager
 import com.kochat.domain.chat.model.ChatInvitationStatus
+import com.kochat.domain.chat.model.ChatMediaMode
 import com.kochat.domain.chat.model.ChatRoomType
 import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
@@ -48,6 +51,7 @@ class ChatServiceImpl(
     private val messageSequenceService: MessageSequenceService,
     private val webSocketSessionManager: WebSocketSessionManager,
     private val passwordEncoder: PasswordEncoder,
+    private val webMediaSessionRegistry: WebMediaSessionRegistry,
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
@@ -106,6 +110,7 @@ class ChatServiceImpl(
             unreadCount = unreadCount,
             isJoined = isJoined,
             isPrivate = chatRoom.isPrivate,
+            mediaMode = chatRoom.mediaMode,
         )
     }
 
@@ -233,12 +238,23 @@ class ChatServiceImpl(
             require(password.length >= 4) { "비밀번호는 4자 이상이어야 합니다" }
         }
 
+        if (request.mediaMode == ChatMediaMode.WEBRTC) {
+            require(request.type != ChatRoomType.DIRECT) { "WebRTC 방은 1:1 타입으로 만들 수 없습니다" }
+            require(request.maxMembers in 2..6) { "WebRTC 방은 2~6명까지 설정할 수 있습니다" }
+        }
+
+        val normalizedMaxMembers = when (request.mediaMode) {
+            ChatMediaMode.WEBRTC -> request.maxMembers.coerceIn(2, 6)
+            ChatMediaMode.TEXT -> request.maxMembers.coerceIn(1, 100)
+        }
+
         val chatRoom = ChatRoomJpaEntity().apply {
             name = request.name
             description = request.description
             type = request.type
             imageUrl = request.imageUrl
-            maxMembers = request.maxMembers.coerceIn(1, 100)
+            maxMembers = normalizedMaxMembers
+            mediaMode = request.mediaMode
             isPrivate = request.isPrivate
             passwordHash = if (request.isPrivate) {
                 passwordEncoder.encode(request.password!!.trim())
@@ -420,6 +436,7 @@ class ChatServiceImpl(
     )
     override fun leaveChatRoom(roomId: Long, userId: Long) {
         chatRoomMemberJpaRepository.leaveChatRoom(roomId, userId)
+        webMediaSessionRegistry.disconnectUser(roomId, userId)
     }
 
     @Cacheable(value = ["chatRoomMembers"], key = "#roomId")
@@ -523,6 +540,9 @@ class ChatServiceImpl(
             .orElseThrow { IllegalArgumentException("추방할 사용자를 찾을 수 없습니다: $targetUserId") }
 
         chatRoomMemberJpaRepository.leaveChatRoom(roomId, targetUserId)
+        webMediaSessionRegistry.kickUser(roomId, targetUserId)
+        val targetName = target.displayName ?: target.username ?: "사용자"
+        saveSystemMessage(chatRoom, owner, "$targetName 님이 채팅방에서 내보졌습니다.")
         val ban = chatRoomBanJpaRepository.findByChatRoomIdAndUserId(roomId, targetUserId)
             ?.apply {
                 this.isActive = true
@@ -543,7 +563,54 @@ class ChatServiceImpl(
 
         val activeCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId).toInt()
         val nextMaxMembers = maxMembers.coerceIn(activeCount.coerceAtLeast(1), 100)
-        chatRoom.maxMembers = if (chatRoom.type == ChatRoomType.DIRECT) 2 else nextMaxMembers
+        chatRoom.maxMembers = when {
+            chatRoom.type == ChatRoomType.DIRECT -> 2
+            chatRoom.mediaMode == ChatMediaMode.WEBRTC -> nextMaxMembers.coerceIn(2, 6)
+            else -> nextMaxMembers
+        }
+        return chatRoomToDto(chatRoomJpaRepository.save(chatRoom), ownerUserId)
+    }
+
+    @CacheEvict(value = ["chatRooms"], key = "#roomId + '-' + #ownerUserId")
+    override fun updateChatRoomSettings(
+        roomId: Long,
+        request: UpdateChatRoomSettingsRequest,
+        ownerUserId: Long,
+    ): ChatRoomDto {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        require(isRoomOwner(chatRoom, ownerUserId)) { "채팅방 개설자만 설정을 변경할 수 있습니다." }
+        require(chatRoom.type != ChatRoomType.DIRECT) { "1:1 채팅방은 설정을 변경할 수 없습니다." }
+
+        request.name?.trim()?.takeIf { it.isNotEmpty() }?.let { name ->
+            require(name.length <= 100) { "채팅방 이름은 100자 이하여야 합니다." }
+            chatRoom.name = name
+        }
+        if (request.description != null) {
+            chatRoom.description = request.description.trim().ifBlank { null }
+        }
+
+        if (request.isPrivate != null) {
+            if (request.isPrivate) {
+                val password = request.password?.trim()
+                if (!chatRoom.isPrivate || !password.isNullOrEmpty()) {
+                    require(!password.isNullOrEmpty()) { "비공개로 변경하려면 비밀번호가 필요합니다." }
+                    require(password.length >= 4) { "비밀번호는 4자 이상이어야 합니다." }
+                    chatRoom.passwordHash = passwordEncoder.encode(password)
+                }
+                chatRoom.isPrivate = true
+            } else {
+                chatRoom.isPrivate = false
+                chatRoom.passwordHash = null
+            }
+        } else {
+            request.password?.trim()?.takeIf { it.isNotEmpty() }?.let { password ->
+                require(chatRoom.isPrivate) { "공개 채팅방은 비밀번호를 설정할 수 없습니다." }
+                require(password.length >= 4) { "비밀번호는 4자 이상이어야 합니다." }
+                chatRoom.passwordHash = passwordEncoder.encode(password)
+            }
+        }
+
         return chatRoomToDto(chatRoomJpaRepository.save(chatRoom), ownerUserId)
     }
 

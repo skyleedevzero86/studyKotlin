@@ -1,4 +1,5 @@
 export type ChatRoomType = 'GROUP' | 'DIRECT' | 'CHANNEL'
+export type ChatMediaMode = 'TEXT' | 'WEBRTC'
 export type MessageType = 'TEXT' | 'SYSTEM'
 export type MemberRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 export type MessageDirection = 'BEFORE' | 'AFTER'
@@ -30,6 +31,7 @@ export interface ChatRoom {
   peerUser?: ChatUser | null
   unreadCount: number
   isJoined?: boolean
+  mediaMode?: ChatMediaMode
 }
 
 export interface CreateChatRoomRequest {
@@ -38,6 +40,14 @@ export interface CreateChatRoomRequest {
   type: ChatRoomType
   imageUrl?: string | null
   maxMembers?: number
+  isPrivate?: boolean
+  password?: string | null
+  mediaMode?: ChatMediaMode
+}
+
+export interface UpdateChatRoomSettingsRequest {
+  name?: string | null
+  description?: string | null
   isPrivate?: boolean
   password?: string | null
 }

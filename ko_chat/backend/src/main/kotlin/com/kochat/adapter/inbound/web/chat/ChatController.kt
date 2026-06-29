@@ -10,6 +10,7 @@ import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageResponse
 import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomCapacityRequest
+import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomSettingsRequest
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.service.ChatService
 import com.kochat.global.application.chat.ChatUserResolver
@@ -169,6 +170,18 @@ class ChatController(
         val userId = chatUserResolver.resolveUserId(authentication.name)
         chatService.kickMember(id, targetUserId, userId)
         return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "채팅방 설정 변경")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PutMapping("/{id}/settings")
+    fun updateChatRoomSettings(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @RequestBody request: UpdateChatRoomSettingsRequest,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.updateChatRoomSettings(id, request, userId))
     }
 
     @Operation(summary = "채팅방 정원 변경")

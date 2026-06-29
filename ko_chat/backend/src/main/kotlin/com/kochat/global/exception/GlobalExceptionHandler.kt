@@ -15,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -129,6 +130,15 @@ class GlobalExceptionHandler {
             ApiErrorResponse(
                 error = ErrorCode.INVALID_REQUEST_BODY.defaultMessage,
                 code = ErrorCode.INVALID_REQUEST_BODY.name,
+            ),
+        )
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResourceFound(ex: NoResourceFoundException): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                error = ErrorCode.NOT_FOUND.defaultMessage,
+                code = ErrorCode.NOT_FOUND.name,
             ),
         )
 

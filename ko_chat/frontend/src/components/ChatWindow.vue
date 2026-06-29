@@ -6,12 +6,15 @@ import {
   getMessages,
   inviteToChatRoom,
   kickChatRoomMember,
+  leaveChatRoom,
   markChatRoomRead,
   updateChatRoomCapacity,
+  updateChatRoomSettings,
 } from '../api/chatApi'
 import { ApiError } from '../api/http'
 import { addFriend, blockUser, searchUsers } from '../api/userApi'
 import { useWebSocket } from '../composables/useWebSocket'
+import WebRtcPanel from './WebRtcPanel.vue'
 import type {
   ChatRoom,
   ChatRoomMember,
@@ -32,6 +35,7 @@ const emit = defineEmits<{
   notice: [message: string]
   read: [room: ChatRoom]
   roomUpdated: [room: ChatRoom]
+  left: []
   relationshipChanged: []
 }>()
 
@@ -47,6 +51,13 @@ const inviteResults = ref<ChatUser[]>([])
 const inviteLoading = ref(false)
 const capacityInput = ref(props.chatRoom.maxMembers)
 const capacityLoading = ref(false)
+const showSettings = ref(false)
+const settingsLoading = ref(false)
+const leaveLoading = ref(false)
+const settingsName = ref(props.chatRoom.name)
+const settingsDescription = ref(props.chatRoom.description ?? '')
+const settingsPrivate = ref(props.chatRoom.isPrivate ?? false)
+const settingsPassword = ref('')
 const messagesEndRef = ref<HTMLElement | null>(null)
 
 const resolveError = (error: unknown, fallback: string): string => {
@@ -262,6 +273,57 @@ const handleUpdateCapacity = async () => {
   }
 }
 
+const handleUpdateSettings = async () => {
+  if (!settingsName.value.trim()) {
+    emit('error', '채팅방 이름을 입력해주세요')
+    return
+  }
+  if (settingsPrivate.value && !props.chatRoom.isPrivate && settingsPassword.value.trim().length < 4) {
+    emit('error', '비공개로 변경하려면 비밀번호 4자 이상이 필요합니다')
+    return
+  }
+
+  settingsLoading.value = true
+  try {
+    const room = await updateChatRoomSettings(props.token, props.chatRoom.id, {
+      name: settingsName.value.trim(),
+      description: settingsDescription.value.trim() || null,
+      isPrivate: settingsPrivate.value,
+      password: settingsPassword.value.trim() || null,
+    })
+    settingsPassword.value = ''
+    emit('roomUpdated', room)
+    emit('notice', '채팅방 설정을 저장했습니다')
+    showSettings.value = false
+  } catch (error) {
+    emit('error', resolveError(error, '채팅방 설정 저장에 실패했습니다'))
+  } finally {
+    settingsLoading.value = false
+  }
+}
+
+const handleLeaveRoom = async () => {
+  if (!window.confirm('채팅방에서 나가시겠습니까?')) {
+    return
+  }
+
+  leaveLoading.value = true
+  try {
+    await leaveChatRoom(props.token, props.chatRoom.id)
+    emit('left')
+    emit('notice', '채팅방에서 나갔습니다')
+  } catch (error) {
+    emit('error', resolveError(error, '채팅방 나가기에 실패했습니다'))
+  } finally {
+    leaveLoading.value = false
+  }
+}
+
+const handleKicked = (message: string) => {
+  emit('error', message)
+  emit('left')
+}
+
 const handleBlockUser = async (userId: number) => {
   actionUserId.value = userId
   try {
@@ -285,10 +347,25 @@ const roomSubtitle = computed(() => {
   if (props.chatRoom.type === 'DIRECT' && props.chatRoom.peerUser) {
     return `@${props.chatRoom.peerUser.username} · 1:1 채팅`
   }
-  return `멤버 ${props.chatRoom.memberCount}명 · ID: ${props.chatRoom.id}${
+  const mediaLabel = props.chatRoom.mediaMode === 'WEBRTC' ? 'WebRTC' : '일반 채팅'
+  const visibilityLabel = props.chatRoom.isPrivate ? '비공개' : '공개'
+  return `${mediaLabel} · ${visibilityLabel} · 멤버 ${props.chatRoom.memberCount}명 · ID: ${props.chatRoom.id}${
     props.chatRoom.description ? ` · ${props.chatRoom.description}` : ''
   }`
 })
+
+const canLeaveRoom = computed(() => props.chatRoom.type !== 'DIRECT')
+
+const isWebRtcRoom = computed(() => props.chatRoom.mediaMode === 'WEBRTC')
+
+const capacityMin = computed(() => {
+  if (isWebRtcRoom.value) {
+    return Math.max(2, members.value.length)
+  }
+  return Math.max(1, members.value.length)
+})
+
+const capacityMax = computed(() => (isWebRtcRoom.value ? 6 : 100))
 
 const canManageRoom = computed(
   () => props.chatRoom.type !== 'DIRECT' && props.chatRoom.createdBy.id === props.currentUserId,
@@ -307,7 +384,15 @@ watch(
     inviteQuery.value = ''
     inviteResults.value = []
     capacityInput.value = props.chatRoom.maxMembers
+    settingsName.value = props.chatRoom.name
+    settingsDescription.value = props.chatRoom.description ?? ''
+    settingsPrivate.value = props.chatRoom.isPrivate ?? false
+    settingsPassword.value = ''
+    showSettings.value = false
     void loadMessages()
+    if (props.chatRoom.mediaMode === 'WEBRTC') {
+      void loadMembers()
+    }
   },
   { immediate: true },
 )
@@ -351,14 +436,66 @@ watch(wsError, (value) => {
         <p>{{ roomSubtitle }}</p>
       </div>
       <div class="chat-window-actions">
+        <button
+          v-if="canManageRoom"
+          type="button"
+          class="secondary compact"
+          @click="showSettings = !showSettings"
+        >
+          설정
+        </button>
         <button type="button" class="secondary compact" @click="showMembers = !showMembers">
           참여자
+        </button>
+        <button
+          v-if="canLeaveRoom"
+          type="button"
+          class="secondary compact"
+          :disabled="leaveLoading"
+          @click="handleLeaveRoom"
+        >
+          {{ leaveLoading ? '처리 중...' : '나가기' }}
         </button>
         <span class="connection-badge" :class="{ online: isConnected }">
           {{ isConnected ? '연결됨' : '연결 중...' }}
         </span>
       </div>
     </header>
+
+    <div v-if="showSettings && canManageRoom" class="member-panel room-settings-panel">
+      <form class="profile-form" @submit.prevent="handleUpdateSettings">
+        <label>
+          채팅방 이름
+          <input v-model="settingsName" type="text" maxlength="100" required />
+        </label>
+        <label>
+          설명
+          <input v-model="settingsDescription" type="text" />
+        </label>
+        <label>
+          공개 설정
+          <select v-model="settingsPrivate">
+            <option :value="false">공개</option>
+            <option :value="true">비공개</option>
+          </select>
+        </label>
+        <label v-if="settingsPrivate">
+          {{ chatRoom.isPrivate ? '새 비밀번호 (변경 시에만 입력)' : '비밀번호' }}
+          <input
+            v-model="settingsPassword"
+            type="password"
+            :required="!chatRoom.isPrivate"
+            minlength="4"
+            placeholder="4자 이상"
+          />
+        </label>
+        <div class="modal-actions">
+          <button type="submit" class="compact" :disabled="settingsLoading">
+            {{ settingsLoading ? '저장 중...' : '설정 저장' }}
+          </button>
+        </div>
+      </form>
+    </div>
 
     <div v-if="showMembers" class="member-panel">
       <div v-if="canManageRoom" class="member-management">
@@ -368,8 +505,8 @@ watch(wsError, (value) => {
             <input
               v-model.number="capacityInput"
               type="number"
-              :min="Math.max(1, members.length)"
-              max="100"
+              :min="capacityMin"
+              :max="capacityMax"
             />
           </label>
           <button type="submit" class="compact" :disabled="capacityLoading">
@@ -439,6 +576,17 @@ watch(wsError, (value) => {
         </div>
       </div>
     </div>
+
+    <WebRtcPanel
+      v-if="isWebRtcRoom"
+      :key="chatRoom.id"
+      :token="token"
+      :chat-room-id="chatRoom.id"
+      :current-user-id="currentUserId"
+      :members="members"
+      @error="emit('error', $event)"
+      @kicked="handleKicked"
+    />
 
     <div class="chat-messages">
       <p v-if="isLoadingMessages" class="chat-empty">메시지를 불러오는 중...</p>

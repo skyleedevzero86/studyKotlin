@@ -67,6 +67,18 @@ const handleRoomRead = (room: ChatRoom) => {
   roomListRefreshKey.value += 1
 }
 
+const handleRoomUpdated = (room: ChatRoom) => {
+  if (selectedChatRoom.value?.id === room.id) {
+    selectedChatRoom.value = room
+  }
+  roomListRefreshKey.value += 1
+}
+
+const handleLeftRoom = () => {
+  selectedChatRoom.value = null
+  roomListRefreshKey.value += 1
+}
+
 const handleRelationshipChanged = () => {
   roomListRefreshKey.value += 1
   void loadPendingActions()
@@ -310,7 +322,8 @@ onBeforeUnmount(() => {
         @error="handleError"
         @notice="handleNotice"
         @read="handleRoomRead"
-        @room-updated="handleRoomRead"
+        @room-updated="handleRoomUpdated"
+        @left="handleLeftRoom"
         @relationship-changed="handleRelationshipChanged"
       />
 

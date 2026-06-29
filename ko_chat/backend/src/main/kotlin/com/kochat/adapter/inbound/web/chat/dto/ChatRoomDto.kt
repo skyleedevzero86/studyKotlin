@@ -1,5 +1,6 @@
 package com.kochat.adapter.inbound.web.chat.dto
 
+import com.kochat.domain.chat.model.ChatMediaMode
 import com.kochat.domain.chat.model.ChatRoomType
 import java.time.LocalDateTime
 
@@ -19,4 +20,5 @@ data class ChatRoomDto(
     val unreadCount: Long = 0,
     val isJoined: Boolean = false,
     val isPrivate: Boolean = false,
+    val mediaMode: ChatMediaMode = ChatMediaMode.TEXT,
 )

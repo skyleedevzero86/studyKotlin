@@ -18,4 +18,5 @@ enum class ErrorCode(val defaultMessage: String) {
     INVALID_REQUEST_BODY("요청 본문 형식이 올바르지 않습니다."),
     INTERNAL_SERVER_ERROR("서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요."),
     UNSUPPORTED_HTTP_METHOD("지원하지 않는 HTTP 메서드입니다."),
+    NOT_FOUND("요청하신 경로를 찾을 수 없습니다."),
 }
