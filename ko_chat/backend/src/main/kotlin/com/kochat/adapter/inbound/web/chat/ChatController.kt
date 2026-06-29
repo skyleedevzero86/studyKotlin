@@ -1,6 +1,7 @@
 package com.kochat.adapter.inbound.web.chat
 
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
+import com.kochat.adapter.inbound.web.chat.dto.ChatRoomInvitationDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.CreateChatRoomRequest
 import com.kochat.adapter.inbound.web.chat.dto.CreateDirectChatRequest
@@ -8,6 +9,7 @@ import com.kochat.adapter.inbound.web.chat.dto.JoinChatRoomRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageResponse
+import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomCapacityRequest
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.service.ChatService
 import com.kochat.global.application.chat.ChatUserResolver
@@ -25,12 +27,13 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-@Tag(name = "채팅", description = "채팅방 및 메시지 API")
+@Tag(name = "채팅", description = "채팅방, 초대, 메시지 API")
 @RestController
 @RequestMapping("/api/v1/chat-rooms")
 class ChatController(
@@ -45,11 +48,10 @@ class ChatController(
         @Valid @RequestBody request: CreateChatRoomRequest,
     ): ResponseEntity<ChatRoomDto> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        val chatRoom = chatService.createChatRoom(request, userId)
-        return ResponseEntity.ok(chatRoom)
+        return ResponseEntity.ok(chatService.createChatRoom(request, userId))
     }
 
-    @Operation(summary = "1:1 채팅방 찾기 또는 생성")
+    @Operation(summary = "1:1 채팅 초대 생성")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/direct")
     fun findOrCreateDirectRoom(
@@ -57,8 +59,7 @@ class ChatController(
         @Valid @RequestBody request: CreateDirectChatRequest,
     ): ResponseEntity<ChatRoomDto> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        val chatRoom = chatService.findOrCreateDirectRoom(request.targetUserId, userId)
-        return ResponseEntity.ok(chatRoom)
+        return ResponseEntity.ok(chatService.findOrCreateDirectRoom(request.targetUserId, userId))
     }
 
     @Operation(summary = "채팅방 조회")
@@ -83,7 +84,7 @@ class ChatController(
         return ResponseEntity.ok(chatService.getChatRooms(userId, pageable))
     }
 
-    @Operation(summary = "채팅방 참여")
+    @Operation(summary = "채팅방 직접 참여")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/{id}/members")
     fun joinChatRoom(
@@ -114,6 +115,73 @@ class ChatController(
     fun getChatRoomMembers(@PathVariable id: Long): ResponseEntity<List<ChatRoomMemberDto>> =
         ResponseEntity.ok(chatService.getChatRoomMembers(id))
 
+    @Operation(summary = "내 채팅 초대 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/invitations/pending")
+    fun getPendingInvitations(authentication: Authentication): ResponseEntity<List<ChatRoomInvitationDto>> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.getPendingInvitations(userId))
+    }
+
+    @Operation(summary = "채팅방 초대")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/{id}/invitations/{targetUserId}")
+    fun inviteToChatRoom(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @PathVariable targetUserId: Long,
+    ): ResponseEntity<ChatRoomInvitationDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.inviteToChatRoom(id, targetUserId, userId))
+    }
+
+    @Operation(summary = "채팅 초대 수락")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/invitations/{invitationId}/accept")
+    fun acceptInvitation(
+        authentication: Authentication,
+        @PathVariable invitationId: Long,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.acceptInvitation(invitationId, userId))
+    }
+
+    @Operation(summary = "채팅 초대 거부")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/invitations/{invitationId}/reject")
+    fun rejectInvitation(
+        authentication: Authentication,
+        @PathVariable invitationId: Long,
+    ): ResponseEntity<ChatRoomInvitationDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.rejectInvitation(invitationId, userId))
+    }
+
+    @Operation(summary = "채팅방 멤버 추방")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/{id}/members/{targetUserId}/kick")
+    fun kickMember(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @PathVariable targetUserId: Long,
+    ): ResponseEntity<Void> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        chatService.kickMember(id, targetUserId, userId)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "채팅방 정원 변경")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PutMapping("/{id}/capacity")
+    fun updateCapacity(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @RequestBody request: UpdateChatRoomCapacityRequest,
+    ): ResponseEntity<ChatRoomDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.updateMaxMembers(id, request.maxMembers, userId))
+    }
+
     @Operation(summary = "채팅방 읽음 처리")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/{id}/read")
@@ -125,7 +193,7 @@ class ChatController(
         return ResponseEntity.ok(chatService.markRoomAsRead(id, userId))
     }
 
-    @Operation(summary = "메시지 목록 (페이지)")
+    @Operation(summary = "메시지 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}/messages")
     fun getMessages(

@@ -1,6 +1,7 @@
 package com.kochat.adapter.inbound.web.user
 
 import com.kochat.adapter.inbound.web.user.dto.UserBlockHistoryDto
+import com.kochat.adapter.inbound.web.user.dto.UserFriendRequestDto
 import com.kochat.adapter.inbound.web.user.dto.UserRelationshipDto
 import com.kochat.global.application.chat.ChatUserResolver
 import com.kochat.global.application.user.UserRelationshipService
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-@Tag(name = "사용자 관계", description = "친구 및 차단 목록 API")
+@Tag(name = "사용자 관계", description = "친구 요청, 친구 목록, 차단 목록 API")
 @RestController
 @RequestMapping("/api/v1/users")
 class UserRelationshipController(
@@ -32,15 +33,53 @@ class UserRelationshipController(
         return ResponseEntity.ok(userRelationshipService.getFriends(userId))
     }
 
-    @Operation(summary = "친구 추가")
+    @Operation(summary = "친구 요청 보내기")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/friends/{targetUserId}")
-    fun addFriend(
+    fun requestFriend(
         authentication: Authentication,
         @PathVariable targetUserId: Long,
-    ): ResponseEntity<UserRelationshipDto> {
+    ): ResponseEntity<UserFriendRequestDto> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(userRelationshipService.addFriend(userId, targetUserId))
+        return ResponseEntity.ok(userRelationshipService.requestFriend(userId, targetUserId))
+    }
+
+    @Operation(summary = "받은 친구 요청 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/friend-requests/incoming")
+    fun getIncomingFriendRequests(authentication: Authentication): ResponseEntity<List<UserFriendRequestDto>> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(userRelationshipService.getIncomingFriendRequests(userId))
+    }
+
+    @Operation(summary = "거부한 친구 요청 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/friend-requests/rejected")
+    fun getRejectedFriendRequests(authentication: Authentication): ResponseEntity<List<UserFriendRequestDto>> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(userRelationshipService.getRejectedFriendRequests(userId))
+    }
+
+    @Operation(summary = "친구 요청 수락")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/friend-requests/{requestId}/accept")
+    fun acceptFriendRequest(
+        authentication: Authentication,
+        @PathVariable requestId: Long,
+    ): ResponseEntity<UserFriendRequestDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(userRelationshipService.acceptFriendRequest(requestId, userId))
+    }
+
+    @Operation(summary = "친구 요청 거부")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/friend-requests/{requestId}/reject")
+    fun rejectFriendRequest(
+        authentication: Authentication,
+        @PathVariable requestId: Long,
+    ): ResponseEntity<UserFriendRequestDto> {
+        val userId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(userRelationshipService.rejectFriendRequest(requestId, userId))
     }
 
     @Operation(summary = "친구 삭제")

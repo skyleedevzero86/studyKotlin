@@ -1,6 +1,7 @@
-import { deleteJson, getJson, postJson } from './http'
+import { deleteJson, getJson, postJson, putJson } from './http'
 import type {
   ChatRoom,
+  ChatRoomInvitation,
   ChatRoomMember,
   CreateChatRoomRequest,
   CreateDirectChatRequest,
@@ -21,6 +22,39 @@ export const findOrCreateDirectRoom = (
   token: string,
   data: CreateDirectChatRequest,
 ): Promise<ChatRoom> => postJson(`${chatPath}/direct`, data, token)
+
+export const getPendingChatInvitations = (
+  token: string,
+): Promise<ChatRoomInvitation[]> => getJson(`${chatPath}/invitations/pending`, token)
+
+export const inviteToChatRoom = (
+  token: string,
+  chatRoomId: number,
+  targetUserId: number,
+): Promise<ChatRoomInvitation> =>
+  postJson(`${chatPath}/${chatRoomId}/invitations/${targetUserId}`, {}, token)
+
+export const acceptChatInvitation = (
+  token: string,
+  invitationId: number,
+): Promise<ChatRoom> => postJson(`${chatPath}/invitations/${invitationId}/accept`, {}, token)
+
+export const rejectChatInvitation = (
+  token: string,
+  invitationId: number,
+): Promise<ChatRoomInvitation> => postJson(`${chatPath}/invitations/${invitationId}/reject`, {}, token)
+
+export const kickChatRoomMember = (
+  token: string,
+  chatRoomId: number,
+  targetUserId: number,
+): Promise<void> => postJson(`${chatPath}/${chatRoomId}/members/${targetUserId}/kick`, {}, token)
+
+export const updateChatRoomCapacity = (
+  token: string,
+  chatRoomId: number,
+  maxMembers: number,
+): Promise<ChatRoom> => putJson(`${chatPath}/${chatRoomId}/capacity`, { maxMembers }, token)
 
 export const getChatRooms = (
   token: string,

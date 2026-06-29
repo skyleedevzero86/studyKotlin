@@ -2,6 +2,7 @@ package com.kochat.adapter.outbound.persistence.chat
 
 import com.kochat.adapter.inbound.web.chat.dto.ChatMessage
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
+import com.kochat.adapter.inbound.web.chat.dto.ChatRoomInvitationDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatUserDto
 import com.kochat.adapter.inbound.web.chat.dto.CreateChatRoomRequest
@@ -13,6 +14,7 @@ import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.adapter.outbound.redis.RedisMessageBroker
 import com.kochat.adapter.outbound.websocket.WebSocketSessionManager
+import com.kochat.domain.chat.model.ChatInvitationStatus
 import com.kochat.domain.chat.model.ChatRoomType
 import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
@@ -38,6 +40,8 @@ class ChatServiceImpl(
     private val chatRoomJpaRepository: ChatRoomJpaRepository,
     private val messageJpaRepository: MessageJpaRepository,
     private val chatRoomMemberJpaRepository: ChatRoomMemberJpaRepository,
+    private val chatRoomInvitationJpaRepository: ChatRoomInvitationJpaRepository,
+    private val chatRoomBanJpaRepository: ChatRoomBanJpaRepository,
     private val userJpaRepository: UserJpaRepository,
     private val redisMessageBroker: RedisMessageBroker,
     private val messageSequenceService: MessageSequenceService,
@@ -141,6 +145,21 @@ class ChatServiceImpl(
         )
     }
 
+    private fun invitationToDto(invitation: ChatRoomInvitationJpaEntity, viewerUserId: Long): ChatRoomInvitationDto {
+        val chatRoom = invitation.chatRoom ?: throw IllegalArgumentException("초대 채팅방이 없습니다.")
+        val inviter = invitation.inviter ?: throw IllegalArgumentException("초대한 사용자가 없습니다.")
+        val invitee = invitation.invitee ?: throw IllegalArgumentException("초대받은 사용자가 없습니다.")
+        return ChatRoomInvitationDto(
+            id = invitation.id ?: throw IllegalArgumentException("초대 ID가 없습니다."),
+            chatRoom = chatRoomToDto(chatRoom, viewerUserId),
+            inviter = userToDto(inviter),
+            invitee = userToDto(invitee),
+            status = invitation.status,
+            createdAt = invitation.createdAt,
+            respondedAt = invitation.respondedAt,
+        )
+    }
+
     private fun userToDto(user: UserJpaEntity): ChatUserDto {
         val createdAt = user.createdAt?.atZone(ZoneId.systemDefault())?.toLocalDateTime()
 
@@ -153,6 +172,49 @@ class ChatServiceImpl(
         )
     }
 
+    private fun isRoomOwner(chatRoom: ChatRoomJpaEntity, userId: Long): Boolean =
+        chatRoom.createdBy?.id == userId
+
+    private fun addOrReactivateMember(chatRoom: ChatRoomJpaEntity, user: UserJpaEntity, role: MemberRole = MemberRole.MEMBER) {
+        val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다.")
+        val userId = user.id ?: throw IllegalArgumentException("사용자 ID가 없습니다.")
+        val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserId(roomId, userId)
+            .orElseGet {
+                ChatRoomMemberJpaEntity().apply {
+                    this.chatRoom = chatRoom
+                    this.user = user
+                }
+            }
+        member.role = role
+        member.isActive = true
+        member.leftAt = null
+        chatRoomMemberJpaRepository.save(member)
+    }
+
+    private fun saveSystemMessage(chatRoom: ChatRoomJpaEntity, sender: UserJpaEntity, content: String): MessageJpaEntity {
+        val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다.")
+        val message = MessageJpaEntity().apply {
+            this.chatRoom = chatRoom
+            this.sender = sender
+            this.type = MessageType.SYSTEM
+            this.content = content
+            this.sequenceNumber = messageSequenceService.getNextSequence(roomId)
+        }
+        val savedMessage = messageJpaRepository.save(message)
+        val chatMessage = ChatMessage(
+            id = savedMessage.id ?: throw IllegalArgumentException("메시지 ID가 없습니다."),
+            content = savedMessage.content ?: "",
+            type = savedMessage.type,
+            chatRoomId = roomId,
+            senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다."),
+            senderName = sender.displayName ?: sender.username ?: "",
+            sequenceNumber = savedMessage.sequenceNumber,
+            timestamp = savedMessage.createdAt,
+        )
+        webSocketSessionManager.sendMessageToLocalRoom(roomId, chatMessage)
+        return savedMessage
+    }
+
     @CacheEvict(value = ["chatRooms"], allEntries = true)
     override fun createChatRoom(request: CreateChatRoomRequest, createdBy: Long): ChatRoomDto {
         val creator = userJpaRepository.findById(createdBy)
@@ -163,7 +225,7 @@ class ChatServiceImpl(
             description = request.description
             type = request.type
             imageUrl = request.imageUrl
-            maxMembers = request.maxMembers
+            maxMembers = request.maxMembers.coerceIn(1, 100)
             this.createdBy = creator
         }
 
@@ -205,6 +267,12 @@ class ChatServiceImpl(
             return chatRoomToDto(existingRoom, currentUserId)
         }
 
+        val pendingInvitation = chatRoomInvitationJpaRepository.findPendingDirectInvitations(currentUserId, targetUserId)
+            .firstOrNull()
+        if (pendingInvitation?.chatRoom != null) {
+            return chatRoomToDto(pendingInvitation.chatRoom!!, currentUserId)
+        }
+
         val currentName = currentUser.displayName ?: currentUser.username ?: "사용자"
         val targetName = targetUser.displayName ?: targetUser.username ?: "사용자"
         val minId = minOf(currentUserId, targetUserId)
@@ -224,19 +292,20 @@ class ChatServiceImpl(
             this.user = currentUser
             role = MemberRole.OWNER
         }
-        val peerMember = ChatRoomMemberJpaEntity().apply {
-            this.chatRoom = savedRoom
-            this.user = targetUser
-            role = MemberRole.MEMBER
-        }
         chatRoomMemberJpaRepository.save(ownerMember)
-        chatRoomMemberJpaRepository.save(peerMember)
+
+        chatRoomInvitationJpaRepository.save(
+            ChatRoomInvitationJpaEntity().apply {
+                this.chatRoom = savedRoom
+                this.inviter = currentUser
+                this.invitee = targetUser
+                this.status = ChatInvitationStatus.PENDING
+            },
+        )
 
         val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
-        listOf(currentUserId, targetUserId).forEach { userId ->
-            if (webSocketSessionManager.isUserOnlineLocally(userId)) {
-                webSocketSessionManager.joinRoom(userId, roomId)
-            }
+        if (webSocketSessionManager.isUserOnlineLocally(currentUserId)) {
+            webSocketSessionManager.joinRoom(currentUserId, roomId)
         }
 
         logger.info("Created direct room id={} between users {} and {}", roomId, minId, maxId)
@@ -279,6 +348,15 @@ class ChatServiceImpl(
             throw IllegalStateException("이미 참여한 채팅방입니다")
         }
 
+        if (chatRoomBanJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
+            throw IllegalStateException("정원이 찼습니다.")
+        }
+
+        val activeMemberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId)
+        if (activeMemberCount >= chatRoom.maxMembers) {
+            throw IllegalStateException("정원이 찼습니다.")
+        }
+
         if (chatRoom.type == ChatRoomType.DIRECT) {
             val memberCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId)
             if (memberCount >= chatRoom.maxMembers) {
@@ -286,12 +364,7 @@ class ChatServiceImpl(
             }
         }
 
-        val member = ChatRoomMemberJpaEntity().apply {
-            this.chatRoom = chatRoom
-            this.user = user
-            role = MemberRole.MEMBER
-        }
-        chatRoomMemberJpaRepository.save(member)
+        addOrReactivateMember(chatRoom, user)
 
         if (webSocketSessionManager.isUserOnlineLocally(userId)) {
             webSocketSessionManager.joinRoom(userId, roomId)
@@ -311,6 +384,127 @@ class ChatServiceImpl(
     @Cacheable(value = ["chatRoomMembers"], key = "#roomId")
     override fun getChatRoomMembers(roomId: Long): List<ChatRoomMemberDto> =
         chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId).map { memberToDto(it) }
+
+    override fun inviteToChatRoom(roomId: Long, inviteeId: Long, inviterId: Long): ChatRoomInvitationDto {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        val inviter = userJpaRepository.findById(inviterId)
+            .orElseThrow { IllegalArgumentException("초대한 사용자를 찾을 수 없습니다: $inviterId") }
+        val invitee = userJpaRepository.findById(inviteeId)
+            .orElseThrow { IllegalArgumentException("초대받을 사용자를 찾을 수 없습니다: $inviteeId") }
+
+        if (!chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, inviterId)) {
+            throw IllegalArgumentException("채팅방 멤버만 초대할 수 있습니다.")
+        }
+        if (chatRoomBanJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, inviteeId)) {
+            throw IllegalStateException("정원이 찼습니다.")
+        }
+        if (chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, inviteeId)) {
+            throw IllegalStateException("이미 참여 중인 사용자입니다.")
+        }
+
+        val existing = chatRoomInvitationJpaRepository.findByChatRoomIdAndInviteeIdAndStatus(
+            roomId,
+            inviteeId,
+            ChatInvitationStatus.PENDING,
+        )
+        if (existing != null) {
+            return invitationToDto(existing, inviteeId)
+        }
+
+        val invitation = ChatRoomInvitationJpaEntity().apply {
+            this.chatRoom = chatRoom
+            this.inviter = inviter
+            this.invitee = invitee
+            this.status = ChatInvitationStatus.PENDING
+        }
+        return invitationToDto(chatRoomInvitationJpaRepository.save(invitation), inviteeId)
+    }
+
+    override fun getPendingInvitations(userId: Long): List<ChatRoomInvitationDto> =
+        chatRoomInvitationJpaRepository.findByInviteeIdAndStatusOrderByCreatedAtDesc(
+            userId,
+            ChatInvitationStatus.PENDING,
+        ).map { invitationToDto(it, userId) }
+
+    override fun acceptInvitation(invitationId: Long, inviteeId: Long): ChatRoomDto {
+        val invitation = chatRoomInvitationJpaRepository.findById(invitationId)
+            .orElseThrow { IllegalArgumentException("채팅 초대를 찾을 수 없습니다: $invitationId") }
+        val chatRoom = invitation.chatRoom ?: throw IllegalArgumentException("초대 채팅방이 없습니다.")
+        val invitee = invitation.invitee ?: throw IllegalArgumentException("초대받은 사용자가 없습니다.")
+        require(invitee.id == inviteeId) { "내게 온 초대만 처리할 수 있습니다." }
+        require(invitation.status == ChatInvitationStatus.PENDING) { "이미 처리된 초대입니다." }
+
+        val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다.")
+        if (chatRoomBanJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, inviteeId)) {
+            throw IllegalStateException("정원이 찼습니다.")
+        }
+        if (chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId) >= chatRoom.maxMembers) {
+            throw IllegalStateException("정원이 찼습니다.")
+        }
+
+        invitation.status = ChatInvitationStatus.ACCEPTED
+        invitation.respondedAt = LocalDateTime.now()
+        chatRoomInvitationJpaRepository.save(invitation)
+        addOrReactivateMember(chatRoom, invitee)
+        if (webSocketSessionManager.isUserOnlineLocally(inviteeId)) {
+            webSocketSessionManager.joinRoom(inviteeId, roomId)
+        }
+        return chatRoomToDto(chatRoom, inviteeId)
+    }
+
+    override fun rejectInvitation(invitationId: Long, inviteeId: Long): ChatRoomInvitationDto {
+        val invitation = chatRoomInvitationJpaRepository.findById(invitationId)
+            .orElseThrow { IllegalArgumentException("채팅 초대를 찾을 수 없습니다: $invitationId") }
+        val chatRoom = invitation.chatRoom ?: throw IllegalArgumentException("초대 채팅방이 없습니다.")
+        val invitee = invitation.invitee ?: throw IllegalArgumentException("초대받은 사용자가 없습니다.")
+        val inviter = invitation.inviter ?: throw IllegalArgumentException("초대한 사용자가 없습니다.")
+        require(invitee.id == inviteeId) { "내게 온 초대만 처리할 수 있습니다." }
+        require(invitation.status == ChatInvitationStatus.PENDING) { "이미 처리된 초대입니다." }
+
+        invitation.status = ChatInvitationStatus.REJECTED
+        invitation.respondedAt = LocalDateTime.now()
+        val saved = chatRoomInvitationJpaRepository.save(invitation)
+        val inviteeName = invitee.displayName ?: invitee.username ?: "사용자"
+        saveSystemMessage(chatRoom, inviter, "$inviteeName 님이 채팅방 초대를 거부했습니다.")
+        return invitationToDto(saved, inviteeId)
+    }
+
+    override fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long) {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        require(isRoomOwner(chatRoom, ownerUserId)) { "채팅방 개설자만 추방할 수 있습니다." }
+        require(targetUserId != ownerUserId) { "개설자는 자기 자신을 추방할 수 없습니다." }
+
+        val owner = userJpaRepository.findById(ownerUserId)
+            .orElseThrow { IllegalArgumentException("개설자를 찾을 수 없습니다: $ownerUserId") }
+        val target = userJpaRepository.findById(targetUserId)
+            .orElseThrow { IllegalArgumentException("추방할 사용자를 찾을 수 없습니다: $targetUserId") }
+
+        chatRoomMemberJpaRepository.leaveChatRoom(roomId, targetUserId)
+        val ban = chatRoomBanJpaRepository.findByChatRoomIdAndUserId(roomId, targetUserId)
+            ?.apply {
+                this.isActive = true
+                this.bannedBy = owner
+            }
+            ?: ChatRoomBanJpaEntity().apply {
+                this.chatRoom = chatRoom
+                this.user = target
+                this.bannedBy = owner
+            }
+        chatRoomBanJpaRepository.save(ban)
+    }
+
+    override fun updateMaxMembers(roomId: Long, maxMembers: Int, ownerUserId: Long): ChatRoomDto {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        require(isRoomOwner(chatRoom, ownerUserId)) { "채팅방 개설자만 정원을 변경할 수 있습니다." }
+
+        val activeCount = chatRoomMemberJpaRepository.countActiveMembersInRoom(roomId).toInt()
+        val nextMaxMembers = maxMembers.coerceIn(activeCount.coerceAtLeast(1), 100)
+        chatRoom.maxMembers = if (chatRoom.type == ChatRoomType.DIRECT) 2 else nextMaxMembers
+        return chatRoomToDto(chatRoomJpaRepository.save(chatRoom), ownerUserId)
+    }
 
     override fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto {
         val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)

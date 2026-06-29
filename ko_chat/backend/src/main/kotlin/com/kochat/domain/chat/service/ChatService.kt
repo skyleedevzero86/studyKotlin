@@ -1,6 +1,7 @@
 package com.kochat.domain.chat.service
 
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
+import com.kochat.adapter.inbound.web.chat.dto.ChatRoomInvitationDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.CreateChatRoomRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessageDto
@@ -19,6 +20,12 @@ interface ChatService {
     fun joinChatRoom(roomId: Long, userId: Long)
     fun leaveChatRoom(roomId: Long, userId: Long)
     fun getChatRoomMembers(roomId: Long): List<ChatRoomMemberDto>
+    fun inviteToChatRoom(roomId: Long, inviteeId: Long, inviterId: Long): ChatRoomInvitationDto
+    fun getPendingInvitations(userId: Long): List<ChatRoomInvitationDto>
+    fun acceptInvitation(invitationId: Long, inviteeId: Long): ChatRoomDto
+    fun rejectInvitation(invitationId: Long, inviteeId: Long): ChatRoomInvitationDto
+    fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long)
+    fun updateMaxMembers(roomId: Long, maxMembers: Int, ownerUserId: Long): ChatRoomDto
     fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto
     fun sendMessage(request: SendMessageRequest, senderId: Long): MessageDto
     fun getMessages(roomId: Long, userId: Long, pageable: Pageable): Page<MessageDto>

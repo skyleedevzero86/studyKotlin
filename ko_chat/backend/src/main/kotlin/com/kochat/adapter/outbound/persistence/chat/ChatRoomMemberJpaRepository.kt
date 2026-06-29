@@ -10,6 +10,8 @@ interface ChatRoomMemberJpaRepository : CrudRepository<ChatRoomMemberJpaEntity, 
 
     fun findByChatRoomIdAndUserIdAndIsActiveTrue(chatRoomId: Long, userId: Long): Optional<ChatRoomMemberJpaEntity>
 
+    fun findByChatRoomIdAndUserId(chatRoomId: Long, userId: Long): Optional<ChatRoomMemberJpaEntity>
+
     @Query("SELECT COUNT(crm) FROM ChatRoomMemberJpaEntity crm WHERE crm.chatRoom.id = :chatRoomId AND crm.isActive = true")
     fun countActiveMembersInRoom(chatRoomId: Long): Long
 

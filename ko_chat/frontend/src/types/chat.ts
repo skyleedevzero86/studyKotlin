@@ -42,6 +42,16 @@ export interface CreateDirectChatRequest {
   targetUserId: number
 }
 
+export interface ChatRoomInvitation {
+  id: number
+  chatRoom: ChatRoom
+  inviter: ChatUser
+  invitee: ChatUser
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  createdAt: string
+  respondedAt?: string | null
+}
+
 export interface Message {
   id: number
   chatRoomId: number

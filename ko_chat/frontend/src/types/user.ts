@@ -57,6 +57,17 @@ export type UserRelationshipResponse = {
   createdAt: string
 }
 
+export type UserFriendRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+
+export type UserFriendRequestResponse = {
+  id: number
+  requester: UserRelationshipResponse['user']
+  recipient: UserRelationshipResponse['user']
+  status: UserFriendRequestStatus
+  createdAt: string
+  respondedAt: string | null
+}
+
 export type UserBlockHistoryResponse = {
   id: number
   user: UserRelationshipResponse['user']
