@@ -1,4 +1,4 @@
-import { deleteJson, getJson, postJson, putJson } from './http'
+import { deleteJson, getJson, postFormData, postJson, putJson } from './http'
 import type {
   ChatRoom,
   ChatRoomInvitation,
@@ -7,7 +7,9 @@ import type {
   CreateDirectChatRequest,
   Message,
   MessageDirection,
+  MessageMetadata,
   MessagePageResponse,
+  MessageType,
   PageResponse,
   UpdateChatRoomSettingsRequest,
 } from '../types/chat'
@@ -99,11 +101,19 @@ export const discoverChatRooms = (
   query = '',
   page = 0,
   size = 10,
-): Promise<PageResponse<ChatRoom>> =>
-  getJson(
-    `${chatPath}/discover?q=${encodeURIComponent(query)}&page=${page}&size=${size}&sort=createdAt,desc`,
-    token,
-  )
+  roomType: 'GROUP' | 'DIRECT' = 'GROUP',
+  includePrivate = false,
+): Promise<PageResponse<ChatRoom>> => {
+  const params = new URLSearchParams({
+    q: query,
+    page: page.toString(),
+    size: size.toString(),
+    sort: 'updatedAt,desc',
+    roomType,
+    includePrivate: includePrivate.toString(),
+  })
+  return getJson(`${chatPath}/discover?${params}`, token)
+}
 
 export const getRecommendedChatRooms = (
   token: string,
@@ -111,7 +121,7 @@ export const getRecommendedChatRooms = (
   size = 10,
 ): Promise<PageResponse<ChatRoom>> =>
   getJson(
-    `${chatPath}/discover/recommended?page=${page}&size=${size}&sort=createdAt,desc`,
+    `${chatPath}/discover/recommended?page=${page}&size=${size}&sort=updatedAt,desc`,
     token,
   )
 
@@ -155,3 +165,22 @@ export const checkHealth = async (): Promise<void> => {
     throw new Error('서버에 연결할 수 없습니다')
   }
 }
+
+export interface AttachmentUploadResponse {
+  messageType: MessageType
+  metadata: MessageMetadata
+  content: string | null
+}
+
+export const uploadChatAttachment = (
+  token: string,
+  roomId: number,
+  file: File,
+): Promise<AttachmentUploadResponse> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return postFormData(`${chatPath}/${roomId}/attachments`, formData, token)
+}
+
+export const fetchLinkPreview = (token: string, url: string): Promise<MessageMetadata> =>
+  postJson(`${chatPath}/link-preview`, { url }, token)

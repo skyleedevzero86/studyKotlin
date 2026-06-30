@@ -9,6 +9,7 @@ data class MessageDto(
     val sender: ChatUserDto,
     val type: MessageType,
     val content: String?,
+    val metadata: MessageMetadataDto? = null,
     val isEdited: Boolean,
     val isDeleted: Boolean,
     val createdAt: LocalDateTime,

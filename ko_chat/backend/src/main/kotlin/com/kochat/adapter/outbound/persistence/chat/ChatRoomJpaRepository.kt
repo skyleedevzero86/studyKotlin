@@ -24,6 +24,22 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
           AND (
             LOWER(cr.name) LIKE LOWER(CONCAT('%', :query, '%'))
             OR LOWER(cr.description) LIKE LOWER(CONCAT('%', :query, '%'))
+            OR EXISTS (
+              SELECT 1 FROM MessageJpaEntity m
+              WHERE m.chatRoom.id = cr.id AND m.isDeleted = false
+                AND m.content IS NOT NULL
+                AND LOWER(m.content) LIKE LOWER(CONCAT('%', :query, '%'))
+            )
+            OR EXISTS (
+              SELECT 1 FROM ChatRoomMemberJpaEntity peer
+              JOIN peer.user pu
+              WHERE peer.chatRoom.id = cr.id AND peer.isActive = true
+                AND peer.user.id <> :userId
+                AND (
+                  LOWER(pu.displayName) LIKE LOWER(CONCAT('%', :query, '%'))
+                  OR LOWER(pu.username) LIKE LOWER(CONCAT('%', :query, '%'))
+                )
+            )
           )
         ORDER BY cr.updatedAt DESC
         """,
@@ -51,11 +67,8 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         """
         SELECT cr FROM ChatRoomJpaEntity cr
         WHERE cr.isActive = true
-          AND cr.isPrivate = false
-          AND cr.type IN (
-            com.kochat.domain.chat.model.ChatRoomType.GROUP,
-            com.kochat.domain.chat.model.ChatRoomType.CHANNEL
-          )
+          AND cr.type IN :roomTypes
+          AND (:includePrivate = true OR cr.isPrivate = false)
           AND (
             :query IS NULL OR :query = ''
             OR LOWER(cr.name) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -63,5 +76,10 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
           )
         """,
     )
-    fun discoverPublicChatRooms(query: String?, pageable: Pageable): Page<ChatRoomJpaEntity>
+    fun discoverPublicChatRooms(
+        query: String?,
+        roomTypes: List<com.kochat.domain.chat.model.ChatRoomType>,
+        includePrivate: Boolean,
+        pageable: Pageable,
+    ): Page<ChatRoomJpaEntity>
 }

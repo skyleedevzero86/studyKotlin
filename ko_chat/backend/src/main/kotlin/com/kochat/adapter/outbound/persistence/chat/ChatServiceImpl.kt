@@ -23,9 +23,13 @@ import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.model.MessageType
 import com.kochat.domain.chat.service.ChatService
+import com.kochat.adapter.outbound.storage.MilvusAttachmentIndexService
+import com.kochat.global.application.chat.LinkPreviewService
+import com.kochat.global.application.chat.MessageMetadataMapper
 import com.kochat.domain.user.model.UserRole
 import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.cache.annotation.Caching
@@ -52,6 +56,10 @@ class ChatServiceImpl(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val passwordEncoder: PasswordEncoder,
     private val webMediaSessionRegistry: WebMediaSessionRegistry,
+    private val messageMetadataMapper: MessageMetadataMapper,
+    private val messageAttachmentJpaRepository: MessageAttachmentJpaRepository,
+    private val linkPreviewService: LinkPreviewService,
+    @Autowired(required = false) private val milvusAttachmentIndexService: MilvusAttachmentIndexService? = null,
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
@@ -135,6 +143,7 @@ class ChatServiceImpl(
             sender = userToDto(sender),
             type = message.type,
             content = message.content,
+            metadata = messageMetadataMapper.fromJson(message.metadata),
             isEdited = message.isEdited,
             isDeleted = message.isDeleted,
             createdAt = message.createdAt,
@@ -216,7 +225,8 @@ class ChatServiceImpl(
         val chatMessage = ChatMessage(
             id = savedMessage.id ?: throw IllegalArgumentException("메시지 ID가 없습니다."),
             content = savedMessage.content ?: "",
-            type = savedMessage.type,
+            messageType = savedMessage.type,
+            metadata = savedMessage.metadata,
             chatRoomId = roomId,
             senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다."),
             senderName = sender.displayName ?: sender.username ?: "",
@@ -366,15 +376,30 @@ class ChatServiceImpl(
         return chatRooms.map { chatRoomToDto(it, userId) }
     }
 
-    override fun discoverChatRooms(query: String, userId: Long, pageable: Pageable): Page<ChatRoomDto> {
+    override fun discoverChatRooms(
+        query: String,
+        userId: Long,
+        roomType: String?,
+        includePrivate: Boolean,
+        pageable: Pageable,
+    ): Page<ChatRoomDto> {
         val normalizedQuery = query.trim().ifBlank { null }
-        return chatRoomJpaRepository.discoverPublicChatRooms(normalizedQuery, pageable)
+        val roomTypes = when (roomType?.uppercase()) {
+            "GROUP" -> listOf(ChatRoomType.GROUP, ChatRoomType.CHANNEL)
+            "DIRECT" -> listOf(ChatRoomType.DIRECT)
+            else -> listOf(ChatRoomType.GROUP, ChatRoomType.CHANNEL)
+        }
+        return chatRoomJpaRepository.discoverPublicChatRooms(normalizedQuery, roomTypes, includePrivate, pageable)
             .map { chatRoomToDto(it, userId) }
     }
 
     override fun getRecommendedChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto> =
-        chatRoomJpaRepository.discoverPublicChatRooms(null, pageable)
-            .map { chatRoomToDto(it, userId) }
+        chatRoomJpaRepository.discoverPublicChatRooms(
+            null,
+            listOf(ChatRoomType.GROUP, ChatRoomType.CHANNEL),
+            false,
+            pageable,
+        ).map { chatRoomToDto(it, userId) }
 
     @Caching(
         evict = [
@@ -702,16 +727,47 @@ class ChatServiceImpl(
         val senderMember = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(request.chatRoomId, senderId)
             .orElseThrow { IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.") }
 
+        var messageType = request.type
+        var content = request.content
+        var metadataJson = request.metadata
+
+        if (messageType == MessageType.TEXT && !content.isNullOrBlank() && linkPreviewService.isUrlOnly(content)) {
+            messageType = MessageType.LINK
+            val preview = linkPreviewService.preview(content.trim())
+            metadataJson = messageMetadataMapper.toJson(preview)
+            content = preview.linkUrl
+        }
+
+        if (messageType == MessageType.IMAGE || messageType == MessageType.FILE) {
+            require(!metadataJson.isNullOrBlank()) { "첨부 메시지에는 metadata가 필요합니다." }
+        }
+
         val sequenceNumber = messageSequenceService.getNextSequence(request.chatRoomId)
 
         val message = MessageJpaEntity().apply {
-            content = request.content
-            type = request.type
+            this.content = content
+            this.type = messageType
+            this.metadata = metadataJson
             this.chatRoom = chatRoom
             this.sender = sender
             this.sequenceNumber = sequenceNumber
         }
         val savedMessage = messageJpaRepository.save(message)
+
+        if (messageType == MessageType.IMAGE || messageType == MessageType.FILE) {
+            val metadata = messageMetadataMapper.fromJson(metadataJson)
+                ?: throw IllegalArgumentException("첨부 metadata 형식이 올바르지 않습니다.")
+            val attachment = MessageAttachmentJpaEntity().apply {
+                messageId = savedMessage.id
+                chatRoomId = request.chatRoomId
+                objectKey = metadata.objectKey ?: throw IllegalArgumentException("objectKey가 필요합니다.")
+                fileName = metadata.fileName ?: "file"
+                mimeType = metadata.mimeType ?: "application/octet-stream"
+                size = metadata.size ?: 0
+            }
+            val savedAttachment = messageAttachmentJpaRepository.save(attachment)
+            milvusAttachmentIndexService?.indexAttachment(savedAttachment)
+        }
 
         val messageId = savedMessage.id ?: throw IllegalArgumentException("메시지 저장에 실패했습니다")
         senderMember.lastReadMessageId = messageId
@@ -720,7 +776,8 @@ class ChatServiceImpl(
         val chatMessage = ChatMessage(
             id = messageId,
             content = savedMessage.content ?: "",
-            type = savedMessage.type,
+            messageType = savedMessage.type,
+            metadata = savedMessage.metadata,
             chatRoomId = request.chatRoomId,
             senderId = senderId,
             senderName = sender.displayName ?: sender.username ?: "",

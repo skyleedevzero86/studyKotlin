@@ -10,10 +10,3 @@ enum class WebMediaMessageType {
     UserPublishedChangeReport,
     UserKickedEvent,
 }
-
-enum class WebMediaErrorCode {
-    BadRequest,
-    TooManyUsers,
-    NotWebRtcRoom,
-    NotMember,
-}

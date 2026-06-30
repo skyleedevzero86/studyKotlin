@@ -1,12 +1,15 @@
 package com.kochat.adapter.inbound.web.chat.dto
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.kochat.domain.chat.model.MessageType
 import java.time.LocalDateTime
 
 data class ChatMessage(
     val id: Long,
     val content: String,
-    val type: MessageType,
+    @get:JsonProperty("messageType")
+    val messageType: MessageType,
+    val metadata: String? = null,
     val senderId: Long,
     val senderName: String,
     val sequenceNumber: Long,

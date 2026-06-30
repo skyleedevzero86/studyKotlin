@@ -51,6 +51,9 @@ class MessageJpaEntity {
     @Column(columnDefinition = "TEXT")
     var content: String? = null
 
+    @Column(columnDefinition = "TEXT")
+    var metadata: String? = null
+
     @Column(nullable = false)
     var isEdited: Boolean = false
 

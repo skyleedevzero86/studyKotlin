@@ -1,0 +1,5 @@
+export type ChatRoomType = 'GROUP' | 'DIRECT' | 'CHANNEL'
+export type ChatMediaMode = 'TEXT' | 'WEBRTC'
+export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'LINK' | 'SYSTEM'
+export type MemberRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+export type MessageDirection = 'BEFORE' | 'AFTER'

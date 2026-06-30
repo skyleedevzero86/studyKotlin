@@ -117,11 +117,15 @@ class ChatWebSocketHandler(
                     val messageTypeText = jsonNode.get("messageType")?.asText()
                         ?: throw IllegalArgumentException("메시지 타입은 필수입니다")
                     val content = jsonNode.get("content")?.asText()
+                    val metadata = jsonNode.get("metadata")?.let { node ->
+                        if (node.isTextual) node.asText() else node.toString()
+                    }
 
                     val sendMessageRequest = SendMessageRequest(
                         chatRoomId = chatRoomId,
                         type = MessageType.valueOf(messageTypeText),
                         content = content,
+                        metadata = metadata,
                     )
 
                     chatService.sendMessage(sendMessageRequest, userId)

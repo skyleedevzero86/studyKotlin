@@ -9,4 +9,5 @@ data class SendMessageRequest(
     @field:NotNull(message = "메시지 타입은 필수입니다")
     val type: MessageType,
     val content: String?,
+    val metadata: String? = null,
 )

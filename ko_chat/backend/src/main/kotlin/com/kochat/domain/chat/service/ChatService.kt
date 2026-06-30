@@ -18,7 +18,13 @@ interface ChatService {
     fun getChatRoom(roomId: Long, viewerUserId: Long): ChatRoomDto
     fun getChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto>
     fun searchChatRooms(query: String, userId: Long): List<ChatRoomDto>
-    fun discoverChatRooms(query: String, userId: Long, pageable: Pageable): Page<ChatRoomDto>
+    fun discoverChatRooms(
+        query: String,
+        userId: Long,
+        roomType: String?,
+        includePrivate: Boolean,
+        pageable: Pageable,
+    ): Page<ChatRoomDto>
     fun getRecommendedChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto>
     fun joinChatRoom(roomId: Long, userId: Long, password: String? = null)
     fun leaveChatRoom(roomId: Long, userId: Long)

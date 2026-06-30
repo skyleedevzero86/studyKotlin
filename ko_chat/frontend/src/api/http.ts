@@ -89,3 +89,14 @@ export const deleteJson = async <TResponse>(
     method: 'DELETE',
     headers: buildHeaders(token),
   })
+
+export const postFormData = async <TResponse>(
+  path: string,
+  formData: FormData,
+  token?: string | null,
+): Promise<TResponse> =>
+  requestJson(path, {
+    method: 'POST',
+    headers: buildHeaders(token),
+    body: formData,
+  })

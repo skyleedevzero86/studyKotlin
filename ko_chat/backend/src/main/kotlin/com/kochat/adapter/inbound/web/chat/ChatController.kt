@@ -244,22 +244,24 @@ class ChatController(
     @GetMapping("/discover/recommended")
     fun getRecommendedChatRooms(
         authentication: Authentication,
-        @PageableDefault(size = 10, sort = ["createdAt"], direction = Sort.Direction.DESC) pageable: Pageable,
+        @PageableDefault(size = 10, sort = ["updatedAt"], direction = Sort.Direction.DESC) pageable: Pageable,
     ): ResponseEntity<Page<ChatRoomDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
         return ResponseEntity.ok(chatService.getRecommendedChatRooms(userId, pageable))
     }
 
-    @Operation(summary = "참여 가능한 채팅방 검색", description = "공개 그룹·채널 방만 검색됩니다")
+    @Operation(summary = "참여 가능한 채팅방 검색", description = "공개 그룹·채널 방 또는 1:1 방을 검색합니다")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/discover")
     fun discoverChatRooms(
         authentication: Authentication,
         @RequestParam(required = false, defaultValue = "") q: String,
-        @PageableDefault(size = 10, sort = ["createdAt"], direction = Sort.Direction.DESC) pageable: Pageable,
+        @RequestParam(required = false, defaultValue = "GROUP") roomType: String,
+        @RequestParam(required = false, defaultValue = "false") includePrivate: Boolean,
+        @PageableDefault(size = 10, sort = ["updatedAt"], direction = Sort.Direction.DESC) pageable: Pageable,
     ): ResponseEntity<Page<ChatRoomDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(chatService.discoverChatRooms(q, userId, pageable))
+        return ResponseEntity.ok(chatService.discoverChatRooms(q, userId, roomType, includePrivate, pageable))
     }
 
     @Operation(summary = "채팅방 검색")

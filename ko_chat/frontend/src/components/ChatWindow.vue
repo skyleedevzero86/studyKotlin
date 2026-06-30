@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import {
+  fetchLinkPreview,
   getChatRoom,
   getChatRoomMembers,
   getMessages,
@@ -10,17 +11,21 @@ import {
   markChatRoomRead,
   updateChatRoomCapacity,
   updateChatRoomSettings,
+  uploadChatAttachment,
 } from '../api/chatApi'
 import { ApiError } from '../api/http'
 import { addFriend, blockUser, searchUsers } from '../api/userApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import WebRtcPanel from './WebRtcPanel.vue'
+import ChatMessageContent from './ChatMessageContent.vue'
 import type {
   ChatRoom,
   ChatRoomMember,
   ChatUser,
   IncomingWebSocketMessage,
   Message,
+  MessageMetadata,
+  MessageType,
   OutgoingWebSocketMessage,
 } from '../types/chat'
 
@@ -45,6 +50,9 @@ const messageInput = ref('')
 const isLoadingMessages = ref(false)
 const membersLoading = ref(false)
 const showMembers = ref(false)
+const showMemberOverlay = ref(false)
+const showRoomMenu = ref(false)
+const memberSearchQuery = ref('')
 const actionUserId = ref<number | null>(null)
 const inviteQuery = ref('')
 const inviteResults = ref<ChatUser[]>([])
@@ -59,6 +67,23 @@ const settingsDescription = ref(props.chatRoom.description ?? '')
 const settingsPrivate = ref(props.chatRoom.isPrivate ?? false)
 const settingsPassword = ref('')
 const messagesEndRef = ref<HTMLElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const uploadLoading = ref(false)
+const showInputSubmenu = ref(false)
+const inputToolsRef = ref<HTMLElement | null>(null)
+
+const COMING_SOON_MESSAGE = '추후 서비스할 예정입니다'
+
+const inputSubmenuItems = [
+  { id: 'capture', label: '캡처', hasSubmenu: true },
+  { id: 'schedule-message', label: '메시지 예약' },
+  { id: 'spell-translate', label: '맞춤법/번역' },
+  { id: 'calendar', label: '일정' },
+  { id: 'todo', label: '할 일' },
+  { id: 'minigame', label: '미니게임' },
+] as const
+
+const URL_ONLY_REGEX = /^https?:\/\/[^\s<>"']+$/i
 
 const resolveError = (error: unknown, fallback: string): string => {
   if (error instanceof ApiError) {
@@ -142,15 +167,35 @@ const isChatMessage = (
   chatRoomId: number
   sequenceNumber: number
   timestamp: string
+  messageType?: MessageType
+  metadata?: string | MessageMetadata | null
 } => {
   return (
     typeof payload === 'object' &&
     payload !== null &&
-    'content' in payload &&
-    typeof payload.content === 'string' &&
     'senderId' in payload &&
-    typeof payload.senderId === 'number'
+    typeof payload.senderId === 'number' &&
+    'chatRoomId' in payload &&
+    typeof payload.chatRoomId === 'number' &&
+    'id' in payload
   )
+}
+
+const parseMetadata = (raw: unknown): MessageMetadata | null => {
+  if (!raw) {
+    return null
+  }
+  if (typeof raw === 'object') {
+    return raw as MessageMetadata
+  }
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as MessageMetadata
+    } catch {
+      return null
+    }
+  }
+  return null
 }
 
 const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
@@ -176,8 +221,9 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
       displayName: payload.senderName,
       isActive: true,
     },
-    type: 'TEXT',
-    content: payload.content,
+    type: payload.messageType ?? 'TEXT',
+    content: payload.content ?? null,
+    metadata: parseMetadata(payload.metadata),
     sequenceNumber: payload.sequenceNumber,
     isEdited: false,
     isDeleted: false,
@@ -195,21 +241,87 @@ const { isConnected, sendMessage, error: wsError } = useWebSocket({
   onError: (message) => emit('error', message),
 })
 
-const handleSendMessage = () => {
-  const content = messageInput.value.trim()
-  if (!content || !isConnected.value) {
-    return
-  }
-
+const sendRichMessage = (
+  messageType: MessageType,
+  content: string | null,
+  metadata?: MessageMetadata | null,
+) => {
   const wsMessage: OutgoingWebSocketMessage = {
     type: 'SEND_MESSAGE',
     chatRoomId: props.chatRoom.id,
-    messageType: 'TEXT',
+    messageType,
     content,
+    metadata: metadata ? JSON.stringify(metadata) : null,
+  }
+  return sendMessage(wsMessage)
+}
+
+const handleSendMessage = async () => {
+  const content = messageInput.value.trim()
+  if (!content || !isConnected.value || uploadLoading.value) {
+    return
   }
 
-  if (sendMessage(wsMessage)) {
+  if (URL_ONLY_REGEX.test(content)) {
+    try {
+      const preview = await fetchLinkPreview(props.token, content)
+      if (sendRichMessage('LINK', preview.linkUrl ?? content, preview)) {
+        messageInput.value = ''
+      }
+      return
+    } catch (error) {
+      emit('error', resolveError(error, '링크 미리보기를 가져오지 못했습니다'))
+      return
+    }
+  }
+
+  if (sendRichMessage('TEXT', content)) {
     messageInput.value = ''
+  }
+}
+
+const openFilePicker = () => {
+  showInputSubmenu.value = false
+  fileInputRef.value?.click()
+}
+
+const toggleInputSubmenu = () => {
+  showInputSubmenu.value = !showInputSubmenu.value
+}
+
+const handleComingSoon = () => {
+  showInputSubmenu.value = false
+  emit('notice', COMING_SOON_MESSAGE)
+}
+
+const onInputToolsOutsideClick = (event: MouseEvent) => {
+  if (!showInputSubmenu.value) {
+    return
+  }
+  const root = inputToolsRef.value
+  if (root && !root.contains(event.target as Node)) {
+    showInputSubmenu.value = false
+  }
+}
+
+const handleFileSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !isConnected.value) {
+    return
+  }
+
+  uploadLoading.value = true
+  try {
+    const uploaded = await uploadChatAttachment(props.token, props.chatRoom.id, file)
+    if (!sendRichMessage(uploaded.messageType, uploaded.content, uploaded.metadata)) {
+      emit('error', '메시지 전송에 실패했습니다')
+    }
+  } catch (error) {
+    emit('error', resolveError(error, '파일 업로드에 실패했습니다'))
+  } finally {
+    uploadLoading.value = false
   }
 }
 
@@ -343,17 +455,6 @@ const roomTitle = computed(() => {
   return props.chatRoom.name
 })
 
-const roomSubtitle = computed(() => {
-  if (props.chatRoom.type === 'DIRECT' && props.chatRoom.peerUser) {
-    return `@${props.chatRoom.peerUser.username} · 1:1 채팅`
-  }
-  const mediaLabel = props.chatRoom.mediaMode === 'WEBRTC' ? 'WebRTC' : '일반 채팅'
-  const visibilityLabel = props.chatRoom.isPrivate ? '비공개' : '공개'
-  return `${mediaLabel} · ${visibilityLabel} · 멤버 ${props.chatRoom.memberCount}명 · ID: ${props.chatRoom.id}${
-    props.chatRoom.description ? ` · ${props.chatRoom.description}` : ''
-  }`
-})
-
 const canLeaveRoom = computed(() => props.chatRoom.type !== 'DIRECT')
 
 const isWebRtcRoom = computed(() => props.chatRoom.mediaMode === 'WEBRTC')
@@ -373,13 +474,82 @@ const canManageRoom = computed(
 
 const formatTime = (dateString: string): string => {
   const date = new Date(dateString)
-  return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
+const memberCount = computed(() => props.chatRoom.memberCount)
+
+const filteredMembers = computed(() => {
+  const query = memberSearchQuery.value.trim().toLowerCase()
+  if (!query) {
+    return members.value
+  }
+  return members.value.filter((member) => {
+    const name = member.user.displayName ?? member.user.username
+    return (
+      name.toLowerCase().includes(query) ||
+      member.user.username.toLowerCase().includes(query)
+    )
+  })
+})
+
+const avatarLabel = (user: ChatUser) => {
+  const name = user.displayName ?? user.username
+  return name.slice(0, 1).toUpperCase()
+}
+
+const avatarColor = (userId: number) => {
+  const palette = ['#5b8def', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899']
+  return palette[userId % palette.length]
+}
+
+const toggleMemberOverlay = async () => {
+  showMemberOverlay.value = !showMemberOverlay.value
+  showRoomMenu.value = false
+  if (showMemberOverlay.value && members.value.length === 0) {
+    await loadMembers()
+  }
+  if (!showMemberOverlay.value) {
+    memberSearchQuery.value = ''
+  }
+}
+
+const closeMemberOverlay = () => {
+  showMemberOverlay.value = false
+  memberSearchQuery.value = ''
+}
+
+const toggleRoomMenu = () => {
+  showRoomMenu.value = !showRoomMenu.value
+  showMemberOverlay.value = false
+}
+
+const openManagePanel = async () => {
+  showRoomMenu.value = false
+  showMembers.value = true
+  if (members.value.length === 0) {
+    await loadMembers()
+  }
+}
+
+const copyRoomUrl = async () => {
+  const url = `${window.location.origin}/?room=${props.chatRoom.id}`
+  try {
+    await navigator.clipboard.writeText(url)
+    emit('notice', '채팅방 URL을 복사했습니다')
+  } catch {
+    emit('error', 'URL 복사에 실패했습니다')
+  }
 }
 
 watch(
   () => props.chatRoom.id,
   () => {
     showMembers.value = false
+    showMemberOverlay.value = false
+    showRoomMenu.value = false
+    showInputSubmenu.value = false
+    memberSearchQuery.value = ''
     members.value = []
     inviteQuery.value = ''
     inviteResults.value = []
@@ -426,41 +596,86 @@ watch(wsError, (value) => {
     emit('error', value)
   }
 })
+
+watch(showInputSubmenu, (open) => {
+  if (open) {
+    document.addEventListener('click', onInputToolsOutsideClick, true)
+  } else {
+    document.removeEventListener('click', onInputToolsOutsideClick, true)
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onInputToolsOutsideClick, true)
+})
 </script>
 
 <template>
   <section class="chat-window">
-    <header class="chat-window-header">
-      <div>
-        <h2>{{ roomTitle }}</h2>
-        <p>{{ roomSubtitle }}</p>
+    <header class="sleekydz86-chat-header">
+      <div class="sleekydz86-chat-header-main">
+        <h2 class="sleekydz86-chat-title">{{ roomTitle }}</h2>
+        <button type="button" class="sleekydz86-member-trigger" @click="toggleMemberOverlay">
+          <span class="sleekydz86-member-icon" aria-hidden="true">👤</span>
+          <span>{{ memberCount }}</span>
+        </button>
       </div>
-      <div class="chat-window-actions">
-        <button
-          v-if="canManageRoom"
-          type="button"
-          class="secondary compact"
-          @click="showSettings = !showSettings"
-        >
+      <div class="sleekydz86-chat-header-actions">
+        <button type="button" class="sleekydz86-header-btn" title="참여자" @click="toggleMemberOverlay">
+          🔍
+        </button>
+        <button type="button" class="sleekydz86-header-btn" title="메뉴" @click="toggleRoomMenu">
+          ☰
+        </button>
+      </div>
+      <div v-if="showRoomMenu" class="sleekydz86-room-menu">
+        <button v-if="canManageRoom" type="button" @click="openManagePanel">방 관리</button>
+        <button v-if="canManageRoom" type="button" @click="showSettings = !showSettings; showRoomMenu = false">
           설정
         </button>
-        <button type="button" class="secondary compact" @click="showMembers = !showMembers">
-          참여자
-        </button>
-        <button
-          v-if="canLeaveRoom"
-          type="button"
-          class="secondary compact"
-          :disabled="leaveLoading"
-          @click="handleLeaveRoom"
-        >
+        <button v-if="canLeaveRoom" type="button" :disabled="leaveLoading" @click="handleLeaveRoom">
           {{ leaveLoading ? '처리 중...' : '나가기' }}
         </button>
-        <span class="connection-badge" :class="{ online: isConnected }">
-          {{ isConnected ? '연결됨' : '연결 중...' }}
+        <span class="sleekydz86-connection" :class="{ online: isConnected }">
+          {{ isConnected ? '연결됨' : '연결 중' }}
         </span>
       </div>
     </header>
+
+    <div v-if="showMemberOverlay" class="sleekydz86-member-overlay">
+      <div class="sleekydz86-member-backdrop" @click="closeMemberOverlay" />
+      <div class="sleekydz86-member-sheet">
+        <div class="sleekydz86-member-sheet-header">
+          <input
+            v-model="memberSearchQuery"
+            type="search"
+            class="sleekydz86-member-search"
+            placeholder="이름으로 검색"
+          />
+          <button type="button" class="sleekydz86-member-close" @click="closeMemberOverlay">✕</button>
+        </div>
+        <p v-if="membersLoading" class="chat-empty slim">참여자를 불러오는 중...</p>
+        <ul v-else class="sleekydz86-member-sheet-list">
+          <li v-for="member in filteredMembers" :key="member.id" class="sleekydz86-member-sheet-item">
+            <span
+              class="sleekydz86-avatar"
+              :style="{ backgroundColor: avatarColor(member.user.id) }"
+            >
+              {{ avatarLabel(member.user) }}
+            </span>
+            <div class="sleekydz86-member-sheet-info">
+              <strong>{{ member.user.displayName ?? member.user.username }}</strong>
+              <span>@{{ member.user.username }}</span>
+            </div>
+            <span v-if="member.role === 'OWNER'" class="sleekydz86-member-badge">방장</span>
+          </li>
+          <li v-if="filteredMembers.length === 0" class="sleekydz86-member-empty">검색 결과가 없습니다</li>
+        </ul>
+        <button type="button" class="sleekydz86-copy-url" @click="copyRoomUrl">
+          🔗 채팅방 URL 복사
+        </button>
+      </div>
+    </div>
 
     <div v-if="showSettings && canManageRoom" class="member-panel room-settings-panel">
       <form class="profile-form" @submit.prevent="handleUpdateSettings">
@@ -588,36 +803,121 @@ watch(wsError, (value) => {
       @kicked="handleKicked"
     />
 
-    <div class="chat-messages">
-      <p v-if="isLoadingMessages" class="chat-empty">메시지를 불러오는 중...</p>
-      <p v-else-if="messages.length === 0" class="chat-empty">첫 번째 메시지를 보내보세요</p>
+    <div class="chat-messages sleekydz86-chat-messages">
+      <p v-if="isLoadingMessages" class="chat-empty sleekydz86-chat-empty">메시지를 불러오는 중...</p>
+      <p v-else-if="messages.length === 0" class="chat-empty sleekydz86-chat-empty">첫 번째 메시지를 보내보세요</p>
 
-      <div
-        v-for="message in messages"
-        :key="message.id"
-        class="chat-message-row"
-        :class="{ own: message.sender.id === currentUserId, system: message.type === 'SYSTEM' }"
-      >
-        <span v-if="message.sender.id !== currentUserId && message.type !== 'SYSTEM'" class="chat-message-author">
-          {{ message.sender.displayName ?? message.sender.username }}
-        </span>
-        <div class="chat-message-bubble">
-          <p>{{ message.content }}</p>
-          <time>{{ formatTime(message.createdAt) }}</time>
+      <template v-for="message in messages" :key="message.id">
+        <div v-if="message.type === 'SYSTEM'" class="chat-message-row system">
+          <div class="chat-message-bubble system">
+            <ChatMessageContent :message="message" :token="token" />
+          </div>
         </div>
-      </div>
+
+        <div v-else-if="message.sender.id === currentUserId" class="chat-message-row own">
+          <div class="chat-message-meta own-meta">
+            <time>{{ formatTime(message.createdAt) }}</time>
+          </div>
+          <div class="chat-message-bubble" :class="message.type.toLowerCase()">
+            <ChatMessageContent :message="message" :token="token" />
+          </div>
+        </div>
+
+        <div v-else class="chat-message-row other">
+          <span
+            class="sleekydz86-avatar message-avatar"
+            :style="{ backgroundColor: avatarColor(message.sender.id) }"
+          >
+            {{ avatarLabel(message.sender) }}
+          </span>
+          <div class="chat-message-other-wrap">
+            <span class="chat-message-author">
+              {{ message.sender.displayName ?? message.sender.username }}
+            </span>
+            <div class="chat-message-line">
+              <div class="chat-message-bubble" :class="message.type.toLowerCase()">
+                <ChatMessageContent :message="message" :token="token" />
+              </div>
+              <div class="chat-message-meta other-meta">
+                <time>{{ formatTime(message.createdAt) }}</time>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
       <div ref="messagesEndRef" />
     </div>
 
-    <form class="chat-input-area" @submit.prevent="handleSendMessage">
+    <form class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
       <textarea
         v-model="messageInput"
-        :disabled="!isConnected"
-        :placeholder="isConnected ? '메시지를 입력하세요...' : '연결 중...'"
-        rows="2"
+        class="sleekydz86-input-textarea"
+        :disabled="!isConnected || uploadLoading"
+        :placeholder="uploadLoading ? '업로드 중...' : isConnected ? '메시지 입력' : '연결 중...'"
+        rows="3"
         @keydown.enter.exact.prevent="handleSendMessage"
       />
-      <button type="submit" :disabled="!isConnected || !messageInput.trim()">전송</button>
+      <div class="sleekydz86-input-footer">
+        <div ref="inputToolsRef" class="sleekydz86-input-tools">
+          <div class="sleekydz86-input-tool-wrap">
+            <button
+              type="button"
+              class="sleekydz86-input-tool"
+              :class="{ active: showInputSubmenu }"
+              :disabled="!isConnected || uploadLoading"
+              @click.stop="toggleInputSubmenu"
+            >
+              <svg class="sleekydz86-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+            <div v-if="showInputSubmenu" class="sleekydz86-input-submenu" @click.stop>
+              <button
+                v-for="item in inputSubmenuItems"
+                :key="item.id"
+                type="button"
+                class="sleekydz86-input-submenu-item"
+                @click="handleComingSoon"
+              >
+                <span class="sleekydz86-submenu-icon" :data-icon="item.id" aria-hidden="true" />
+                <span class="sleekydz86-submenu-label">{{ item.label }}</span>
+                <span v-if="'hasSubmenu' in item && item.hasSubmenu" class="sleekydz86-submenu-arrow">›</span>
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="sleekydz86-input-tool"
+            :disabled="!isConnected || uploadLoading"
+            @click="handleComingSoon"
+          >
+            <svg class="sleekydz86-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none" />
+              <path d="M8.5 10.5a3.5 3.5 0 0 1 6.3 1.5c0 2-2 2.5-3.15 3.2-.6.4-.65.9-.65 1.3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" />
+              <circle cx="12" cy="17.2" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="sleekydz86-input-tool"
+            :disabled="!isConnected || uploadLoading"
+            @click="openFilePicker"
+          >
+            <svg class="sleekydz86-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 4h8l2 4v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.8" fill="none" />
+              <path d="M9 4v4h8" stroke="currentColor" stroke-width="1.8" fill="none" />
+            </svg>
+          </button>
+          <input ref="fileInputRef" type="file" class="chat-file-input" @change="handleFileSelected" />
+        </div>
+        <button
+          type="submit"
+          class="sleekydz86-send-btn"
+          :disabled="!isConnected || uploadLoading || !messageInput.trim()"
+        >
+          전송
+        </button>
+      </div>
     </form>
   </section>
 </template>

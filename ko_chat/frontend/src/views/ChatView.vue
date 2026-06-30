@@ -15,9 +15,13 @@ import {
 } from '../api/userApi'
 import ChatRoomList from '../components/ChatRoomList.vue'
 import ChatWindow from '../components/ChatWindow.vue'
+import FriendListPanel from '../components/FriendListPanel.vue'
+import MorePanel from '../components/MorePanel.vue'
 import { useAuth } from '../composables/useAuth'
 import type { UserFriendRequestResponse, UserProfileResponse } from '../types/user'
 import type { ChatNotification, ChatRoom, ChatRoomInvitation } from '../types/chat'
+
+type MainNav = 'friends' | 'chats' | 'more'
 
 const router = useRouter()
 const { accessToken, logout } = useAuth()
@@ -30,6 +34,9 @@ const roomListRefreshKey = ref(0)
 const friendRequests = ref<UserFriendRequestResponse[]>([])
 const chatInvitations = ref<ChatRoomInvitation[]>([])
 const pendingActionId = ref<string | null>(null)
+const mainNav = ref<MainNav>('chats')
+const chatUnreadCount = ref(0)
+const friendListRef = ref<InstanceType<typeof FriendListPanel> | null>(null)
 let pendingPollTimer: ReturnType<typeof setInterval> | undefined
 
 const pendingActionCount = computed(() => friendRequests.value.length + chatInvitations.value.length)
@@ -58,6 +65,7 @@ const handleNotice = (message: string) => {
 
 const handleChatRoomSelect = (room: ChatRoom) => {
   selectedChatRoom.value = room
+  mainNav.value = 'chats'
 }
 
 const handleRoomRead = (room: ChatRoom) => {
@@ -82,6 +90,7 @@ const handleLeftRoom = () => {
 const handleRelationshipChanged = () => {
   roomListRefreshKey.value += 1
   void loadPendingActions()
+  friendListRef.value?.loadFriends()
 }
 
 const handleLogout = async () => {
@@ -139,6 +148,7 @@ const handleAcceptFriendRequest = async (request: UserFriendRequestResponse) => 
     await acceptFriendRequest(accessToken.value, request.id)
     friendRequests.value = friendRequests.value.filter((item) => item.id !== request.id)
     roomListRefreshKey.value += 1
+    friendListRef.value?.loadFriends()
     handleNotice(`${userLabel(request.requester)} 님을 친구로 등록했습니다`)
   } catch (error) {
     handleError(error instanceof Error ? error.message : '친구 요청 수락에 실패했습니다')
@@ -169,6 +179,7 @@ const handleAcceptChatInvitation = async (invitation: ChatRoomInvitation) => {
     const room = await acceptChatInvitation(accessToken.value, invitation.id)
     chatInvitations.value = chatInvitations.value.filter((item) => item.id !== invitation.id)
     selectedChatRoom.value = room
+    mainNav.value = 'chats'
     roomListRefreshKey.value += 1
     handleNotice(`${roomLabel(room)} 초대를 수락했습니다`)
   } catch (error) {
@@ -220,20 +231,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="chat-page">
-    <div class="chat-topbar">
-      <div class="chat-topbar-left">
-        <button type="button" class="secondary" @click="goProfile">내 정보</button>
-        <span class="server-status" :class="serverStatus">
-          {{ serverStatus === 'online' ? '서버 연결됨' : serverStatus === 'offline' ? '서버 오프라인' : '확인 중' }}
-        </span>
-      </div>
-      <div class="chat-topbar-right">
-        <span v-if="profile">{{ profile.displayName ?? profile.username }}님</span>
-        <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
-      </div>
-    </div>
-
+  <div class="chat-page sleekydz86-app">
     <div v-if="notifications.length > 0" class="chat-notifications">
       <div
         v-for="notification in notifications"
@@ -303,40 +301,100 @@ onBeforeUnmount(() => {
       <button type="button" @click="checkServerHealth">다시 확인</button>
     </div>
 
-    <div v-else-if="accessToken && profile" class="chat-layout">
-      <ChatRoomList
-        :token="accessToken"
-        :current-user-id="profile.id"
-        :selected-chat-room-id="selectedChatRoom?.id ?? null"
-        :refresh-key="roomListRefreshKey"
-        @select="handleChatRoomSelect"
-        @error="handleError"
-        @notice="handleNotice"
-      />
+    <div v-else-if="accessToken && profile" class="sleekydz86-app-body">
+      <nav class="sleekydz86-nav-rail">
+        <div class="sleekydz86-nav-top">
+          <button
+            type="button"
+            class="sleekydz86-nav-item"
+            :class="{ active: mainNav === 'friends' }"
+            title="친구"
+            @click="mainNav = 'friends'"
+          >
+            <span class="sleekydz86-nav-icon">👤</span>
+            <span v-if="pendingActionCount > 0" class="sleekydz86-nav-badge">{{ pendingActionCount > 99 ? '99+' : pendingActionCount }}</span>
+          </button>
+          <button
+            type="button"
+            class="sleekydz86-nav-item"
+            :class="{ active: mainNav === 'chats' }"
+            title="채팅"
+            @click="mainNav = 'chats'"
+          >
+            <span class="sleekydz86-nav-icon">💬</span>
+            <span v-if="chatUnreadCount > 0" class="sleekydz86-nav-badge">{{ chatUnreadCount > 99 ? '99+' : chatUnreadCount }}</span>
+          </button>
+          <button
+            type="button"
+            class="sleekydz86-nav-item"
+            :class="{ active: mainNav === 'more' }"
+            title="더보기"
+            @click="mainNav = 'more'"
+          >
+            <span class="sleekydz86-nav-icon">⋯</span>
+          </button>
+        </div>
+        <div class="sleekydz86-nav-bottom">
+          <button type="button" class="sleekydz86-nav-item" title="내 정보" @click="goProfile">
+            <span class="sleekydz86-nav-icon">⚙</span>
+          </button>
+          <button type="button" class="sleekydz86-nav-item" title="로그아웃" @click="handleLogout">
+            <span class="sleekydz86-nav-icon">⎋</span>
+          </button>
+        </div>
+      </nav>
 
-      <ChatWindow
-        v-if="selectedChatRoom"
-        :token="accessToken"
-        :chat-room="selectedChatRoom"
-        :current-user-id="profile.id"
-        @error="handleError"
-        @notice="handleNotice"
-        @read="handleRoomRead"
-        @room-updated="handleRoomUpdated"
-        @left="handleLeftRoom"
-        @relationship-changed="handleRelationshipChanged"
-      />
+      <aside class="sleekydz86-list-panel">
+        <FriendListPanel
+          v-if="mainNav === 'friends'"
+          ref="friendListRef"
+          :token="accessToken"
+          :current-user-id="profile.id"
+          :profile-name="profile.displayName ?? profile.username"
+          @select="handleChatRoomSelect"
+          @error="handleError"
+          @notice="handleNotice"
+          @relationship-changed="handleRelationshipChanged"
+        />
+        <ChatRoomList
+          v-else-if="mainNav === 'chats'"
+          :token="accessToken"
+          :current-user-id="profile.id"
+          :selected-chat-room-id="selectedChatRoom?.id ?? null"
+          :refresh-key="roomListRefreshKey"
+          @select="handleChatRoomSelect"
+          @error="handleError"
+          @notice="handleNotice"
+          @unread-count="chatUnreadCount = $event"
+        />
+        <MorePanel
+          v-else
+          :token="accessToken"
+          @error="handleError"
+          @go-profile="goProfile"
+        />
+      </aside>
 
-      <section v-else class="chat-welcome">
-        <h2>채팅을 시작해보세요</h2>
-        <p>왼쪽에서 1:1 대화를 시작하거나 그룹 채팅방을 만들어 실시간 대화를 시작할 수 있습니다.</p>
-        <ul>
-          <li>1:1 개인 채팅 (상대 검색 후 바로 시작)</li>
-          <li>실시간 메시지 전송 (WebSocket)</li>
-          <li>그룹 채팅방 생성 및 참여</li>
-          <li>메시지 기록 조회</li>
-        </ul>
-      </section>
+      <main class="sleekydz86-main-panel">
+        <ChatWindow
+          v-if="selectedChatRoom"
+          :token="accessToken"
+          :chat-room="selectedChatRoom"
+          :current-user-id="profile.id"
+          @error="handleError"
+          @notice="handleNotice"
+          @read="handleRoomRead"
+          @room-updated="handleRoomUpdated"
+          @left="handleLeftRoom"
+          @relationship-changed="handleRelationshipChanged"
+        />
+
+        <section v-else class="chat-welcome sleekydz86-welcome">
+          <div class="sleekydz86-welcome-icon">💬</div>
+          <h2>채팅을 시작해보세요</h2>
+          <p>왼쪽에서 대화를 선택하거나 새 채팅방을 만들어보세요.</p>
+        </section>
+      </main>
     </div>
   </div>
 </template>
