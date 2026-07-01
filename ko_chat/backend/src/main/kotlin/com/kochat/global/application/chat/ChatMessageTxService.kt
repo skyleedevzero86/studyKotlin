@@ -12,6 +12,7 @@ import com.kochat.adapter.outbound.persistence.chat.MessageJpaEntity
 import com.kochat.adapter.outbound.persistence.chat.MessageJpaRepository
 import com.kochat.adapter.outbound.persistence.chat.MessageSequenceService
 import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
+import com.kochat.global.application.messaging.OutboxEventService
 import com.kochat.domain.chat.model.MessageType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +26,7 @@ class ChatMessageTxService(
     private val messageAttachmentJpaRepository: MessageAttachmentJpaRepository,
     private val messageSequenceService: MessageSequenceService,
     private val messageMetadataMapper: MessageMetadataMapper,
+    private val outboxEventService: OutboxEventService,
 ) {
     @Transactional
     fun saveMessage(
@@ -70,6 +72,9 @@ class ChatMessageTxService(
         chatRoomJpaRepository.save(chatRoom)
 
         val senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다")
+        outboxEventService.enqueueChatMessageSent(savedMessage, roomId, senderId)
+        savedAttachment?.let { outboxEventService.enqueueAttachmentUploaded(it) }
+
         val chatMessage = ChatMessage(
             id = messageId,
             content = savedMessage.content ?: "",
@@ -114,6 +119,7 @@ class ChatMessageTxService(
 
         val senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다")
         val messageId = savedMessage.id ?: throw IllegalArgumentException("메시지 ID가 없습니다")
+        outboxEventService.enqueueChatMessageSent(savedMessage, roomId, senderId)
 
         val chatMessage = ChatMessage(
             id = messageId,

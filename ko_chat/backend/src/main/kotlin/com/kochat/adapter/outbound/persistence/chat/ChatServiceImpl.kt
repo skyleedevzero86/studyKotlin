@@ -335,7 +335,7 @@ class ChatServiceImpl(
             webSocketSessionManager.joinRoom(currentUserId, roomId)
         }
 
-        logger.info("Created direct room id={} between users {} and {}", roomId, minId, maxId)
+        logger.info("1:1 채팅방 생성: roomId={}, users={}~{}", roomId, minId, maxId)
         return chatRoomToDto(savedRoom, currentUserId)
     }
 

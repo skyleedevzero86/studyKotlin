@@ -20,6 +20,7 @@ Kotlin + Spring Boot 백엔드와 Vue 3 프론트엔드로 구성된 **실시간
 - [실행 방법](#실행-방법)
 - [환경 설정](#환경-설정)
 - [API · WebSocket 요약](#api--websocket-요약)
+- [Kafka 후처리 아키텍처](#kafka-후처리-아키텍처)
 - [포트 정리](#포트-정리)
 
 ---
@@ -60,32 +61,33 @@ Kotlin + Spring Boot 백엔드와 Vue 3 프론트엔드로 구성된 **실시간
 | 채팅방 관리 | `/admin/chat-rooms` | 활성 채팅방 목록, 멤버 조회, **강제 퇴장**, 메시지 감사 조회                       |
 | 통계        | `/admin/statistics` | 시간대별·메시지 유형별·채팅방 유형별 집계, **Chart.js 막대 차트**, Excel/PDF보내기 |
 
-- 사용자 목록: 민감 정보 AES 암호화 payload (`VITE_ENCRYPTION_SECRET`로 복호화)
-- 통계 필터: 검색기간, 채팅방 유형(`DIRECT`/`GROUP`/`CHANNEL`), 메시지 유형(`TEXT`/`IMAGE`/…)
+- 사용자 목록: 민감 정보 AES 암호화 payload
+- 통계 필터: 검색기간, 채팅방 유형, 메시지 유형
 - 관리자 화면 간 네비게이션: 채팅 · 사용자 관리 · 채팅방 관리 · 통계 · 내 정보
 
 ### 채팅
 
-| 구분        | 내용                                                                 |
-| ----------- | -------------------------------------------------------------------- |
-| 방 종류     | `DIRECT`(1:1), `GROUP`, `CHANNEL`                                    |
-| 미디어 모드 | `TEXT`(일반 채팅), `WEBRTC`(화상, 2~6명)                             |
-| 공개 설정   | 공개 방 / 비공개 + 비밀번호                                          |
-| 참여        | 초대 수락, 오픈채팅 탐색, 친구 목록 1:1, REST `POST .../members`     |
-| 검색        | 참여 중인 방: 제목·설명·**메시지 내용**·상대 이름으로 검색           |
-| 발견        | 공개 그룹/채널 탐색 (`roomType`, `includePrivate`, `updatedAt` 정렬) |
-| 관리        | 방 설정, 정원 변경, 강퇴·재입장 차단, 나가기                         |
-| 실시간      | WebSocket 메시지 송수신, 읽음 처리, 시스템 메시지                    |
+| 구분        | 내용                                                             |
+| ----------- | ---------------------------------------------------------------- |
+| 방 종류     | `DIRECT`(1:1), `GROUP`, `CHANNEL`                                |
+| 미디어 모드 | `일반 채팅`, `화상대화 2~6명`                                    |
+| 공개 설정   | 공개 방 / 비공개 + 비밀번호                                      |
+| 참여        | 초대 수락, 오픈채팅 탐색, 친구 목록 1:1, REST `POST .../members` |
+| 검색        | 참여 중인 방: 제목·설명·**메시지 내용**·상대 이름으로 검색       |
+| 발견        | 공개 그룹/채널 탐색                                              |
+| 관리        | 방 설정, 정원 변경, 강퇴·재입장 차단, 나가기                     |
+| 실시간      | WebSocket 메시지 송수신, 읽음 처리, 시스템 메시지                |
+| 후처리      | Kafka 이벤트                                                     |
 
 ### 메시지 · 첨부파일
 
-| 타입     | 설명                                  |
-| -------- | ------------------------------------- |
-| `TEXT`   | 일반 텍스트                           |
-| `IMAGE`  | 이미지 미리보기 (MinIO presigned URL) |
-| `FILE`   | 파일 카드 + 다운로드 링크             |
-| `LINK`   | URL 링크 미리보기 (Open Graph 메타)   |
-| `SYSTEM` | 입장·퇴장·강퇴 등 시스템 알림         |
+| 타입     | 설명                          |
+| -------- | ----------------------------- |
+| `TEXT`   | 일반 텍스트                   |
+| `IMAGE`  | 이미지 미리보기               |
+| `FILE`   | 파일 카드 + 다운로드 링크     |
+| `LINK`   | URL 링크 미리보기             |
+| `SYSTEM` | 입장·퇴장·강퇴 등 시스템 알림 |
 
 - 파일 업로드: `POST /chat-rooms/{id}/attachments` → MinIO 저장 → WebSocket `SEND_MESSAGE`로 전송
 - 링크 미리보기: `POST /chat-rooms/link-preview`
@@ -129,21 +131,22 @@ Kotlin + Spring Boot 백엔드와 Vue 3 프론트엔드로 구성된 **실시간
 
 ## 기술 스택
 
-### Backend (`backend/`)
+### Backend
 
-| 항목          | 기술                                     |
-| ------------- | ---------------------------------------- |
-| 언어          | Kotlin 2.2, Java 21                      |
-| 프레임워크    | Spring Boot 4.0, Spring Security 7       |
-| DB            | MySQL (JPA/Hibernate, `ddl-auto=update`) |
-| 캐시 · 메시징 | Redis (캐시 + 채팅 Pub/Sub)              |
-| 객체 저장소   | MinIO (채팅 첨부파일)                    |
-| 벡터 DB       | Milvus                                   |
-| 인증          | JWT , BCrypt                             |
-| API 문서      | springdoc-openapi                        |
-| 실시간        | Spring WebSocket                         |
-| 미디어        | SRS 5                                    |
-| 통계보내기    | Apache POI , OpenPDF                     |
+| 항목          | 기술                               |
+| ------------- | ---------------------------------- |
+| 언어          | Kotlin 2.2, Java 21                |
+| 프레임워크    | Spring Boot 4.0, Spring Security 7 |
+| DB            | MySQL                              |
+| 캐시 · 메시징 | Redis                              |
+| 이벤트 스트림 | Apache Kafka                       |
+| 객체 저장소   | MinIO                              |
+| 벡터 DB       | Milvus                             |
+| 인증          | JWT , BCrypt                       |
+| API 문서      | springdoc-openapi                  |
+| 실시간        | Spring WebSocket                   |
+| 미디어        | SRS 5                              |
+| 통계보내기    | Apache POI , OpenPDF               |
 
 ### Frontend
 
@@ -219,19 +222,19 @@ flowchart TB
 
 ```
 com.kochat
-├── domain/              # 도메인 모델, ChatService 인터페이스, 사용자 포트
+├── domain/              # 도메인 모델, messaging 이벤트 타입
 ├── adapter/
-│   ├── inbound/         # REST, WebSocket, Security Filter
-│   └── outbound/        # JPA, Redis, MinIO, Milvus, WebSocket Session
-└── global/              # Security, JWT, 예외, 설정, 애플리케이션 서비스
+│   ├── inbound/         # REST, WebSocket, Kafka Consumer
+│   └── outbound/        # JPA, Redis, MinIO, Milvus, Outbox
+└── global/              # Security, JWT, Outbox Relay, 애플리케이션 서비스
 ```
 
-| 레이어               | 역할                                     |
-| -------------------- | ---------------------------------------- |
-| **domain**           | 비즈니스 규칙, 엔티티 개념, 포트         |
-| **adapter/inbound**  | HTTP·WebSocket 요청을 도메인 호출로 변환 |
-| **adapter/outbound** | DB·Redis·MinIO·Milvus·외부 시스템 구현   |
-| **global**           | 횡단 관심사                              |
+| 레이어                           | 역할                                           |
+| -------------------------------- | ---------------------------------------------- |
+| **domain**                       | 비즈니스 규칙, `ChatEventType`, 이벤트 payload |
+| **adapter/inbound**              | REST·WebSocket·**Kafka Consumer**              |
+| **adapter/outbound**             | DB·Redis·MinIO·Milvus·**Outbox**               |
+| **global/application/messaging** | Outbox 저장, Relay, 멱등성 처리                |
 
 ### 실시간 채팅 vs WebRTC
 
@@ -244,6 +247,41 @@ com.kochat
 | 방 관리       | 초대·강퇴·비밀번호·설정 | **동일 API·UI**        |
 
 채팅 메시지는 **백엔드 WebSocket + Redis**로 처리하고, WebRTC **미디어 스트림만 SRS**가 중계합니다.
+
+### 실시간 vs Kafka 후처리
+
+| 구분          | 담당                      | 설명                                               |
+| ------------- | ------------------------- | -------------------------------------------------- |
+| 실시간 전달   | WebSocket + Redis Pub/Sub | 채팅 말풍선, 다중 인스턴스 브로드캐스트            |
+| 후처리 이벤트 | Kafka                     | 감사 로그, 검색 인덱스, 첨부 후처리, Milvus 인덱싱 |
+
+메시지 저장 트랜잭션 안에서 **Outbox**에 이벤트를 기록하고, 별도 Relay가 Kafka로 발행합니다. <br/>
+Kafka가 잠시 중단되어도 DB에 이벤트가 남아 재발행할 수 있습니다.
+
+```mermaid
+sequenceDiagram
+    participant WS as WebSocket Client
+    participant TX as ChatMessageTxService
+    participant DB as MySQL
+    participant OB as Outbox Relay
+    participant K as Kafka
+    participant C as Consumers
+
+    WS->>TX: SEND_MESSAGE
+    TX->>DB: messages + outbox_events (동일 TX)
+    TX-->>WS: afterCommit → Redis/WebSocket 실시간 전달
+
+    loop 3초마다
+        OB->>DB: PENDING outbox 조회
+        OB->>K: publish (key=roomId)
+        OB->>DB: PUBLISHED 처리
+    end
+
+    K->>C: chat.message.events
+    Note over C: audit-consumer, search-index-consumer
+    K->>C: chat.attachment.events
+    Note over C: attachment-consumer, milvus-index-consumer
+```
 
 ---
 
@@ -359,9 +397,9 @@ erDiagram
 
 | 테이블                                  | 설명                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------- |
-| `users`                                 | 계정, 역할(`ADMIN`/`USER`), 상태(`PENDING`/`ACTIVE`/…)                    |
+| `users`                                 | 계정, 역할, 상태                                                          |
 | `chat_rooms`                            | 방 메타. `media_mode`: `TEXT` \| `WEBRTC`, `is_private` + `password_hash` |
-| `chat_room_members`                     | 멤버십, 역할(`OWNER`/`ADMIN`/`MEMBER`), 읽음 위치                         |
+| `chat_room_members`                     | 멤버십, 역할, 읽음 위치                                                   |
 | `messages`                              | `TEXT`/`IMAGE`/`FILE`/`LINK`/`SYSTEM`, `metadata` JSON, 시퀀스 번호       |
 | `message_attachments`                   | MinIO `object_key`, Milvus 인덱싱 여부                                    |
 | `chat_room_invitations`                 | 초대·수락·거절                                                            |
@@ -506,15 +544,23 @@ ko_chat/
 │   └── src/main/kotlin/com/kochat/
 │       ├── adapter/
 │       │   ├── inbound/
+│       │   │   ├── web/admin/          # 관리자 REST
 │       │   │   ├── web/chat/           # ChatController, ChatAttachmentController
+│       │   │   ├── kafka/consumer/     # audit, search-index, attachment, milvus
 │       │   │   └── websocket/          # Chat WS, WebMedia WS
 │       │   └── outbound/
-│       │       ├── persistence/chat/   # JPA 엔티티·리포지토리·ChatServiceImpl
+│       │       ├── persistence/
+│       │       │   ├── chat/           # JPA·ChatServiceImpl
+│       │       │   ├── messaging/      # audit, search index, processed_events
+│       │       │   └── outbox/         # outbox_events
 │       │       └── storage/            # MinioStorageService, MilvusAttachmentIndexService
-│       ├── domain/                     # chat, user 도메인
+│       ├── domain/messaging/           # ChatEventType, 이벤트 모델
 │       └── global/
-│           ├── application/chat/       # ChatAttachmentService, LinkPreviewService
-│           └── config/                 # MinioProperties, MilvusProperties, Security
+│           ├── application/
+│           │   ├── admin/              # 통계 조회·보내기
+│           │   ├── chat/               # ChatMessageTxService, Dispatch
+│           │   └── messaging/          # OutboxEventService, OutboxRelayService
+│           └── config/                 # KafkaProperties, Minio, Milvus, Security
 └── frontend/
     ├── package.json
     ├── vite.config.ts
@@ -546,12 +592,13 @@ ko_chat/
 - **MySQL** `localhost:3306`, DB `finsight`
 - **Redis** `localhost:9379`
 - **MinIO** `localhost:9000`
-- **Milvus** `localhost:19530` — 연결 실패 시 업로드는 동작, 벡터 등록만 비활성화
+- **Milvus** `localhost:19530`
+- **Kafka** `localhost:9092`
 - **Docker** — SRS
 
 ### 1. MySQL · Redis
 
-`backend/src/main/resources/application.properties` 기준:
+`backend/src/main/resources/application.properties` 기준
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/finsight?...
@@ -578,13 +625,32 @@ docker run -d --name minio `
 
 ### 3. Milvus
 
-Milvus Standalone을 로컬에 띄운 뒤 `app.milvus.host=localhost`, `app.milvus.port=19530`으로 연결합니다. Milvus가 없어도 앱은 기동되며, 첨부파일 벡터 등록만 건너뜁니다.
+Milvus Standalone을 로컬에 띄운 뒤 `app.milvus.host=localhost`, `app.milvus.port=19530`으로 연결합니다. <br/>
+Milvus가 없어도 앱은 기동되며, 첨부파일 벡터 등록만 건너뜁니다.<br/>
 
 ```properties
 app.milvus.enabled=false   # Milvus 없이 실행하려면
 ```
 
-### 4. SRS
+### 4. Kafka
+
+RAG Docker Compose의 `rag-kafka` 컨테이너를 사용합니다.<br/>
+호스트에서 Spring Boot가 접속하려면 **advertised listener**에 `localhost`가 포함되어야 합니다.
+
+```yaml
+KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093
+KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+```
+
+```properties
+app.kafka.enabled=true
+app.kafka.bootstrap-servers=localhost:29092
+```
+
+Kafka 없이 실행: `app.kafka.enabled=false`
+
+### 5. SRS
 
 ```powershell
 # 프로젝트 루트
@@ -600,7 +666,7 @@ docker compose -f docker-compose.srs.yml up -d
 > WebRTC publish/play는 **1985**만 사용합니다.
 > `docker-compose.srs.yml`은 SRS 컨테이너 **8088**로 매핑해 Spring Boot 기본 포트와 충돌하지 않습니다.
 
-### 5. 백엔드
+### 6. 백엔드
 
 ```powershell
 cd backend
@@ -611,7 +677,7 @@ cd backend
 - Swagger: http://localhost:8080/swagger-ui.html
 - Health: http://localhost:8080/actuator/health
 
-### 6. 프론트엔드
+### 7. 프론트엔드
 
 ```powershell
 cd frontend
@@ -623,7 +689,7 @@ npm run dev
 - `/api`, `/actuator`, WebSocket은 Vite가 `8080`으로 프록시
 - SRS API는 `/srs` → `localhost:1985` 프록시
 
-### 7. 최초 로그인
+### 8. 최초 로그인
 
 `application.properties` 기본값:
 
@@ -640,24 +706,28 @@ npm run dev
 
 ### Backend
 
-| 키                             | 설명                          |
-| ------------------------------ | ----------------------------- |
-| `jwt.secret`                   | JWT 서명 키                   |
-| `jwt.access-token-expire-time` | 토큰 만료                     |
-| `app.admin.bootstrap.*`        | 시작 시 관리자 계정 생성      |
-| `app.encryption.secret`        | 관리자 API 민감 데이터 AES 키 |
-| `app.webmedia.api-url`         | SRS HTTP API                  |
-| `app.webmedia.stream-url`      | WebRTC 스트림 URL             |
-| `app.minio.enabled`            | MinIO 사용 여부               |
-| `app.minio.endpoint`           | MinIO 엔드포인트              |
-| `app.minio.access-key`         | MinIO 액세스 키               |
-| `app.minio.secret-key`         | MinIO 시크릿 키               |
-| `app.minio.bucket`             | 버킷 이름                     |
-| `app.milvus.enabled`           | Milvus 사용 여부              |
-| `app.milvus.host`              | Milvus 호스트                 |
-| `app.milvus.port`              | Milvus 포트                   |
-| `app.milvus.collection`        | 컬렉션 이름                   |
-| `spring.servlet.multipart.*`   | 업로드 크기 제한              |
+| 키                                   | 설명                          |
+| ------------------------------------ | ----------------------------- |
+| `jwt.secret`                         | JWT 서명 키                   |
+| `jwt.access-token-expire-time`       | 토큰 만료                     |
+| `app.admin.bootstrap.*`              | 시작 시 관리자 계정 생성      |
+| `app.encryption.secret`              | 관리자 API 민감 데이터 AES 키 |
+| `app.webmedia.api-url`               | SRS HTTP API                  |
+| `app.webmedia.stream-url`            | WebRTC 스트림 URL             |
+| `app.minio.enabled`                  | MinIO 사용 여부               |
+| `app.minio.endpoint`                 | MinIO 엔드포인트              |
+| `app.minio.access-key`               | MinIO 액세스 키               |
+| `app.minio.secret-key`               | MinIO 시크릿 키               |
+| `app.minio.bucket`                   | 버킷 이름                     |
+| `app.milvus.enabled`                 | Milvus 사용 여부              |
+| `app.milvus.host`                    | Milvus 호스트                 |
+| `app.milvus.port`                    | Milvus 포트                   |
+| `app.milvus.collection`              | 컬렉션 이름                   |
+| `app.kafka.enabled`                  | Kafka 후처리 사용 여부        |
+| `app.kafka.bootstrap-servers`        | Kafka broker 주소             |
+| `app.kafka.topics.message-events`    | 메시지 이벤트 토픽            |
+| `app.kafka.topics.attachment-events` | 첨부 이벤트 토픽              |
+| `spring.servlet.multipart.*`         | 업로드 크기 제한              |
 
 ### Frontend
 
@@ -665,6 +735,78 @@ npm run dev
 | ------------------------ | ---------------------------- |
 | `VITE_API_BASE_URL`      | API 베이스                   |
 | `VITE_ENCRYPTION_SECRET` | 관리자 사용자 목록 복호화 키 |
+
+---
+
+## Kafka 후처리 아키텍처
+
+### 역할 분리
+
+| 경로        | 기술                      | 용도                                               |
+| ----------- | ------------------------- | -------------------------------------------------- |
+| 실시간 전달 | WebSocket + Redis Pub/Sub | 채팅 말풍선, 멀티 인스턴스 동기화                  |
+| 후처리      | Kafka + Outbox            | 감사 로그, 검색 인덱스, 첨부 후처리, Milvus 인덱싱 |
+
+Kafka에는 **메시지 원문**이 아니라 **이벤트**만 발행합니다. <br/>
+partition key는 `roomId`로 설정해 방 단위 순서를 유지합니다.
+
+### 토픽
+
+| 토픽                         | 이벤트                | Consumer                                       |
+| ---------------------------- | --------------------- | ---------------------------------------------- |
+| `chat.message.events`        | `CHAT_MESSAGE_SENT`   | `audit-consumer`, `search-index-consumer`      |
+| `chat.attachment.events`     | `ATTACHMENT_UPLOADED` | `attachment-consumer`, `milvus-index-consumer` |
+| `chat.message.events.dlq`    | 실패 이벤트           | 수동 재처리                                    |
+| `chat.attachment.events.dlq` | 실패 이벤트           | 수동 재처리                                    |
+
+### Outbox 패턴
+
+```
+@Transactional
+1. messages 저장
+2. outbox_events 저장
+3. commit
+
+OutboxRelayService (3초 주기)
+4. PENDING outbox 조회
+5. Kafka 발행 (key=roomId)
+6. PUBLISHED 처리
+```
+
+### 멱등성 · DLQ
+
+- `processed_events` 테이블에 unique로 중복 처리 방지
+- Consumer 실패 시 3회 재시도 후 DLQ 토픽으로 이동
+
+### 이벤트 예시
+
+```json
+{
+  "eventId": "evt-001",
+  "eventType": "CHAT_MESSAGE_SENT",
+  "roomId": 10,
+  "messageId": 123,
+  "sequenceNumber": 104,
+  "senderId": 5,
+  "messageType": "TEXT",
+  "createdAt": "2026-06-30T22:30:00"
+}
+```
+
+```json
+{
+  "eventId": "evt-002",
+  "eventType": "ATTACHMENT_UPLOADED",
+  "roomId": 10,
+  "messageId": 123,
+  "attachmentId": 45,
+  "objectKey": "chat/10/uuid-file.png",
+  "fileName": "file.png",
+  "mimeType": "image/png",
+  "size": 1024,
+  "createdAt": "2026-06-30T22:30:01"
+}
+```
 
 ---
 

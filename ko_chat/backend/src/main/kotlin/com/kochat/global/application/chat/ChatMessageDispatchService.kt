@@ -1,9 +1,9 @@
 package com.kochat.global.application.chat
 
-import com.kochat.adapter.outbound.persistence.chat.MessageAttachmentJpaEntity
 import com.kochat.adapter.outbound.redis.RedisMessageBroker
 import com.kochat.adapter.outbound.storage.MilvusAttachmentIndexService
 import com.kochat.adapter.outbound.websocket.WebSocketSessionManager
+import com.kochat.global.config.KafkaProperties
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
@@ -15,6 +15,7 @@ class ChatMessageDispatchService(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val redisMessageBroker: RedisMessageBroker,
     private val chatUnreadCountService: ChatUnreadCountService,
+    private val kafkaProperties: KafkaProperties,
     @Autowired(required = false) private val milvusAttachmentIndexService: MilvusAttachmentIndexService? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -22,7 +23,7 @@ class ChatMessageDispatchService(
     fun scheduleDispatch(saved: SavedChatMessage) {
         runAfterCommit {
             publishMessage(saved)
-            indexAttachmentIfNeeded(saved.attachment)
+            indexAttachmentIfKafkaDisabled(saved)
             chatUnreadCountService.incrementUnreadForRoomMembers(saved.roomId, saved.senderId)
         }
     }
@@ -40,10 +41,12 @@ class ChatMessageDispatchService(
         }
     }
 
-    private fun indexAttachmentIfNeeded(attachment: MessageAttachmentJpaEntity?) {
-        if (attachment == null) {
+    private fun indexAttachmentIfKafkaDisabled(saved: SavedChatMessage) {
+        if (kafkaProperties.enabled) {
             return
         }
+
+        val attachment = saved.attachment ?: return
         try {
             milvusAttachmentIndexService?.indexAttachment(attachment)
         } catch (e: Exception) {

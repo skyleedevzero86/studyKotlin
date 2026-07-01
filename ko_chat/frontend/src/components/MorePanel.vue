@@ -15,6 +15,7 @@ const emit = defineEmits<{
   goAdmin: []
   goAdminChatRooms: []
   goAdminStatistics: []
+  goAdminMessaging: []
 }>()
 
 const blocks = ref<UserRelationshipResponse[]>([])
@@ -93,6 +94,14 @@ defineExpose({ loadBlocks })
         @click="emit('goAdminStatistics')"
       >
         관리자 · 통계
+      </button>
+      <button
+        v-if="isAdmin"
+        type="button"
+        class="sleekydz86-more-menu-item"
+        @click="emit('goAdminMessaging')"
+      >
+        관리자 · 메시징 운영
       </button>
     </div>
 

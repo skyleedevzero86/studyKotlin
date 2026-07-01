@@ -9,6 +9,7 @@ import { isAdminRole, isTokenExpired, parseJwtRole } from '../utils/crypto'
 
 const AdminChatRoomsView = () => import('../views/AdminChatRoomsView.vue')
 const AdminStatisticsView = () => import('../views/AdminStatisticsView.vue')
+const AdminMessagingView = () => import('../views/AdminMessagingView.vue')
 const AdminUsersView = () => import('../views/AdminUsersView.vue')
 
 const router = createRouter({
@@ -60,6 +61,12 @@ const router = createRouter({
       path: '/admin/statistics',
       name: 'admin-statistics',
       component: AdminStatisticsView,
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/messaging',
+      name: 'admin-messaging',
+      component: AdminMessagingView,
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {

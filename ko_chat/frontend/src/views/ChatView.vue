@@ -117,6 +117,10 @@ const goAdminStatistics = async () => {
   await router.push({ name: 'admin-statistics' })
 }
 
+const goAdminMessaging = async () => {
+  await router.push({ name: 'admin-messaging' })
+}
+
 const checkServerHealth = async () => {
   try {
     await checkHealth()
@@ -388,6 +392,7 @@ onBeforeUnmount(() => {
           @go-admin="goAdminUsers"
           @go-admin-chat-rooms="goAdminChatRooms"
           @go-admin-statistics="goAdminStatistics"
+          @go-admin-messaging="goAdminMessaging"
         />
       </aside>
 
