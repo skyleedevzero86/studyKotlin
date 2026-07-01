@@ -1,6 +1,5 @@
 package com.kochat.adapter.outbound.persistence.chat
 
-import com.kochat.adapter.inbound.web.chat.dto.ChatMessage
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomInvitationDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
@@ -14,7 +13,6 @@ import com.kochat.adapter.inbound.web.chat.dto.UpdateChatRoomSettingsRequest
 import com.kochat.adapter.inbound.websocket.webmedia.WebMediaSessionRegistry
 import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
-import com.kochat.adapter.outbound.redis.RedisMessageBroker
 import com.kochat.adapter.outbound.websocket.WebSocketSessionManager
 import com.kochat.domain.chat.model.ChatInvitationStatus
 import com.kochat.domain.chat.model.ChatMediaMode
@@ -23,13 +21,15 @@ import com.kochat.domain.chat.model.MemberRole
 import com.kochat.domain.chat.model.MessageDirection
 import com.kochat.domain.chat.model.MessageType
 import com.kochat.domain.chat.service.ChatService
-import com.kochat.adapter.outbound.storage.MilvusAttachmentIndexService
+import com.kochat.global.application.chat.ChatMessageDispatchService
+import com.kochat.global.application.chat.ChatMessageTxService
+import com.kochat.global.application.chat.ChatUnreadCountService
 import com.kochat.global.application.chat.LinkPreviewService
 import com.kochat.global.application.chat.MessageMetadataMapper
+import com.kochat.global.application.chat.PreparedChatMessage
 import com.kochat.domain.user.model.UserRole
 import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.cache.annotation.Caching
@@ -38,6 +38,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -51,15 +52,15 @@ class ChatServiceImpl(
     private val chatRoomInvitationJpaRepository: ChatRoomInvitationJpaRepository,
     private val chatRoomBanJpaRepository: ChatRoomBanJpaRepository,
     private val userJpaRepository: UserJpaRepository,
-    private val redisMessageBroker: RedisMessageBroker,
     private val messageSequenceService: MessageSequenceService,
+    private val chatMessageTxService: ChatMessageTxService,
+    private val chatMessageDispatchService: ChatMessageDispatchService,
+    private val chatUnreadCountService: ChatUnreadCountService,
     private val webSocketSessionManager: WebSocketSessionManager,
     private val passwordEncoder: PasswordEncoder,
     private val webMediaSessionRegistry: WebMediaSessionRegistry,
     private val messageMetadataMapper: MessageMetadataMapper,
-    private val messageAttachmentJpaRepository: MessageAttachmentJpaRepository,
     private val linkPreviewService: LinkPreviewService,
-    @Autowired(required = false) private val milvusAttachmentIndexService: MilvusAttachmentIndexService? = null,
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
@@ -82,11 +83,10 @@ class ChatServiceImpl(
             messageJpaRepository.findLatestMessage(roomId)
         }?.let { messageToDto(it) }
         val unreadCount = if (viewerUserId != null && viewerMember != null) {
-            messageJpaRepository.countUnreadVisibleMessages(
+            chatUnreadCountService.getUnreadCount(
                 chatRoomId = roomId,
                 viewerUserId = viewerUserId,
-                joinedAt = viewerMember.joinedAt,
-                lastReadMessageId = viewerMember.lastReadMessageId,
+                viewerMember = viewerMember,
                 viewerIsAdmin = viewerIsAdmin,
             )
         } else {
@@ -212,29 +212,9 @@ class ChatServiceImpl(
         chatRoomMemberJpaRepository.save(member)
     }
 
-    private fun saveSystemMessage(chatRoom: ChatRoomJpaEntity, sender: UserJpaEntity, content: String): MessageJpaEntity {
-        val roomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다.")
-        val message = MessageJpaEntity().apply {
-            this.chatRoom = chatRoom
-            this.sender = sender
-            this.type = MessageType.SYSTEM
-            this.content = content
-            this.sequenceNumber = messageSequenceService.getNextSequence(roomId)
-        }
-        val savedMessage = messageJpaRepository.save(message)
-        val chatMessage = ChatMessage(
-            id = savedMessage.id ?: throw IllegalArgumentException("메시지 ID가 없습니다."),
-            content = savedMessage.content ?: "",
-            messageType = savedMessage.type,
-            metadata = savedMessage.metadata,
-            chatRoomId = roomId,
-            senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다."),
-            senderName = sender.displayName ?: sender.username ?: "",
-            sequenceNumber = savedMessage.sequenceNumber,
-            timestamp = savedMessage.createdAt,
-        )
-        webSocketSessionManager.sendMessageToLocalRoom(roomId, chatMessage)
-        return savedMessage
+    private fun saveSystemMessage(chatRoom: ChatRoomJpaEntity, sender: UserJpaEntity, content: String) {
+        val saved = chatMessageTxService.saveSystemMessage(chatRoom, sender, content)
+        chatMessageDispatchService.scheduleDispatch(saved)
     }
 
     @CacheEvict(value = ["chatRooms"], allEntries = true)
@@ -275,6 +255,8 @@ class ChatServiceImpl(
         }
 
         val savedRoom = chatRoomJpaRepository.save(chatRoom)
+        val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
+        messageSequenceService.syncSequenceFromDatabase(roomId)
 
         val ownerMember = ChatRoomMemberJpaEntity().apply {
             this.chatRoom = savedRoom
@@ -283,7 +265,6 @@ class ChatServiceImpl(
         }
         chatRoomMemberJpaRepository.save(ownerMember)
 
-        val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
         if (webSocketSessionManager.isUserOnlineLocally(createdBy)) {
             webSocketSessionManager.joinRoom(createdBy, roomId)
         }
@@ -331,6 +312,8 @@ class ChatServiceImpl(
             createdBy = currentUser
         }
         val savedRoom = chatRoomJpaRepository.save(chatRoom)
+        val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
+        messageSequenceService.syncSequenceFromDatabase(roomId)
 
         val ownerMember = ChatRoomMemberJpaEntity().apply {
             this.chatRoom = savedRoom
@@ -348,7 +331,6 @@ class ChatServiceImpl(
             },
         )
 
-        val roomId = savedRoom.id ?: throw IllegalArgumentException("채팅방 저장에 실패했습니다")
         if (webSocketSessionManager.isUserOnlineLocally(currentUserId)) {
             webSocketSessionManager.joinRoom(currentUserId, roomId)
         }
@@ -650,6 +632,7 @@ class ChatServiceImpl(
         ).firstOrNull()
         member.lastReadMessageId = latestVisibleMessage?.id
         chatRoomMemberJpaRepository.save(member)
+        chatUnreadCountService.resetUnread(roomId, userId)
 
         val chatRoom = member.chatRoom ?: chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -717,6 +700,7 @@ class ChatServiceImpl(
         )
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     override fun sendMessage(request: SendMessageRequest, senderId: Long): MessageDto {
         val chatRoom = chatRoomJpaRepository.findById(request.chatRoomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: ${request.chatRoomId}") }
@@ -742,61 +726,17 @@ class ChatServiceImpl(
             require(!metadataJson.isNullOrBlank()) { "첨부 메시지에는 metadata가 필요합니다." }
         }
 
-        val sequenceNumber = messageSequenceService.getNextSequence(request.chatRoomId)
-
-        val message = MessageJpaEntity().apply {
-            this.content = content
-            this.type = messageType
-            this.metadata = metadataJson
-            this.chatRoom = chatRoom
-            this.sender = sender
-            this.sequenceNumber = sequenceNumber
-        }
-        val savedMessage = messageJpaRepository.save(message)
-
-        if (messageType == MessageType.IMAGE || messageType == MessageType.FILE) {
-            val metadata = messageMetadataMapper.fromJson(metadataJson)
-                ?: throw IllegalArgumentException("첨부 metadata 형식이 올바르지 않습니다.")
-            val attachment = MessageAttachmentJpaEntity().apply {
-                messageId = savedMessage.id
-                chatRoomId = request.chatRoomId
-                objectKey = metadata.objectKey ?: throw IllegalArgumentException("objectKey가 필요합니다.")
-                fileName = metadata.fileName ?: "file"
-                mimeType = metadata.mimeType ?: "application/octet-stream"
-                size = metadata.size ?: 0
-            }
-            val savedAttachment = messageAttachmentJpaRepository.save(attachment)
-            milvusAttachmentIndexService?.indexAttachment(savedAttachment)
-        }
-
-        val messageId = savedMessage.id ?: throw IllegalArgumentException("메시지 저장에 실패했습니다")
-        senderMember.lastReadMessageId = messageId
-        chatRoomMemberJpaRepository.save(senderMember)
-
-        val chatMessage = ChatMessage(
-            id = messageId,
-            content = savedMessage.content ?: "",
-            messageType = savedMessage.type,
-            metadata = savedMessage.metadata,
+        val prepared = PreparedChatMessage(
             chatRoomId = request.chatRoomId,
             senderId = senderId,
-            senderName = sender.displayName ?: sender.username ?: "",
-            sequenceNumber = savedMessage.sequenceNumber,
-            timestamp = savedMessage.createdAt,
+            type = messageType,
+            content = content,
+            metadataJson = metadataJson,
         )
 
-        webSocketSessionManager.sendMessageToLocalRoom(request.chatRoomId, chatMessage)
+        val saved = chatMessageTxService.saveMessage(chatRoom, sender, senderMember, prepared)
+        chatMessageDispatchService.scheduleDispatch(saved)
 
-        try {
-            redisMessageBroker.broadcastToRoom(
-                roomId = request.chatRoomId,
-                message = chatMessage,
-                excludeServerId = redisMessageBroker.getServerId(),
-            )
-        } catch (e: Exception) {
-            logger.error("Redis를 통한 메시지 브로드캐스트에 실패했습니다: ${e.message}", e)
-        }
-
-        return messageToDto(savedMessage)
+        return saved.messageDto
     }
 }

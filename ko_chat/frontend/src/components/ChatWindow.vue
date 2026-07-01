@@ -85,6 +85,23 @@ const inputSubmenuItems = [
 
 const URL_ONLY_REGEX = /^https?:\/\/[^\s<>"']+$/i
 
+const compareMessagesBySequence = (a: Message, b: Message) => {
+  if (a.sequenceNumber !== b.sequenceNumber) {
+    return a.sequenceNumber - b.sequenceNumber
+  }
+  return a.id - b.id
+}
+
+const sortMessagesBySequence = (list: Message[]) =>
+  [...list].sort(compareMessagesBySequence)
+
+const upsertMessageBySequence = (list: Message[], incoming: Message): Message[] => {
+  if (list.some((message) => message.id === incoming.id)) {
+    return list
+  }
+  return sortMessagesBySequence([...list, incoming])
+}
+
 const resolveError = (error: unknown, fallback: string): string => {
   if (error instanceof ApiError) {
     return error.message
@@ -113,10 +130,7 @@ const loadMessages = async () => {
   isLoadingMessages.value = true
   try {
     const response = await getMessages(props.token, props.chatRoom.id, 0, 50)
-    const sorted = [...response.content].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    )
-    messages.value = sorted
+    messages.value = sortMessagesBySequence(response.content)
     await scrollToBottom()
     await markRead()
   } catch (error) {
@@ -177,7 +191,9 @@ const isChatMessage = (
     typeof payload.senderId === 'number' &&
     'chatRoomId' in payload &&
     typeof payload.chatRoomId === 'number' &&
-    'id' in payload
+    'id' in payload &&
+    'sequenceNumber' in payload &&
+    typeof payload.sequenceNumber === 'number'
   )
 }
 
@@ -230,7 +246,7 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
     createdAt: new Date(payload.timestamp).toISOString(),
   }
 
-  messages.value = [...messages.value, newMessage]
+  messages.value = upsertMessageBySequence(messages.value, newMessage)
   void scrollToBottom()
   void markRead()
 }

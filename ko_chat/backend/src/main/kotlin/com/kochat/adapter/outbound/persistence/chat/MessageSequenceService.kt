@@ -8,16 +8,27 @@ class MessageSequenceService(
     private val redisTemplate: RedisTemplate<String, String>,
     private val messageJpaRepository: MessageJpaRepository,
 ) {
-    private val prefix = "chat:sequence"
-
     fun getNextSequence(chatRoomId: Long): Long {
-        val key = "$prefix:$chatRoomId"
+        val key = sequenceKey(chatRoomId)
         return try {
             redisTemplate.opsForValue().increment(key) ?: fallbackSequence(chatRoomId)
         } catch (exception: Exception) {
             fallbackSequence(chatRoomId)
         }
     }
+
+    fun syncSequenceFromDatabase(chatRoomId: Long) {
+        val key = sequenceKey(chatRoomId)
+        try {
+            val maxSequence = messageJpaRepository.findMaxSequenceNumber(chatRoomId)
+            if (maxSequence > 0) {
+                redisTemplate.opsForValue().setIfAbsent(key, maxSequence.toString())
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun sequenceKey(chatRoomId: Long): String = "chat:room:$chatRoomId:seq"
 
     private fun fallbackSequence(chatRoomId: Long): Long =
         messageJpaRepository.findMaxSequenceNumber(chatRoomId) + 1
