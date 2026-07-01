@@ -34,6 +34,8 @@ interface ChatService {
     fun acceptInvitation(invitationId: Long, inviteeId: Long): ChatRoomDto
     fun rejectInvitation(invitationId: Long, inviteeId: Long): ChatRoomInvitationDto
     fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long)
+    fun adminKickMember(roomId: Long, targetUserId: Long, adminUserId: Long)
+    fun getAllChatRoomsForAdmin(adminUserId: Long, pageable: Pageable): Page<ChatRoomDto>
     fun updateMaxMembers(roomId: Long, maxMembers: Int, ownerUserId: Long): ChatRoomDto
     fun updateChatRoomSettings(roomId: Long, request: UpdateChatRoomSettingsRequest, ownerUserId: Long): ChatRoomDto
     fun markRoomAsRead(roomId: Long, userId: Long): ChatRoomDto

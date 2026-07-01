@@ -57,6 +57,26 @@ const goProfile = async () => {
   await router.push({ name: 'profile' })
 }
 
+const goChat = async () => {
+  await router.push({ name: 'home' })
+}
+
+const goAdminChatRooms = async () => {
+  await router.push({ name: 'admin-chat-rooms' })
+}
+
+const goAdminStatistics = async () => {
+  await router.push({ name: 'admin-statistics' })
+}
+
+const goBack = async () => {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+  await router.push({ name: 'home' })
+}
+
 const handleDoubleClick = async (username: string) => {
   await toggleReveal(username)
 }
@@ -149,6 +169,10 @@ const formatStatusValue = (username: string): string => {
           <p>행 더블클릭으로 민감 정보를 확인하고, 버튼으로 회원을 관리합니다.</p>
         </div>
         <div class="header-actions">
+          <button type="button" class="secondary" @click="goBack">이전</button>
+          <button type="button" @click="goChat">채팅</button>
+          <button type="button" @click="goAdminChatRooms">채팅방 관리</button>
+          <button type="button" @click="goAdminStatistics">통계</button>
           <button type="button" @click="goProfile">내 정보</button>
           <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
         </div>

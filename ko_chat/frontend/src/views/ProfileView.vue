@@ -6,7 +6,7 @@ import { useProfile } from '../composables/useProfile'
 import { formatRole, formatStatus } from '../utils/labels'
 
 const router = useRouter()
-const { accessToken, username, logout } = useAuth()
+const { accessToken, username, logout, isAdmin } = useAuth()
 const {
   profile,
   profileForm,
@@ -53,6 +53,30 @@ const handleLogout = async () => {
   await router.push({ name: 'login' })
 }
 
+const goBack = async () => {
+  if (window.history.length > 1) {
+    router.back()
+    return
+  }
+  await router.push({ name: 'home' })
+}
+
+const goChat = async () => {
+  await router.push({ name: 'home' })
+}
+
+const goAdminUsers = async () => {
+  await router.push({ name: 'admin-users' })
+}
+
+const goAdminChatRooms = async () => {
+  await router.push({ name: 'admin-chat-rooms' })
+}
+
+const goAdminStatistics = async () => {
+  await router.push({ name: 'admin-statistics' })
+}
+
 const roleLabel = computed(() => formatRole(profile.value?.role))
 const statusLabel = computed(() => formatStatus(profile.value?.status))
 </script>
@@ -67,7 +91,16 @@ const statusLabel = computed(() => formatStatus(profile.value?.status))
             아이디: {{ profile.username }} · 권한: {{ roleLabel }} · 상태: {{ statusLabel }}
           </p>
         </div>
-        <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
+        <div class="header-actions">
+          <button type="button" class="secondary" @click="goBack">이전</button>
+          <button type="button" @click="goChat">채팅</button>
+          <template v-if="isAdmin">
+            <button type="button" @click="goAdminUsers">사용자 관리</button>
+            <button type="button" @click="goAdminChatRooms">채팅방 관리</button>
+            <button type="button" @click="goAdminStatistics">통계</button>
+          </template>
+          <button type="button" class="secondary" @click="handleLogout">로그아웃</button>
+        </div>
       </header>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>

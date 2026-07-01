@@ -375,6 +375,12 @@ class ChatServiceImpl(
             .map { chatRoomToDto(it, userId) }
     }
 
+    override fun getAllChatRoomsForAdmin(adminUserId: Long, pageable: Pageable): Page<ChatRoomDto> {
+        require(isAdminUser(adminUserId)) { "관리자만 전체 채팅방을 조회할 수 있습니다." }
+        return chatRoomJpaRepository.findByIsActiveTrueOrderByUpdatedAtDesc(pageable)
+            .map { chatRoomToDto(it, adminUserId) }
+    }
+
     override fun getRecommendedChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto> =
         chatRoomJpaRepository.discoverPublicChatRooms(
             null,
@@ -535,30 +541,49 @@ class ChatServiceImpl(
         return invitationToDto(saved, inviteeId)
     }
 
+    @CacheEvict(value = ["chatRoomMembers"], key = "#roomId")
     override fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
         require(isRoomOwner(chatRoom, ownerUserId)) { "채팅방 개설자만 추방할 수 있습니다." }
-        require(targetUserId != ownerUserId) { "개설자는 자기 자신을 추방할 수 없습니다." }
+        removeMemberFromRoom(roomId, targetUserId, ownerUserId)
+    }
 
-        val owner = userJpaRepository.findById(ownerUserId)
-            .orElseThrow { IllegalArgumentException("개설자를 찾을 수 없습니다: $ownerUserId") }
+    @CacheEvict(value = ["chatRoomMembers"], key = "#roomId")
+    override fun adminKickMember(roomId: Long, targetUserId: Long, adminUserId: Long) {
+        require(isAdminUser(adminUserId)) { "관리자만 강제 퇴장시킬 수 있습니다." }
+        chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        require(targetUserId != adminUserId) { "자기 자신은 강제 퇴장시킬 수 없습니다." }
+        require(
+            chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, targetUserId),
+        ) { "채팅방에 참여 중인 사용자가 아닙니다." }
+        removeMemberFromRoom(roomId, targetUserId, adminUserId)
+    }
+
+    private fun removeMemberFromRoom(roomId: Long, targetUserId: Long, actorUserId: Long) {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        require(targetUserId != actorUserId) { "자기 자신을 추방할 수 없습니다." }
+
+        val actor = userJpaRepository.findById(actorUserId)
+            .orElseThrow { IllegalArgumentException("요청 사용자를 찾을 수 없습니다: $actorUserId") }
         val target = userJpaRepository.findById(targetUserId)
             .orElseThrow { IllegalArgumentException("추방할 사용자를 찾을 수 없습니다: $targetUserId") }
 
         chatRoomMemberJpaRepository.leaveChatRoom(roomId, targetUserId)
         webMediaSessionRegistry.kickUser(roomId, targetUserId)
         val targetName = target.displayName ?: target.username ?: "사용자"
-        saveSystemMessage(chatRoom, owner, "$targetName 님이 채팅방에서 내보졌습니다.")
+        saveSystemMessage(chatRoom, actor, "$targetName 님이 채팅방에서 내보졌습니다.")
         val ban = chatRoomBanJpaRepository.findByChatRoomIdAndUserId(roomId, targetUserId)
             ?.apply {
                 this.isActive = true
-                this.bannedBy = owner
+                this.bannedBy = actor
             }
             ?: ChatRoomBanJpaEntity().apply {
                 this.chatRoom = chatRoom
                 this.user = target
-                this.bannedBy = owner
+                this.bannedBy = actor
             }
         chatRoomBanJpaRepository.save(ban)
     }

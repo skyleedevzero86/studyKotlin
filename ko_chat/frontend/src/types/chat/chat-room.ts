@@ -20,32 +20,3 @@ export interface ChatRoom {
   isJoined?: boolean
   mediaMode?: ChatMediaMode
 }
-
-export interface CreateChatRoomRequest {
-  name: string
-  description?: string | null
-  type: ChatRoomType
-  imageUrl?: string | null
-  maxMembers?: number
-  isPrivate?: boolean
-  password?: string | null
-  mediaMode?: ChatMediaMode
-}
-
-export interface UpdateChatRoomSettingsRequest {
-  name?: string | null
-  description?: string | null
-  isPrivate?: boolean
-  password?: string | null
-}
-
-export interface CreateDirectChatRequest {
-  targetUserId: number
-}
-
-export const getChatRoomDisplayName = (room: ChatRoom): string => {
-  if (room.type === 'DIRECT' && room.peerUser) {
-    return room.peerUser.displayName ?? room.peerUser.username
-  }
-  return room.name
-}

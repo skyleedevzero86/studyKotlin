@@ -2,11 +2,21 @@ import { computed, ref } from 'vue'
 import { login as loginApi } from '../api/authApi'
 import { ApiError } from '../api/http'
 import type { LoginRequest } from '../types/auth'
-import { isAdminRole, parseJwtRole, parseJwtSubject } from '../utils/crypto'
+import { isAccessToken, isAdminRole, isTokenExpired, parseJwtRole, parseJwtSubject } from '../utils/crypto'
 
 const TOKEN_KEY = 'accessToken'
 
-const accessToken = ref<string | null>(localStorage.getItem(TOKEN_KEY))
+const readStoredToken = (): string | null => {
+  const token = localStorage.getItem(TOKEN_KEY)?.trim()
+  if (!token) return null
+  if (!isAccessToken(token) || isTokenExpired(token)) {
+    localStorage.removeItem(TOKEN_KEY)
+    return null
+  }
+  return token
+}
+
+const accessToken = ref<string | null>(readStoredToken())
 const errorMessage = ref<string | null>(null)
 const isLoading = ref(false)
 
@@ -30,6 +40,10 @@ const resolveLoginError = (error: unknown): string => {
 }
 
 export const useAuth = () => {
+  const syncFromStorage = (): void => {
+    accessToken.value = readStoredToken()
+  }
+
   const isAuthenticated = computed(() => Boolean(accessToken.value))
   const role = computed(() =>
     accessToken.value ? parseJwtRole(accessToken.value) : null,
@@ -37,7 +51,12 @@ export const useAuth = () => {
   const username = computed(() =>
     accessToken.value ? parseJwtSubject(accessToken.value) : null,
   )
-  const isAdmin = computed(() => isAdminRole(role.value))
+  const isAdmin = computed(() => isAuthenticated.value && isAdminRole(role.value))
+
+  const getValidAccessToken = (): string | null => {
+    syncFromStorage()
+    return accessToken.value
+  }
 
   const login = async (credentials: LoginRequest): Promise<boolean> => {
     isLoading.value = true
@@ -75,5 +94,7 @@ export const useAuth = () => {
     login,
     logout,
     clearError,
+    syncFromStorage,
+    getValidAccessToken,
   }
 }

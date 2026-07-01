@@ -1009,17 +1009,22 @@ button.danger:hover:not(:disabled) {
 
 .sleekydz86-more-menu-item {
   width: 100%;
+  margin-top: 0;
   border: none;
-  background: none;
+  border-radius: 0;
+  background: transparent;
+  color: #111827;
   text-align: left;
   padding: 12px 16px;
   font: inherit;
   font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.sleekydz86-more-menu-item:hover {
-  background: #f9fafb;
+.sleekydz86-more-menu-item:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .sleekydz86-more-section {

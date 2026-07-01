@@ -1,10 +1,13 @@
 package com.kochat.adapter.inbound.web.admin
 
+import com.kochat.adapter.inbound.web.chat.dto.ChatRoomDto
+import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatUserDto
 import com.kochat.adapter.inbound.web.chat.dto.MessageDto
 import com.kochat.adapter.outbound.persistence.chat.MessageJpaEntity
 import com.kochat.adapter.outbound.persistence.chat.MessageJpaRepository
 import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
+import com.kochat.domain.chat.service.ChatService
 import com.kochat.global.application.chat.ChatUserResolver
 import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
@@ -17,17 +20,49 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.time.ZoneId
 
-@Tag(name = "관리자 채팅", description = "관리자용 채팅 메시지 조회 API")
+@Tag(name = "관리자 채팅", description = "관리자용 채팅방·멤버·메시지 관리 API")
 @RestController
 @RequestMapping("/api/v1/admin/chat-rooms")
 class AdminChatController(
+    private val chatService: ChatService,
     private val messageJpaRepository: MessageJpaRepository,
     private val chatUserResolver: ChatUserResolver,
 ) {
+    @Operation(summary = "전체 활성 채팅방 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("", "/")
+    fun listChatRooms(
+        authentication: Authentication,
+        @PageableDefault(size = 30) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomDto>> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(chatService.getAllChatRoomsForAdmin(adminUserId, pageable))
+    }
+
+    @Operation(summary = "채팅방 멤버 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/{id}/members")
+    fun getMembers(@PathVariable id: Long): ResponseEntity<List<ChatRoomMemberDto>> =
+        ResponseEntity.ok(chatService.getChatRoomMembers(id))
+
+    @Operation(summary = "관리자 강제 퇴장")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/{id}/members/{targetUserId}/kick")
+    fun kickMember(
+        authentication: Authentication,
+        @PathVariable id: Long,
+        @PathVariable targetUserId: Long,
+    ): ResponseEntity<Void> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        chatService.adminKickMember(id, targetUserId, adminUserId)
+        return ResponseEntity.noContent().build()
+    }
+
     @Operation(summary = "관리자 메시지 조회")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}/messages")

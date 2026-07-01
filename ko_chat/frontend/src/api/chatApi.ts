@@ -1,4 +1,4 @@
-import { deleteJson, getJson, postFormData, postJson, putJson } from './http'
+import { checkBackendAvailability, deleteJson, getJson, postFormData, postJson, putJson } from './http'
 import type {
   ChatRoom,
   ChatRoomInvitation,
@@ -9,12 +9,13 @@ import type {
   MessageDirection,
   MessageMetadata,
   MessagePageResponse,
-  MessageType,
   PageResponse,
   UpdateChatRoomSettingsRequest,
+  AttachmentUploadResponse,
 } from '../types/chat'
 
 const chatPath = '/api/v1/chat-rooms'
+const adminChatPath = '/api/v1/admin/chat-rooms'
 
 export const createChatRoom = (
   token: string,
@@ -159,18 +160,7 @@ export const getMessagesByCursor = (
   return getJson(`${chatPath}/${chatRoomId}/messages/cursor?${params}`, token)
 }
 
-export const checkHealth = async (): Promise<void> => {
-  const response = await fetch('/actuator/health')
-  if (!response.ok) {
-    throw new Error('서버에 연결할 수 없습니다')
-  }
-}
-
-export interface AttachmentUploadResponse {
-  messageType: MessageType
-  metadata: MessageMetadata
-  content: string | null
-}
+export const checkHealth = (): Promise<void> => checkBackendAvailability()
 
 export const uploadChatAttachment = (
   token: string,
@@ -184,3 +174,22 @@ export const uploadChatAttachment = (
 
 export const fetchLinkPreview = (token: string, url: string): Promise<MessageMetadata> =>
   postJson(`${chatPath}/link-preview`, { url }, token)
+
+export const getAdminChatRooms = (
+  token: string,
+  page = 0,
+  size = 30,
+): Promise<PageResponse<ChatRoom>> =>
+  getJson(`${adminChatPath}?page=${page}&size=${size}&sort=updatedAt,desc`, token)
+
+export const getAdminChatRoomMembers = (
+  token: string,
+  chatRoomId: number,
+): Promise<ChatRoomMember[]> => getJson(`${adminChatPath}/${chatRoomId}/members`, token)
+
+export const adminKickChatRoomMember = (
+  token: string,
+  chatRoomId: number,
+  targetUserId: number,
+): Promise<void> =>
+  postJson(`${adminChatPath}/${chatRoomId}/members/${targetUserId}/kick`, {}, token)

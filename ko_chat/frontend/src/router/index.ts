@@ -1,12 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AdminUsersView from '../views/AdminUsersView.vue'
 import ChatView from '../views/ChatView.vue'
 import ErrorView from '../views/ErrorView.vue'
 import HomeView from '../views/HomeView.vue'
 import JoinView from '../views/JoinView.vue'
 import LoginView from '../views/LoginView.vue'
 import ProfileView from '../views/ProfileView.vue'
-import { isAdminRole, parseJwtRole } from '../utils/crypto'
+import { isAdminRole, isTokenExpired, parseJwtRole } from '../utils/crypto'
+
+const AdminChatRoomsView = () => import('../views/AdminChatRoomsView.vue')
+const AdminStatisticsView = () => import('../views/AdminStatisticsView.vue')
+const AdminUsersView = () => import('../views/AdminUsersView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -48,6 +51,18 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {
+      path: '/admin/chat-rooms',
+      name: 'admin-chat-rooms',
+      component: AdminChatRoomsView,
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/statistics',
+      name: 'admin-statistics',
+      component: AdminStatisticsView,
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
       path: '/error',
       name: 'error',
       component: ErrorView,
@@ -70,12 +85,17 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem('accessToken')
-  const isAuthenticated = Boolean(token)
-  const role = token ? parseJwtRole(token) : null
+  const token = localStorage.getItem('accessToken')?.trim() ?? null
+  const tokenExpired = token ? isTokenExpired(token) : true
+  const isAuthenticated = Boolean(token) && !tokenExpired
+  const role = isAuthenticated && token ? parseJwtRole(token) : null
+
+  if (token && tokenExpired) {
+    localStorage.removeItem('accessToken')
+  }
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    return { name: 'login' }
+    return { name: 'login', query: { reason: 'session-expired' } }
   }
 
   if (to.meta.guestOnly && isAuthenticated) {

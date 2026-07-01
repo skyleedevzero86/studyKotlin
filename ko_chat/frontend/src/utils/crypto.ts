@@ -40,7 +40,9 @@ export const parseJwtSubject = (token: string): string | null => {
   return payload?.sub ?? null
 }
 
-const parseJwtPayload = (token: string): { sub?: string; role?: string } | null => {
+const parseJwtPayload = (
+  token: string,
+): { sub?: string; role?: string; exp?: number; tokenType?: string } | null => {
   const parts = token.split('.')
   if (parts.length !== 3) {
     return null
@@ -50,10 +52,26 @@ const parseJwtPayload = (token: string): { sub?: string; role?: string } | null 
   const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
   try {
-    return JSON.parse(atob(padded)) as { sub?: string; role?: string }
+    return JSON.parse(atob(padded)) as {
+      sub?: string
+      role?: string
+      exp?: number
+      tokenType?: string
+    }
   } catch {
     return null
   }
+}
+
+export const isTokenExpired = (token: string, skewSeconds = 30): boolean => {
+  const payload = parseJwtPayload(token)
+  if (!payload?.exp) return false
+  return Date.now() >= payload.exp * 1000 - skewSeconds * 1000
+}
+
+export const isAccessToken = (token: string): boolean => {
+  const payload = parseJwtPayload(token)
+  return payload?.tokenType === 'ACCESS'
 }
 
 export const isAdminRole = (role: string | null): boolean =>

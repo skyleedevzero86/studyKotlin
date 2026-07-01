@@ -18,13 +18,13 @@ import ChatWindow from '../components/ChatWindow.vue'
 import FriendListPanel from '../components/FriendListPanel.vue'
 import MorePanel from '../components/MorePanel.vue'
 import { useAuth } from '../composables/useAuth'
-import type { UserFriendRequestResponse, UserProfileResponse } from '../types/user'
 import type { ChatNotification, ChatRoom, ChatRoomInvitation } from '../types/chat'
+import type { UserFriendRequestResponse, UserProfileResponse } from '../types/user'
 
 type MainNav = 'friends' | 'chats' | 'more'
 
 const router = useRouter()
-const { accessToken, logout } = useAuth()
+const { accessToken, logout, isAdmin } = useAuth()
 
 const profile = ref<UserProfileResponse | null>(null)
 const selectedChatRoom = ref<ChatRoom | null>(null)
@@ -103,6 +103,18 @@ const handleLogout = async () => {
 
 const goProfile = async () => {
   await router.push({ name: 'profile' })
+}
+
+const goAdminUsers = async () => {
+  await router.push({ name: 'admin-users' })
+}
+
+const goAdminChatRooms = async () => {
+  await router.push({ name: 'admin-chat-rooms' })
+}
+
+const goAdminStatistics = async () => {
+  await router.push({ name: 'admin-statistics' })
 }
 
 const checkServerHealth = async () => {
@@ -297,7 +309,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="serverStatus === 'offline'" class="chat-offline">
-      <p>서버에 연결할 수 없습니다. 백엔드와 Redis가 실행 중인지 확인해주세요.</p>
+      <p>백엔드 서버에 연결할 수 없습니다. Spring Boot가 localhost:8080에서 실행 중인지 확인해주세요.</p>
       <button type="button" @click="checkServerHealth">다시 확인</button>
     </div>
 
@@ -370,8 +382,12 @@ onBeforeUnmount(() => {
         <MorePanel
           v-else
           :token="accessToken"
+          :is-admin="isAdmin"
           @error="handleError"
           @go-profile="goProfile"
+          @go-admin="goAdminUsers"
+          @go-admin-chat-rooms="goAdminChatRooms"
+          @go-admin-statistics="goAdminStatistics"
         />
       </aside>
 

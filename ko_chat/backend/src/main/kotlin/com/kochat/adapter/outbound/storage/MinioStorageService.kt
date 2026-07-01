@@ -43,7 +43,7 @@ class MinioStorageService(
         }
     }
 
-    fun uploadChatFile(chatRoomId: Long, file: MultipartFile): StoredObject {
+    fun uploadChatFile(chatRoomId: Long, file: MultipartFile): MinioStoredObject {
         val safeName = sanitizeFileName(file.originalFilename ?: "file")
         val objectKey = "chat/$chatRoomId/${UUID.randomUUID()}-$safeName"
         val contentType = file.contentType?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
@@ -52,7 +52,7 @@ class MinioStorageService(
             putObject(objectKey, input, file.size, contentType)
         }
 
-        return StoredObject(
+        return MinioStoredObject(
             objectKey = objectKey,
             fileName = safeName,
             mimeType = contentType,
@@ -84,12 +84,4 @@ class MinioStorageService(
 
     private fun sanitizeFileName(fileName: String): String =
         fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(180)
-
-    data class StoredObject(
-        val objectKey: String,
-        val fileName: String,
-        val mimeType: String,
-        val size: Long,
-        val url: String,
-    )
 }

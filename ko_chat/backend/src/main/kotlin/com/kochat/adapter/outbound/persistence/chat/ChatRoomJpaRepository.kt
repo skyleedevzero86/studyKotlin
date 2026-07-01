@@ -82,4 +82,6 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         includePrivate: Boolean,
         pageable: Pageable,
     ): Page<ChatRoomJpaEntity>
+
+    fun findByIsActiveTrueOrderByUpdatedAtDesc(pageable: Pageable): Page<ChatRoomJpaEntity>
 }

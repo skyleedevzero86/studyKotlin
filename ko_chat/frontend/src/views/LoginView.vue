@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useLoginForm } from '../composables/useLoginForm'
-import { useAuth } from '../composables/useAuth'
 
 const router = useRouter()
+const route = useRoute()
 const { form, errorMessage, isLoading, submit } = useLoginForm()
-const { isAdmin } = useAuth()
+
+const sessionNotice = computed(() =>
+  route.query.reason === 'session-expired'
+    ? '로그인이 만료되었습니다. 다시 로그인해 주세요.'
+    : null,
+)
 
 const handleSubmit = async () => {
   const success = await submit()
   if (success) {
-    await router.push({ name: isAdmin.value ? 'admin-users' : 'home' })
+    await router.push({ name: 'home' })
   }
 }
 </script>
@@ -19,7 +25,7 @@ const handleSubmit = async () => {
   <main class="login-page">
     <section class="login-card">
       <h1>로그인</h1>
-      <p class="subtitle">OAuth2 SSO Demo · front</p>
+      <p v-if="sessionNotice" class="hint" role="status">{{ sessionNotice }}</p>
 
       <form @submit.prevent="handleSubmit">
         <label>

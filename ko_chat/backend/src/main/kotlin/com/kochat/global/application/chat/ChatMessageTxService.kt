@@ -17,22 +17,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
-data class PreparedChatMessage(
-    val chatRoomId: Long,
-    val senderId: Long,
-    val type: MessageType,
-    val content: String?,
-    val metadataJson: String?,
-)
-
-data class SavedChatMessage(
-    val messageDto: MessageDto,
-    val chatMessage: ChatMessage,
-    val roomId: Long,
-    val senderId: Long,
-    val attachment: MessageAttachmentJpaEntity?,
-)
-
 @Service
 class ChatMessageTxService(
     private val chatRoomJpaRepository: ChatRoomJpaRepository,

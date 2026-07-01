@@ -1,6 +1,23 @@
 import type { ApiErrorResponse } from '../types/auth'
+import { isAccessToken, isTokenExpired } from '../utils/crypto'
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
+
+let unauthorizedHandler: (() => void) | null = null
+
+export const setUnauthorizedHandler = (handler: () => void): void => {
+  unauthorizedHandler = handler
+}
+
+const resolveToken = (token?: string | null): string | null => {
+  const value = (token ?? localStorage.getItem('accessToken'))?.trim() || null
+  if (!value) return null
+  if (!isAccessToken(value) || isTokenExpired(value)) {
+    localStorage.removeItem('accessToken')
+    return null
+  }
+  return value
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -18,10 +35,23 @@ const buildHeaders = (token?: string | null, contentType = false): HeadersInit =
   if (contentType) {
     headers['Content-Type'] = 'application/json'
   }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
+  const resolvedToken = resolveToken(token)
+  if (resolvedToken) {
+    headers.Authorization = `Bearer ${resolvedToken}`
   }
   return headers
+}
+
+export const checkBackendAvailability = async (): Promise<void> => {
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/`)
+    if (!response.ok) {
+      throw new Error('서버에 연결할 수 없습니다')
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new Error('서버에 연결할 수 없습니다. 백엔드(8080)가 실행 중인지 확인해 주세요.')
+  }
 }
 
 const parseError = async (response: Response): Promise<ApiError> => {
@@ -33,13 +63,28 @@ const parseError = async (response: Response): Promise<ApiError> => {
   )
 }
 
+const handleUnauthorizedResponse = (response: Response): void => {
+  if (response.status !== 401) return
+  localStorage.removeItem('accessToken')
+  unauthorizedHandler?.()
+}
+
 const requestJson = async <TResponse>(
   path: string,
   init: RequestInit,
 ): Promise<TResponse> => {
-  const response = await fetch(`${baseUrl}${path}`, init)
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl}${path}`, init)
+  } catch {
+    throw new ApiError(
+      0,
+      '서버에 연결할 수 없습니다. 백엔드(8080)가 실행 중인지 확인한 뒤 다시 시도해 주세요.',
+    )
+  }
 
   if (!response.ok) {
+    handleUnauthorizedResponse(response)
     throw await parseError(response)
   }
 
@@ -100,3 +145,33 @@ export const postFormData = async <TResponse>(
     headers: buildHeaders(token),
     body: formData,
   })
+
+export const downloadFile = async (
+  path: string,
+  token: string,
+  filename: string,
+): Promise<void> => {
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      method: 'GET',
+      headers: buildHeaders(token),
+    })
+  } catch {
+    throw new ApiError(
+      0,
+      '서버에 연결할 수 없습니다. 백엔드(8080)가 실행 중인지 확인한 뒤 다시 시도해 주세요.',
+    )
+  }
+  if (!response.ok) {
+    handleUnauthorizedResponse(response)
+    throw await parseError(response)
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}

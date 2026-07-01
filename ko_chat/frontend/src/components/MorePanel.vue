@@ -6,11 +6,15 @@ import type { UserRelationshipResponse } from '../types/user'
 
 const props = defineProps<{
   token: string
+  isAdmin?: boolean
 }>()
 
 const emit = defineEmits<{
   error: [message: string]
   goProfile: []
+  goAdmin: []
+  goAdminChatRooms: []
+  goAdminStatistics: []
 }>()
 
 const blocks = ref<UserRelationshipResponse[]>([])
@@ -65,6 +69,30 @@ defineExpose({ loadBlocks })
     <div class="sleekydz86-more-menu">
       <button type="button" class="sleekydz86-more-menu-item" @click="emit('goProfile')">
         내 정보
+      </button>
+      <button
+        v-if="isAdmin"
+        type="button"
+        class="sleekydz86-more-menu-item"
+        @click="emit('goAdmin')"
+      >
+        관리자 · 사용자 목록
+      </button>
+      <button
+        v-if="isAdmin"
+        type="button"
+        class="sleekydz86-more-menu-item"
+        @click="emit('goAdminChatRooms')"
+      >
+        관리자 · 채팅방 목록
+      </button>
+      <button
+        v-if="isAdmin"
+        type="button"
+        class="sleekydz86-more-menu-item"
+        @click="emit('goAdminStatistics')"
+      >
+        관리자 · 통계
       </button>
     </div>
 
