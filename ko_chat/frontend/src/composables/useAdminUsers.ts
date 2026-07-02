@@ -15,6 +15,7 @@ import {
   withdrawUserByAdmin,
 } from '../api/userApi'
 import { ApiError } from '../api/http'
+import type { PageResponse } from '../types/chat'
 import type { RevealedUserRow, UserSensitivePayload, UserSummaryResponse } from '../types/user'
 import { decryptAes256Gcm, MASK_TEXT } from '../utils/crypto'
 
@@ -37,20 +38,90 @@ const decryptPayload = async (encryptedPayload: string): Promise<UserSensitivePa
 }
 
 export const useAdminUsers = () => {
-  const loadUsers = async (token: string): Promise<void> => {
+  const loadUsers = async (token: string, page = 0, size = 20): Promise<PageResponse<UserSummaryResponse> | void> => {
     isLoading.value = true
     errorMessage.value = null
 
     try {
-      const response = await fetchAdminUsers(token)
-      users.value = response.map(toRow)
+      const response = await fetchAdminUsers(token, page, size)
+      users.value = response.content.map(toRow)
+      return response
     } catch (error) {
       errorMessage.value =
         error instanceof ApiError ? error.message : '사용자 목록을 불러오지 못했습니다.'
+      throw error
     } finally {
       isLoading.value = false
     }
   }
+
+  const runAction = async (
+    token: string,
+    action: () => Promise<{ message: string }>,
+    page = 0,
+    size = 20,
+  ): Promise<void> => {
+    actionMessage.value = null
+    errorMessage.value = null
+    try {
+      const result = await action()
+      actionMessage.value = result.message
+      await loadUsers(token, page, size)
+    } catch (error) {
+      errorMessage.value = error instanceof ApiError ? error.message : '요청 처리에 실패했습니다.'
+    }
+  }
+
+  const approve = (token: string, username: string, role: 'USER' | 'ADMIN', page = 0, size = 20) =>
+    runAction(token, () => approveUser(token, username, role), page, size)
+
+  const suspend = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => suspendUser(token, username), page, size)
+
+  const activate = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => activateUser(token, username), page, size)
+
+  const restore = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => restoreUser(token, username), page, size)
+
+  const unlock = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => unlockUser(token, username), page, size)
+
+  const withdraw = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => withdrawUserByAdmin(token, username), page, size)
+
+  const changeRole = (token: string, username: string, role: 'USER' | 'ADMIN', page = 0, size = 20) =>
+    runAction(token, () => changeUserRole(token, username, role), page, size)
+
+  const remove = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => deleteUser(token, username), page, size)
+
+  const resetPwdFail = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => resetPasswordFailCount(token, username), page, size)
+
+  const resetLoginFail = (token: string, username: string, page = 0, size = 20) =>
+    runAction(token, () => resetLoginFailCount(token, username), page, size)
+
+  const addUser = (
+    token: string,
+    body: {
+      username: string
+      password: string
+      displayName?: string | null
+      role: 'USER' | 'ADMIN'
+      activateImmediately: boolean
+    },
+    page = 0,
+    size = 20,
+  ) => runAction(token, () => createAdminUser(token, body), page, size)
+
+  const updateProfile = (
+    token: string,
+    username: string,
+    displayName: string | null,
+    page = 0,
+    size = 20,
+  ) => runAction(token, () => updateUserProfileByAdmin(token, username, { displayName }), page, size)
 
   const toggleReveal = async (username: string): Promise<void> => {
     const target = users.value.find((user) => user.username === username)
@@ -85,65 +156,6 @@ export const useAdminUsers = () => {
     }
     return String(value)
   }
-
-  const runAction = async (token: string, action: () => Promise<{ message: string }>): Promise<void> => {
-    actionMessage.value = null
-    errorMessage.value = null
-    try {
-      const result = await action()
-      actionMessage.value = result.message
-      await loadUsers(token)
-    } catch (error) {
-      errorMessage.value = error instanceof ApiError ? error.message : '요청 처리에 실패했습니다.'
-    }
-  }
-
-  const approve = (token: string, username: string, role: 'USER' | 'ADMIN') =>
-    runAction(token, () => approveUser(token, username, role))
-
-  const suspend = (token: string, username: string) =>
-    runAction(token, () => suspendUser(token, username))
-
-  const activate = (token: string, username: string) =>
-    runAction(token, () => activateUser(token, username))
-
-  const restore = (token: string, username: string) =>
-    runAction(token, () => restoreUser(token, username))
-
-  const unlock = (token: string, username: string) =>
-    runAction(token, () => unlockUser(token, username))
-
-  const withdraw = (token: string, username: string) =>
-    runAction(token, () => withdrawUserByAdmin(token, username))
-
-  const changeRole = (token: string, username: string, role: 'USER' | 'ADMIN') =>
-    runAction(token, () => changeUserRole(token, username, role))
-
-  const remove = (token: string, username: string) =>
-    runAction(token, () => deleteUser(token, username))
-
-  const resetPwdFail = (token: string, username: string) =>
-    runAction(token, () => resetPasswordFailCount(token, username))
-
-  const resetLoginFail = (token: string, username: string) =>
-    runAction(token, () => resetLoginFailCount(token, username))
-
-  const addUser = (
-    token: string,
-    body: {
-      username: string
-      password: string
-      displayName?: string | null
-      role: 'USER' | 'ADMIN'
-      activateImmediately: boolean
-    },
-  ) => runAction(token, () => createAdminUser(token, body))
-
-  const updateProfile = (
-    token: string,
-    username: string,
-    displayName: string | null,
-  ) => runAction(token, () => updateUserProfileByAdmin(token, username, { displayName }))
 
   return {
     users,

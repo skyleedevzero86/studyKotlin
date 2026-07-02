@@ -1,5 +1,6 @@
 package com.kochat.adapter.outbound.persistence.messaging
 
+import com.kochat.domain.messaging.model.DlqEventStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -10,11 +11,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.time.LocalDateTime
-
-enum class DlqEventStatus {
-    OPEN,
-    REPLAYED,
-}
 
 @Entity
 @Table(

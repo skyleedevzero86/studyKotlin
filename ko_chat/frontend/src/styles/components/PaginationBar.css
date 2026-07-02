@@ -1,0 +1,33 @@
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+
+.pagination-bar button {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.pagination-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-bar button.active {
+  background: #5b8def;
+  color: #fff;
+  border-color: #5b8def;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+}

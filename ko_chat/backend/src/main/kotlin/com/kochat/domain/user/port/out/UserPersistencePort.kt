@@ -1,6 +1,8 @@
-﻿package com.kochat.domain.user.port.out
+package com.kochat.domain.user.port.out
 
 import com.kochat.domain.user.model.User
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 
 interface UserPersistencePort {
     fun save(user: User): User
@@ -10,6 +12,8 @@ interface UserPersistencePort {
     fun findById(id: Long): User?
 
     fun findAll(): List<User>
+
+    fun findAll(pageable: Pageable): Page<User>
 
     fun existsByUsername(username: String): Boolean
 

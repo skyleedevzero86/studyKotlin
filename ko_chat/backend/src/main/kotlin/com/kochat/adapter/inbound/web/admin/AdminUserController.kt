@@ -1,4 +1,4 @@
-﻿package com.kochat.adapter.inbound.web.admin
+package com.kochat.adapter.inbound.web.admin
 
 import com.kochat.adapter.inbound.web.admin.dto.ApproveUserRequest
 import com.kochat.adapter.inbound.web.admin.dto.ChangeRoleRequest
@@ -33,6 +33,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.web.PageableDefault
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -78,7 +81,9 @@ class AdminUserController(
         ],
     )
     @GetMapping
-    fun listUsers(): List<UserSummaryResponse> = adminUserQueryService.findAllUserSummaries()
+    fun listUsers(
+        @PageableDefault(size = 20, sort = ["username"]) pageable: Pageable,
+    ): Page<UserSummaryResponse> = adminUserQueryService.findUserSummaries(pageable)
 
     @Operation(
         summary = "사용자 목록 SSE 스트림",

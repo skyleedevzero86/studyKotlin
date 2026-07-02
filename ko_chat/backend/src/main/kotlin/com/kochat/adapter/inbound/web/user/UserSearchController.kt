@@ -9,7 +9,9 @@ import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.web.PageableDefault
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -30,16 +32,17 @@ class UserSearchController(
     fun searchUsers(
         authentication: Authentication,
         @RequestParam(defaultValue = "") q: String,
-        @RequestParam(defaultValue = "20") limit: Int,
-    ): List<ChatUserDto> {
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): Page<ChatUserDto> {
         val currentUserId = chatUserResolver.resolveUserId(authentication.name)
-        val pageable = PageRequest.of(0, limit.coerceIn(1, 50))
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, 50))
         val users = if (q.isBlank()) {
             userJpaRepository.findSearchableActiveUsers(currentUserId, pageable)
         } else {
             userJpaRepository.searchActiveUsers(currentUserId, q.trim(), pageable)
         }
-        return users.content.map { userToDto(it) }
+        return users.map { userToDto(it) }
     }
 
     private fun userToDto(user: UserJpaEntity): ChatUserDto {

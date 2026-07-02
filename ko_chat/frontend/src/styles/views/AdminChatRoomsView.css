@@ -1,0 +1,21 @@
+.admin-members-modal {
+  max-width: 560px;
+}
+
+.member-list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.member-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.member-item button {
+  margin-top: 0;
+}

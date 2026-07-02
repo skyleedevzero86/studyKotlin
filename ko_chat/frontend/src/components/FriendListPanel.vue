@@ -10,6 +10,8 @@ import {
   removeFriend,
   searchUsers,
 } from '../api/userApi'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type { ChatRoom, ChatUser } from '../types/chat'
 import type { UserFriendRequestResponse, UserRelationshipResponse } from '../types/user'
 
@@ -37,6 +39,7 @@ const searchResults = ref<ChatUser[]>([])
 const actionUserId = ref<number | null>(null)
 const directLoading = ref(false)
 const friendsExpanded = ref(true)
+const searchPagination = usePagination(10)
 
 const friendCount = computed(() => friends.value.length)
 
@@ -72,7 +75,14 @@ const loadFriends = async () => {
 const loadSearch = async () => {
   searchLoading.value = true
   try {
-    searchResults.value = await searchUsers(props.token, searchQuery.value)
+    const page = await searchUsers(
+      props.token,
+      searchQuery.value,
+      searchPagination.page.value,
+      searchPagination.size.value,
+    )
+    searchResults.value = page.content
+    searchPagination.applyPageResponse(page)
   } catch (error) {
     emit('error', resolveError(error, '사용자 검색에 실패했습니다'))
   } finally {
@@ -138,10 +148,17 @@ const handleBlockUser = async (userId: number) => {
 let debounce: ReturnType<typeof setTimeout> | undefined
 watch(searchQuery, () => {
   if (!showSearch.value && !showAddFriend.value) return
+  searchPagination.resetPage()
   clearTimeout(debounce)
   debounce = setTimeout(() => {
     void loadSearch()
   }, 300)
+})
+
+watch(() => searchPagination.page.value, () => {
+  if (showSearch.value || showAddFriend.value) {
+    void loadSearch()
+  }
 })
 
 watch(showAddFriend, (open) => {
@@ -214,6 +231,17 @@ defineExpose({ loadFriends })
           </div>
         </div>
       </div>
+      <PaginationBar
+        v-if="searchResults.length || searchPagination.totalElements.value > 0"
+        :page="searchPagination.page.value"
+        :total-pages="searchPagination.totalPages.value"
+        :total-elements="searchPagination.totalElements.value"
+        :has-prev="searchPagination.hasPrev.value"
+        :has-next="searchPagination.hasNext.value"
+        :page-label="searchPagination.pageLabel.value"
+        @prev="searchPagination.goPrev()"
+        @next="searchPagination.goNext()"
+      />
     </div>
 
     <div class="sleekydz86-friends-body">

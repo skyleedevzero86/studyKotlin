@@ -3,6 +3,8 @@ import { ref, watch } from 'vue'
 import { discoverChatRooms, getChatRoom, joinChatRoom } from '../api/chatApi'
 import { ApiError } from '../api/http'
 import { searchUsers } from '../api/userApi'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type { ChatRoom, ChatUser } from '../types/chat'
 
 const props = defineProps<{
@@ -24,9 +26,7 @@ const searchQuery = ref('')
 const activeTab = ref<OpenChatTab>('GROUP')
 const excludePrivate = ref(true)
 const loading = ref(false)
-const loadingMore = ref(false)
-const page = ref(0)
-const hasMore = ref(false)
+const pagination = usePagination(15)
 const groupResults = ref<ChatRoom[]>([])
 const directResults = ref<ChatUser[]>([])
 const joiningRoomId = ref<number | null>(null)
@@ -52,55 +52,42 @@ const userThumbStyle = (user: ChatUser) => ({
   backgroundColor: avatarColor(user.id),
 })
 
-const loadResults = async (reset = true) => {
-  if (reset) {
-    loading.value = true
-    page.value = 0
-    groupResults.value = []
-    directResults.value = []
-  } else {
-    loadingMore.value = true
-  }
-
+const loadResults = async () => {
+  loading.value = true
   try {
     if (activeTab.value === 'GROUP') {
       const response = await discoverChatRooms(
         props.token,
         searchQuery.value,
-        page.value,
-        15,
+        pagination.page.value,
+        pagination.size.value,
         'GROUP',
         !excludePrivate.value,
       )
-      if (reset) {
-        groupResults.value = response.content
-      } else {
-        groupResults.value = [...groupResults.value, ...response.content]
-      }
-      hasMore.value = !response.last
+      groupResults.value = response.content
+      pagination.applyPageResponse(response)
     } else {
-      const users = await searchUsers(props.token, searchQuery.value, 30)
-      directResults.value = users.filter((user) => user.id !== props.currentUserId)
-      hasMore.value = false
+      const response = await searchUsers(
+        props.token,
+        searchQuery.value,
+        pagination.page.value,
+        pagination.size.value,
+      )
+      directResults.value = response.content.filter((user) => user.id !== props.currentUserId)
+      pagination.applyPageResponse(response)
     }
   } catch (error) {
     emit('error', resolveError(error, '검색에 실패했습니다'))
   } finally {
     loading.value = false
-    loadingMore.value = false
   }
-}
-
-const loadMore = async () => {
-  if (!hasMore.value || loadingMore.value || activeTab.value !== 'GROUP') return
-  page.value += 1
-  await loadResults(false)
 }
 
 const switchTab = (tab: OpenChatTab) => {
   if (activeTab.value === tab) return
   activeTab.value = tab
-  void loadResults(true)
+  pagination.resetPage()
+  void loadResults()
 }
 
 const enterRoom = async (room: ChatRoom) => {
@@ -135,19 +122,31 @@ const handleDirectSelect = (user: ChatUser) => {
 
 let debounce: ReturnType<typeof setTimeout> | undefined
 watch(searchQuery, () => {
+  pagination.resetPage()
   clearTimeout(debounce)
   debounce = setTimeout(() => {
-    void loadResults(true)
+    void loadResults()
   }, 300)
 })
 
 watch(excludePrivate, () => {
   if (activeTab.value === 'GROUP') {
-    void loadResults(true)
+    pagination.resetPage()
+    void loadResults()
   }
 })
 
-void loadResults(true)
+const goSearchPrev = () => {
+  pagination.goPrev()
+  void loadResults()
+}
+
+const goSearchNext = () => {
+  pagination.goNext()
+  void loadResults()
+}
+
+void loadResults()
 </script>
 
 <template>
@@ -209,15 +208,17 @@ void loadResults(true)
             {{ avatarLabel(room.name) }}
           </span>
         </button>
-        <button
-          v-if="hasMore"
-          type="button"
-          class="load-more-button"
-          :disabled="loadingMore"
-          @click="loadMore"
-        >
-          {{ loadingMore ? '불러오는 중...' : '더 보기' }}
-        </button>
+        <PaginationBar
+          v-if="groupResults.length || pagination.totalElements.value > 0"
+          :page="pagination.page.value"
+          :total-pages="pagination.totalPages.value"
+          :total-elements="pagination.totalElements.value"
+          :has-prev="pagination.hasPrev.value"
+          :has-next="pagination.hasNext.value"
+          :page-label="pagination.pageLabel.value"
+          @prev="goSearchPrev()"
+          @next="goSearchNext()"
+        />
       </template>
 
       <template v-else>
@@ -239,6 +240,17 @@ void loadResults(true)
             {{ avatarLabel(user.displayName ?? user.username) }}
           </span>
         </button>
+        <PaginationBar
+          v-if="directResults.length || pagination.totalElements.value > 0"
+          :page="pagination.page.value"
+          :total-pages="pagination.totalPages.value"
+          :total-elements="pagination.totalElements.value"
+          :has-prev="pagination.hasPrev.value"
+          :has-next="pagination.hasNext.value"
+          :page-label="pagination.pageLabel.value"
+          @prev="goSearchPrev()"
+          @next="goSearchNext()"
+        />
       </template>
     </div>
   </div>

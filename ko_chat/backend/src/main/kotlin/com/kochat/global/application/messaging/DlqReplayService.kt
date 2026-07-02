@@ -1,7 +1,7 @@
 package com.kochat.global.application.messaging
 
 import com.kochat.adapter.outbound.persistence.messaging.DlqEventJpaRepository
-import com.kochat.adapter.outbound.persistence.messaging.DlqEventStatus
+import com.kochat.domain.messaging.model.DlqEventStatus
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service

@@ -11,6 +11,7 @@ const AdminChatRoomsView = () => import('../views/AdminChatRoomsView.vue')
 const AdminStatisticsView = () => import('../views/AdminStatisticsView.vue')
 const AdminMessagingView = () => import('../views/AdminMessagingView.vue')
 const AdminUsersView = () => import('../views/AdminUsersView.vue')
+const AdminSurveysView = () => import('../views/AdminSurveysView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -67,6 +68,12 @@ const router = createRouter({
       path: '/admin/messaging',
       name: 'admin-messaging',
       component: AdminMessagingView,
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/surveys',
+      name: 'admin-surveys',
+      component: AdminSurveysView,
       meta: { requiresAuth: true, requiresAdmin: true },
     },
     {

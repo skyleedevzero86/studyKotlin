@@ -18,6 +18,9 @@ import { addFriend, blockUser, searchUsers } from '../api/userApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import WebRtcPanel from './WebRtcPanel.vue'
 import ChatMessageContent from './ChatMessageContent.vue'
+import SurveyPanel from './SurveyPanel.vue'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type {
   ChatRoom,
   ChatRoomMember,
@@ -33,6 +36,7 @@ const props = defineProps<{
   token: string
   chatRoom: ChatRoom
   currentUserId: number
+  isAdmin?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -52,6 +56,9 @@ const membersLoading = ref(false)
 const showMembers = ref(false)
 const showMemberOverlay = ref(false)
 const showRoomMenu = ref(false)
+const showSurveyPanel = ref(false)
+const memberPagination = usePagination(20)
+const invitePagination = usePagination(10)
 const memberSearchQuery = ref('')
 const actionUserId = ref<number | null>(null)
 const inviteQuery = ref('')
@@ -143,7 +150,14 @@ const loadMessages = async () => {
 const loadMembers = async () => {
   membersLoading.value = true
   try {
-    members.value = await getChatRoomMembers(props.token, props.chatRoom.id)
+    const page = await getChatRoomMembers(
+      props.token,
+      props.chatRoom.id,
+      memberPagination.page.value,
+      memberPagination.size.value,
+    )
+    members.value = page.content
+    memberPagination.applyPageResponse(page)
   } catch (error) {
     emit('error', resolveError(error, '참여자 목록을 불러오지 못했습니다'))
   } finally {
@@ -159,11 +173,17 @@ const loadInviteCandidates = async () => {
 
   inviteLoading.value = true
   try {
-    const results = await searchUsers(props.token, inviteQuery.value)
+    const page = await searchUsers(
+      props.token,
+      inviteQuery.value,
+      invitePagination.page.value,
+      invitePagination.size.value,
+    )
     const activeMemberIds = new Set(members.value.map((member) => member.user.id))
-    inviteResults.value = results.filter(
+    inviteResults.value = page.content.filter(
       (user) => user.id !== props.currentUserId && !activeMemberIds.has(user.id),
     )
+    invitePagination.applyPageResponse(page)
   } catch (error) {
     emit('error', resolveError(error, '초대할 사용자를 검색하지 못했습니다'))
   } finally {
@@ -488,6 +508,10 @@ const canManageRoom = computed(
   () => props.chatRoom.type !== 'DIRECT' && props.chatRoom.createdBy.id === props.currentUserId,
 )
 
+const canManageSurvey = computed(
+  () => canManageRoom.value || props.isAdmin === true,
+)
+
 const formatTime = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -540,6 +564,15 @@ const toggleRoomMenu = () => {
   showMemberOverlay.value = false
 }
 
+const openSurveyPanel = () => {
+  showRoomMenu.value = false
+  showSurveyPanel.value = true
+}
+
+const closeSurveyPanel = () => {
+  showSurveyPanel.value = false
+}
+
 const openManagePanel = async () => {
   showRoomMenu.value = false
   showMembers.value = true
@@ -564,6 +597,9 @@ watch(
     showMembers.value = false
     showMemberOverlay.value = false
     showRoomMenu.value = false
+    showSurveyPanel.value = false
+    memberPagination.resetPage()
+    invitePagination.resetPage()
     showInputSubmenu.value = false
     memberSearchQuery.value = ''
     members.value = []
@@ -601,10 +637,23 @@ watch(inviteQuery, () => {
   if (!showMembers.value || !canManageRoom.value) {
     return
   }
+  invitePagination.resetPage()
   clearTimeout(inviteSearchDebounce)
   inviteSearchDebounce = setTimeout(() => {
     void loadInviteCandidates()
   }, 300)
+})
+
+watch(() => memberPagination.page.value, () => {
+  if (showMembers.value || showMemberOverlay.value) {
+    void loadMembers()
+  }
+})
+
+watch(() => invitePagination.page.value, () => {
+  if (inviteQuery.value.trim() && showMembers.value && canManageRoom.value) {
+    void loadInviteCandidates()
+  }
 })
 
 watch(wsError, (value) => {
@@ -627,7 +676,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="chat-window">
+  <div class="chat-window-layout">
+  <section class="chat-window" :class="{ 'with-survey': showSurveyPanel }">
     <header class="sleekydz86-chat-header">
       <div class="sleekydz86-chat-header-main">
         <h2 class="sleekydz86-chat-title">{{ roomTitle }}</h2>
@@ -649,6 +699,7 @@ onBeforeUnmount(() => {
         <button v-if="canManageRoom" type="button" @click="showSettings = !showSettings; showRoomMenu = false">
           설정
         </button>
+        <button type="button" @click="openSurveyPanel">설문조사</button>
         <button v-if="canLeaveRoom" type="button" :disabled="leaveLoading" @click="handleLeaveRoom">
           {{ leaveLoading ? '처리 중...' : '나가기' }}
         </button>
@@ -767,6 +818,17 @@ onBeforeUnmount(() => {
               <span>@{{ user.username }}</span>
             </button>
           </div>
+          <PaginationBar
+            v-if="inviteResults.length || invitePagination.totalElements.value > 0"
+            :page="invitePagination.page.value"
+            :total-pages="invitePagination.totalPages.value"
+            :total-elements="invitePagination.totalElements.value"
+            :has-prev="invitePagination.hasPrev.value"
+            :has-next="invitePagination.hasNext.value"
+            :page-label="invitePagination.pageLabel.value"
+            @prev="invitePagination.goPrev()"
+            @next="invitePagination.goNext()"
+          />
         </div>
       </div>
 
@@ -805,6 +867,17 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
+        <PaginationBar
+          v-if="members.length || memberPagination.totalElements.value > 0"
+          :page="memberPagination.page.value"
+          :total-pages="memberPagination.totalPages.value"
+          :total-elements="memberPagination.totalElements.value"
+          :has-prev="memberPagination.hasPrev.value"
+          :has-next="memberPagination.hasNext.value"
+          :page-label="memberPagination.pageLabel.value"
+          @prev="memberPagination.goPrev()"
+          @next="memberPagination.goNext()"
+        />
       </div>
     </div>
 
@@ -936,4 +1009,18 @@ onBeforeUnmount(() => {
       </div>
     </form>
   </section>
+  <aside v-if="showSurveyPanel" class="chat-survey-aside">
+    <SurveyPanel
+      :token="token"
+      :room-id="chatRoom.id"
+      :can-manage="canManageSurvey"
+      :current-user-id="currentUserId"
+      @close="closeSurveyPanel"
+      @notice="emit('notice', $event)"
+      @error="emit('error', $event)"
+    />
+  </aside>
+  </div>
 </template>
+
+<style scoped src="../styles/components/ChatWindow.css"></style>

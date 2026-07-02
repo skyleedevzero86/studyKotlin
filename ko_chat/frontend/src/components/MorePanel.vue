@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ApiError } from '../api/http'
 import { fetchBlocks, unblockUser } from '../api/userApi'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type { UserRelationshipResponse } from '../types/user'
 
 const props = defineProps<{
@@ -16,11 +18,13 @@ const emit = defineEmits<{
   goAdminChatRooms: []
   goAdminStatistics: []
   goAdminMessaging: []
+  goAdminSurveys: []
 }>()
 
 const blocks = ref<UserRelationshipResponse[]>([])
 const loading = ref(false)
 const actionUserId = ref<number | null>(null)
+const pagination = usePagination(10)
 
 const resolveError = (error: unknown, fallback: string): string => {
   if (error instanceof ApiError) return error.message
@@ -34,7 +38,9 @@ const userLabel = (user: UserRelationshipResponse['user']) =>
 const loadBlocks = async () => {
   loading.value = true
   try {
-    blocks.value = await fetchBlocks(props.token)
+    const page = await fetchBlocks(props.token, pagination.page.value, pagination.size.value)
+    blocks.value = page.content
+    pagination.applyPageResponse(page)
   } catch (error) {
     emit('error', resolveError(error, '차단 목록을 불러오지 못했습니다'))
   } finally {
@@ -55,6 +61,10 @@ const handleUnblock = async (userId: number) => {
 }
 
 onMounted(() => {
+  void loadBlocks()
+})
+
+watch(() => pagination.page.value, () => {
   void loadBlocks()
 })
 
@@ -103,6 +113,14 @@ defineExpose({ loadBlocks })
       >
         관리자 · 메시징 운영
       </button>
+      <button
+        v-if="isAdmin"
+        type="button"
+        class="sleekydz86-more-menu-item"
+        @click="emit('goAdminSurveys')"
+      >
+        관리자 · 설문조사
+      </button>
     </div>
 
     <section class="sleekydz86-more-section">
@@ -125,6 +143,17 @@ defineExpose({ loadBlocks })
           </button>
         </div>
       </div>
+      <PaginationBar
+        v-if="blocks.length || pagination.totalElements.value > 0"
+        :page="pagination.page.value"
+        :total-pages="pagination.totalPages.value"
+        :total-elements="pagination.totalElements.value"
+        :has-prev="pagination.hasPrev.value"
+        :has-next="pagination.hasNext.value"
+        :page-label="pagination.pageLabel.value"
+        @prev="pagination.goPrev()"
+        @next="pagination.goNext()"
+      />
     </section>
   </div>
 </template>

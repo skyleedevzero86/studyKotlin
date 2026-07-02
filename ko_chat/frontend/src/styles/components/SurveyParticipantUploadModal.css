@@ -1,0 +1,27 @@
+.upload-modal {
+  max-width: 520px;
+}
+
+.upload-modal input[type='file'] {
+  width: 100%;
+  margin: 12px 0;
+}
+
+.upload-result {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.upload-result ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.upload-result li.failed {
+  color: #b91c1c;
+}

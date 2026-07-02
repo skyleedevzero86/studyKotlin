@@ -162,28 +162,4 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
-<style scoped>
-.stats-chart-wrap {
-  position: relative;
-  width: 100%;
-  height: 320px;
-  margin-bottom: 16px;
-  padding: 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.stats-chart-wrap canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.stats-chart-empty {
-  margin: 0;
-  color: #6b7280;
-  text-align: center;
-  padding-top: 120px;
-}
-</style>
+<style scoped src="../styles/components/StatisticsBarChart.css"></style>

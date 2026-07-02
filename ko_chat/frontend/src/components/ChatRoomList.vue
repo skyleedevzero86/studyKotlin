@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { createChatRoom, findOrCreateDirectRoom, getChatRooms, searchChatRooms } from '../api/chatApi'
 import { ApiError } from '../api/http'
 import OpenChatSearchPanel from './OpenChatSearchPanel.vue'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type { ChatRoom, ChatUser, CreateChatRoomRequest, ChatMediaMode } from '../types/chat'
 
 const props = defineProps<{
@@ -21,13 +23,12 @@ const emit = defineEmits<{
 
 type RoomFilter = 'all' | 'unread'
 
-const ROOM_PAGE_SIZE = 30
+const ROOM_PAGE_SIZE = 20
+const pagination = usePagination(ROOM_PAGE_SIZE)
+const searchPagination = usePagination(ROOM_PAGE_SIZE)
 
 const chatRooms = ref<ChatRoom[]>([])
 const loading = ref(true)
-const roomsLoadingMore = ref(false)
-const roomsPage = ref(0)
-const roomsHasMore = ref(false)
 const roomFilter = ref<RoomFilter>('all')
 const showCreateModal = ref(false)
 const showOpenChatSearch = ref(false)
@@ -80,46 +81,41 @@ const avatarColor = (room: ChatRoom) => {
   return palette[room.id % palette.length]
 }
 
-const loadChatRooms = async (reset = true) => {
-  if (reset) {
-    loading.value = true
-    roomsPage.value = 0
-    chatRooms.value = []
-  } else {
-    roomsLoadingMore.value = true
-  }
-
+const loadChatRooms = async () => {
+  loading.value = true
   try {
-    const response = await getChatRooms(props.token, roomsPage.value, ROOM_PAGE_SIZE)
-    if (reset) {
-      chatRooms.value = response.content
-    } else {
-      chatRooms.value = [...chatRooms.value, ...response.content]
-    }
-    roomsHasMore.value = !response.last
+    const response = await getChatRooms(
+      props.token,
+      pagination.page.value,
+      pagination.size.value,
+    )
+    chatRooms.value = response.content
+    pagination.applyPageResponse(response)
   } catch (error) {
     emit('error', resolveError(error, '채팅방 목록을 불러오지 못했습니다'))
   } finally {
     loading.value = false
-    roomsLoadingMore.value = false
   }
-}
-
-const loadMoreChatRooms = async () => {
-  if (!roomsHasMore.value || roomsLoadingMore.value || loading.value) return
-  roomsPage.value += 1
-  await loadChatRooms(false)
 }
 
 const loadRoomSearch = async () => {
   const query = roomSearchQuery.value.trim()
   if (!query) {
     roomSearchResults.value = []
+    searchPagination.totalElements.value = 0
+    searchPagination.totalPages.value = 0
     return
   }
   roomSearchLoading.value = true
   try {
-    roomSearchResults.value = await searchChatRooms(props.token, query)
+    const response = await searchChatRooms(
+      props.token,
+      query,
+      searchPagination.page.value,
+      searchPagination.size.value,
+    )
+    roomSearchResults.value = response.content
+    searchPagination.applyPageResponse(response)
   } catch (error) {
     emit('error', resolveError(error, '채팅방 검색에 실패했습니다'))
   } finally {
@@ -161,7 +157,8 @@ const handleCreateRoom = async () => {
       mediaMode: newRoomData.value.mediaMode ?? 'TEXT',
     }
     const newRoom = await createChatRoom(props.token, payload)
-    await loadChatRooms(true)
+    pagination.resetPage()
+    await loadChatRooms()
     showCreateModal.value = false
     newRoomData.value = {
       name: '',
@@ -245,12 +242,14 @@ const openRoomSearch = () => {
   showRoomSearch.value = true
   roomSearchQuery.value = ''
   roomSearchResults.value = []
+  searchPagination.resetPage()
 }
 
 const closeRoomSearch = () => {
   showRoomSearch.value = false
   roomSearchQuery.value = ''
   roomSearchResults.value = []
+  searchPagination.resetPage()
 }
 
 watch(totalUnreadCount, (count) => {
@@ -260,13 +259,30 @@ watch(totalUnreadCount, (count) => {
 watch(
   () => props.refreshKey,
   () => {
-    void loadChatRooms(true)
+    void loadChatRooms()
   },
 )
+
+watch(() => pagination.page.value, () => {
+  if (!showRoomSearch.value) {
+    void loadChatRooms()
+  }
+})
+
+const goRoomSearchPrev = () => {
+  searchPagination.goPrev()
+  void loadRoomSearch()
+}
+
+const goRoomSearchNext = () => {
+  searchPagination.goNext()
+  void loadRoomSearch()
+}
 
 let roomSearchDebounce: ReturnType<typeof setTimeout> | undefined
 watch(roomSearchQuery, () => {
   if (!showRoomSearch.value) return
+  searchPagination.resetPage()
   clearTimeout(roomSearchDebounce)
   roomSearchDebounce = setTimeout(() => {
     void loadRoomSearch()
@@ -274,7 +290,7 @@ watch(roomSearchQuery, () => {
 })
 
 onMounted(() => {
-  void loadChatRooms(true)
+  void loadChatRooms()
 })
 
 defineExpose({ loadChatRooms, totalUnreadCount })
@@ -358,15 +374,29 @@ defineExpose({ loadChatRooms, totalUnreadCount })
         </div>
       </button>
 
-      <button
-        v-if="!showRoomSearch && roomsHasMore"
-        type="button"
-        class="load-more-button"
-        :disabled="roomsLoadingMore"
-        @click="loadMoreChatRooms"
-      >
-        {{ roomsLoadingMore ? '불러오는 중...' : '대화 더 보기' }}
-      </button>
+      <PaginationBar
+        v-if="showRoomSearch && roomSearchQuery.trim() && (roomSearchResults.length || searchPagination.totalElements.value > 0)"
+        :page="searchPagination.page.value"
+        :total-pages="searchPagination.totalPages.value"
+        :total-elements="searchPagination.totalElements.value"
+        :has-prev="searchPagination.hasPrev.value"
+        :has-next="searchPagination.hasNext.value"
+        :page-label="searchPagination.pageLabel.value"
+        @prev="goRoomSearchPrev()"
+        @next="goRoomSearchNext()"
+      />
+
+      <PaginationBar
+        v-if="!showRoomSearch && (chatRooms.length || pagination.totalElements.value > 0)"
+        :page="pagination.page.value"
+        :total-pages="pagination.totalPages.value"
+        :total-elements="pagination.totalElements.value"
+        :has-prev="pagination.hasPrev.value"
+        :has-next="pagination.hasNext.value"
+        :page-label="pagination.pageLabel.value"
+        @prev="pagination.goPrev()"
+        @next="pagination.goNext()"
+      />
     </div>
 
     <div v-if="showOpenChatSearch" class="sleekydz86-fullscreen-overlay">

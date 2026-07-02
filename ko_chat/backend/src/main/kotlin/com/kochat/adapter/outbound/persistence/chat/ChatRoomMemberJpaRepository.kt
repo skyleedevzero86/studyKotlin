@@ -8,6 +8,11 @@ import java.util.Optional
 interface ChatRoomMemberJpaRepository : CrudRepository<ChatRoomMemberJpaEntity, Long> {
     fun findByChatRoomIdAndIsActiveTrue(chatRoomId: Long): List<ChatRoomMemberJpaEntity>
 
+    fun findByChatRoomIdAndIsActiveTrue(
+        chatRoomId: Long,
+        pageable: org.springframework.data.domain.Pageable,
+    ): org.springframework.data.domain.Page<ChatRoomMemberJpaEntity>
+
     fun findByChatRoomIdAndUserIdAndIsActiveTrue(chatRoomId: Long, userId: Long): Optional<ChatRoomMemberJpaEntity>
 
     fun findByChatRoomIdAndUserId(chatRoomId: Long, userId: Long): Optional<ChatRoomMemberJpaEntity>

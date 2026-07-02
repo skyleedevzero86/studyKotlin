@@ -1,0 +1,146 @@
+.admin-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-tabs button {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.admin-tabs button.active {
+  background: #5b8def;
+  color: #fff;
+  border-color: #5b8def;
+}
+
+.admin-error {
+  color: #dc2626;
+  margin-bottom: 12px;
+}
+
+.admin-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.random-input {
+  width: 60px;
+}
+
+.admin-form label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.admin-form input,
+.admin-form textarea,
+.admin-form select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.question-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.primary {
+  background: #5b8def;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.stats-subtabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0;
+}
+
+.stats-subtabs button {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.stats-subtabs button.active {
+  background: #5b8def;
+  color: #fff;
+}
+
+.stat-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.empty-cell {
+  text-align: center;
+  color: #6b7280;
+}
+
+.admin-filter input[type='search'],
+.admin-filter input[type='date'] {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.admin-export-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}

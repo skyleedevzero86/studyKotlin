@@ -47,8 +47,11 @@ class AdminChatController(
     @Operation(summary = "채팅방 멤버 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}/members")
-    fun getMembers(@PathVariable id: Long): ResponseEntity<List<ChatRoomMemberDto>> =
-        ResponseEntity.ok(chatService.getChatRoomMembers(id))
+    fun getMembers(
+        @PathVariable id: Long,
+        @PageableDefault(size = 20) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomMemberDto>> =
+        ResponseEntity.ok(chatService.getChatRoomMembers(id, pageable))
 
     @Operation(summary = "관리자 강제 퇴장")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)

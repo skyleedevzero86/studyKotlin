@@ -29,7 +29,10 @@ export const findOrCreateDirectRoom = (
 
 export const getPendingChatInvitations = (
   token: string,
-): Promise<ChatRoomInvitation[]> => getJson(`${chatPath}/invitations/pending`, token)
+  page = 0,
+  size = 10,
+): Promise<PageResponse<ChatRoomInvitation>> =>
+  getJson(`${chatPath}/invitations/pending?page=${page}&size=${size}`, token)
 
 export const inviteToChatRoom = (
   token: string,
@@ -79,7 +82,10 @@ export const getChatRoom = (token: string, chatRoomId: number): Promise<ChatRoom
 export const getChatRoomMembers = (
   token: string,
   chatRoomId: number,
-): Promise<ChatRoomMember[]> => getJson(`${chatPath}/${chatRoomId}/members`, token)
+  page = 0,
+  size = 20,
+): Promise<PageResponse<ChatRoomMember>> =>
+  getJson(`${chatPath}/${chatRoomId}/members?page=${page}&size=${size}`, token)
 
 export const joinChatRoom = (
   token: string,
@@ -129,8 +135,13 @@ export const getRecommendedChatRooms = (
 export const searchChatRooms = (
   token: string,
   query: string,
-): Promise<ChatRoom[]> =>
-  getJson(`${chatPath}/search?q=${encodeURIComponent(query)}`, token)
+  page = 0,
+  size = 20,
+): Promise<PageResponse<ChatRoom>> =>
+  getJson(
+    `${chatPath}/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`,
+    token,
+  )
 
 export const getMessages = (
   token: string,
@@ -185,7 +196,10 @@ export const getAdminChatRooms = (
 export const getAdminChatRoomMembers = (
   token: string,
   chatRoomId: number,
-): Promise<ChatRoomMember[]> => getJson(`${adminChatPath}/${chatRoomId}/members`, token)
+  page = 0,
+  size = 20,
+): Promise<PageResponse<ChatRoomMember>> =>
+  getJson(`${adminChatPath}/${chatRoomId}/members?page=${page}&size=${size}`, token)
 
 export const adminKickChatRoomMember = (
   token: string,

@@ -1,9 +1,11 @@
-﻿package com.kochat.global.application.user
+package com.kochat.global.application.user
 
 import com.kochat.domain.user.model.User
 import com.kochat.domain.user.port.out.UserPersistencePort
 import com.kochat.global.crypto.AesEncryptionService
 import com.kochat.global.util.KoreanDateTimeFormatter
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
@@ -20,6 +22,10 @@ class AdminUserQueryService(
     @Transactional(readOnly = true)
     fun findAllUserSummaries(): List<UserSummaryResponse> =
         userPersistencePort.findAll().map { it.toEncryptedSummary() }
+
+    @Transactional(readOnly = true)
+    fun findUserSummaries(pageable: Pageable): Page<UserSummaryResponse> =
+        userPersistencePort.findAll(pageable).map { it.toEncryptedSummary() }
 
     private fun User.toEncryptedSummary(): UserSummaryResponse {
         val now = Instant.now()

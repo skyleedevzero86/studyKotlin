@@ -44,7 +44,7 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         ORDER BY cr.updatedAt DESC
         """,
     )
-    fun searchUserChatRooms(userId: Long, query: String): List<ChatRoomJpaEntity>
+    fun searchUserChatRooms(userId: Long, query: String, pageable: Pageable): Page<ChatRoomJpaEntity>
 
     @Query(
         """

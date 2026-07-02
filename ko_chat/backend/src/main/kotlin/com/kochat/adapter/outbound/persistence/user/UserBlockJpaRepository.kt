@@ -10,7 +10,17 @@ interface UserBlockJpaRepository : JpaRepository<UserBlockJpaEntity, Long> {
 
     fun findByBlockerIdAndIsActiveTrueOrderByBlockedAtDesc(blockerId: Long): List<UserBlockJpaEntity>
 
+    fun findByBlockerIdAndIsActiveTrueOrderByBlockedAtDesc(
+        blockerId: Long,
+        pageable: org.springframework.data.domain.Pageable,
+    ): org.springframework.data.domain.Page<UserBlockJpaEntity>
+
     fun findByBlockerIdOrderByBlockedAtDesc(blockerId: Long): List<UserBlockJpaEntity>
+
+    fun findByBlockerIdOrderByBlockedAtDesc(
+        blockerId: Long,
+        pageable: org.springframework.data.domain.Pageable,
+    ): org.springframework.data.domain.Page<UserBlockJpaEntity>
 
     fun existsByBlockerIdAndBlockedIdAndIsActiveTrue(blockerId: Long, blockedId: Long): Boolean
 

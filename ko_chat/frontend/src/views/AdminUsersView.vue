@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import PaginationBar from '../components/PaginationBar.vue'
 import { useAdminUsers } from '../composables/useAdminUsers'
 import { useAuth } from '../composables/useAuth'
+import { usePagination } from '../composables/usePagination'
 import { formatRole, formatStatus, ROLE_OPTIONS } from '../utils/labels'
 
 const router = useRouter()
 const { accessToken, logout, isAdmin } = useAuth()
+const pagination = usePagination(20)
 const {
   users,
   isLoading,
@@ -38,13 +41,29 @@ const newUserForm = reactive({
 
 const editingUser = ref<{ username: string; displayName: string } | null>(null)
 
+const reloadUsers = async () => {
+  if (!accessToken.value) return
+  const response = await loadUsers(
+    accessToken.value,
+    pagination.page.value,
+    pagination.size.value,
+  )
+  if (response) pagination.applyPageResponse(response)
+}
+
 onMounted(async () => {
   if (!accessToken.value || !isAdmin.value) {
     await router.push({ name: 'home' })
     return
   }
-  await loadUsers(accessToken.value)
+  await reloadUsers()
 })
+
+watch(() => pagination.page.value, () => {
+  void reloadUsers()
+})
+
+const pageArgs = () => [pagination.page.value, pagination.size.value] as const
 
 const token = () => accessToken.value ?? ''
 
@@ -89,7 +108,7 @@ const handleAddUser = async () => {
     displayName: newUserForm.displayName.trim() || null,
     role: newUserForm.role,
     activateImmediately: newUserForm.activateImmediately,
-  })
+  }, ...pageArgs())
   newUserForm.username = ''
   newUserForm.password = ''
   newUserForm.displayName = ''
@@ -103,33 +122,33 @@ const run = async (fn: () => Promise<void>) => {
 const handleApprove = (username: string) =>
   run(async () => {
     const role = confirm('관리자 권한으로 승인할까요? (취소=일반 사용자)') ? 'ADMIN' : 'USER'
-    await approve(token(), username, role)
+    await approve(token(), username, role, ...pageArgs())
   })
 
 const handleChangeRole = (username: string) =>
   run(async () => {
     const role = confirm('관리자 권한으로 변경할까요? (취소=일반 사용자)') ? 'ADMIN' : 'USER'
-    await changeRole(token(), username, role)
+    await changeRole(token(), username, role, ...pageArgs())
   })
 
 const handleDelete = (username: string) =>
   run(async () => {
     if (confirm(`'${username}' 회원을 영구 삭제할까요?`)) {
-      await remove(token(), username)
+      await remove(token(), username, ...pageArgs())
     }
   })
 
 const handleRestore = (username: string) =>
   run(async () => {
     if (confirm(`'${username}' 회원을 복구할까요? 정상 이용 상태로 되돌리고 로그인할 수 있습니다.`)) {
-      await restore(token(), username)
+      await restore(token(), username, ...pageArgs())
     }
   })
 
 const handleWithdraw = (username: string) =>
   run(async () => {
     if (confirm(`'${username}' 회원을 탈퇴 처리할까요?`)) {
-      await withdraw(token(), username)
+      await withdraw(token(), username, ...pageArgs())
     }
   })
 
@@ -143,7 +162,7 @@ const closeEditProfile = () => {
 
 const saveEditProfile = async () => {
   if (!token() || !editingUser.value) return
-  await updateProfile(token(), editingUser.value.username, editingUser.value.displayName.trim() || null)
+  await updateProfile(token(), editingUser.value.username, editingUser.value.displayName.trim() || null, ...pageArgs())
   editingUser.value = null
 }
 
@@ -237,13 +256,13 @@ const formatStatusValue = (username: string): string => {
                 <template v-if="user.revealed && user.sensitive">
                   <button type="button" @click="openEditProfile(user.username, user.sensitive.displayName)">정보수정</button>
                   <button v-if="user.sensitive.status === 'PENDING'" type="button" @click="handleApprove(user.username)">승인</button>
-                  <button v-if="user.sensitive.status === 'ACTIVE'" type="button" @click="run(() => suspend(token(), user.username))">정지</button>
+                  <button v-if="user.sensitive.status === 'ACTIVE'" type="button" @click="run(() => suspend(token(), user.username, ...pageArgs()))">정지</button>
                   <button v-if="['WITHDRAWN', 'SUSPENDED'].includes(user.sensitive.status)" type="button" @click="handleRestore(user.username)">복구</button>
-                  <button v-if="user.sensitive.status === 'PASSWORD_LOCKED'" type="button" @click="run(() => unlock(token(), user.username))">잠금해제</button>
+                  <button v-if="user.sensitive.status === 'PASSWORD_LOCKED'" type="button" @click="run(() => unlock(token(), user.username, ...pageArgs()))">잠금해제</button>
                   <button type="button" @click="handleChangeRole(user.username)">권한</button>
                   <button type="button" @click="handleWithdraw(user.username)">탈퇴</button>
-                  <button type="button" @click="run(() => resetPwdFail(token(), user.username))">변경실패초기화</button>
-                  <button type="button" @click="run(() => resetLoginFail(token(), user.username))">로그인실패초기화</button>
+                  <button type="button" @click="run(() => resetPwdFail(token(), user.username, ...pageArgs()))">변경실패초기화</button>
+                  <button type="button" @click="run(() => resetLoginFail(token(), user.username, ...pageArgs()))">로그인실패초기화</button>
                   <button type="button" class="danger" @click="handleDelete(user.username)">삭제</button>
                 </template>
                 <span v-else class="hint">더블클릭</span>
@@ -251,6 +270,16 @@ const formatStatusValue = (username: string): string => {
             </tr>
           </tbody>
         </table>
+        <PaginationBar
+          :page="pagination.page.value"
+          :total-pages="pagination.totalPages.value"
+          :total-elements="pagination.totalElements.value"
+          :has-prev="pagination.hasPrev.value"
+          :has-next="pagination.hasNext.value"
+          :page-label="pagination.pageLabel.value"
+          @prev="pagination.goPrev()"
+          @next="pagination.goNext()"
+        />
       </div>
 
       <p class="hint">더블클릭: 민감 정보 표시 / 다시 더블클릭: 숨김</p>

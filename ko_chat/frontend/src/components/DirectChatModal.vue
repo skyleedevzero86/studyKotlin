@@ -3,6 +3,8 @@ import { onMounted, ref, watch } from 'vue'
 import { findOrCreateDirectRoom } from '../api/chatApi'
 import { searchUsers } from '../api/userApi'
 import { ApiError } from '../api/http'
+import PaginationBar from './PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import type { ChatRoom, ChatUser } from '../types/chat'
 
 const props = defineProps<{
@@ -20,6 +22,7 @@ const users = ref<ChatUser[]>([])
 const searchQuery = ref('')
 const loading = ref(false)
 const startingUserId = ref<number | null>(null)
+const pagination = usePagination(15)
 
 const resolveError = (error: unknown, fallback: string): string => {
   if (error instanceof ApiError) {
@@ -36,12 +39,29 @@ const userLabel = (user: ChatUser): string => user.displayName ?? user.username
 const loadUsers = async () => {
   loading.value = true
   try {
-    users.value = await searchUsers(props.token, searchQuery.value)
+    const response = await searchUsers(
+      props.token,
+      searchQuery.value,
+      pagination.page.value,
+      pagination.size.value,
+    )
+    users.value = response.content
+    pagination.applyPageResponse(response)
   } catch (error) {
     emit('error', resolveError(error, '사용자 목록을 불러올 수 없습니다'))
   } finally {
     loading.value = false
   }
+}
+
+const goUsersPrev = () => {
+  pagination.goPrev()
+  void loadUsers()
+}
+
+const goUsersNext = () => {
+  pagination.goNext()
+  void loadUsers()
 }
 
 const handleStartChat = async (user: ChatUser) => {
@@ -62,6 +82,7 @@ watch(
   (isOpen) => {
     if (isOpen) {
       searchQuery.value = ''
+      pagination.resetPage()
       void loadUsers()
     }
   },
@@ -69,6 +90,7 @@ watch(
 
 watch(searchQuery, () => {
   if (props.open) {
+    pagination.resetPage()
     void loadUsers()
   }
 })
@@ -114,6 +136,18 @@ onMounted(() => {
           </span>
         </button>
       </div>
+
+      <PaginationBar
+        v-if="users.length || pagination.totalElements.value > 0"
+        :page="pagination.page.value"
+        :total-pages="pagination.totalPages.value"
+        :total-elements="pagination.totalElements.value"
+        :has-prev="pagination.hasPrev.value"
+        :has-next="pagination.hasNext.value"
+        :page-label="pagination.pageLabel.value"
+        @prev="goUsersPrev()"
+        @next="goUsersNext()"
+      />
 
       <div class="modal-actions">
         <button type="button" class="secondary" @click="emit('close')">닫기</button>

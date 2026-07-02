@@ -1,0 +1,5 @@
+﻿export type SurveyStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED'
+export type QuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'TEXT'
+export type TargetMode = 'ALL_MEMBERS' | 'SELECTED' | 'RANDOM'
+export type ParticipantStatus = 'PENDING' | 'COMPLETED'
+export type StatisticsTab = 'by-question' | 'by-participant' | 'by-room'

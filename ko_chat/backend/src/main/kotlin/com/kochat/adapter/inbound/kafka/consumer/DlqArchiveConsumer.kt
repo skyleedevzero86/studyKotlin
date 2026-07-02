@@ -2,7 +2,7 @@ package com.kochat.adapter.inbound.kafka.consumer
 
 import com.kochat.adapter.outbound.persistence.messaging.DlqEventJpaEntity
 import com.kochat.adapter.outbound.persistence.messaging.DlqEventJpaRepository
-import com.kochat.adapter.outbound.persistence.messaging.DlqEventStatus
+import com.kochat.domain.messaging.model.DlqEventStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty

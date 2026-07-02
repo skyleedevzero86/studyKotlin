@@ -1,39 +1,18 @@
 package com.kochat.global.application.messaging
 
 import com.kochat.adapter.outbound.persistence.messaging.DlqEventJpaRepository
-import com.kochat.adapter.outbound.persistence.messaging.DlqEventStatus
 import com.kochat.adapter.outbound.persistence.messaging.ProcessedEventJpaRepository
 import com.kochat.adapter.outbound.persistence.outbox.OutboxEventJpaRepository
+import com.kochat.domain.messaging.model.DlqEventStatus
 import com.kochat.domain.messaging.model.OutboxEventStatus
+import com.kochat.global.application.messaging.dto.DlqStatusSnapshot
+import com.kochat.global.application.messaging.dto.MessagingOperationsSnapshot
+import com.kochat.global.application.messaging.dto.OutboxStatusSnapshot
+import com.kochat.global.application.messaging.dto.ProcessedEventSnapshot
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
-
-data class OutboxStatusSnapshot(
-    val pending: Long,
-    val published: Long,
-    val failed: Long,
-)
-
-data class ProcessedEventSnapshot(
-    val total: Long,
-    val byConsumer: Map<String, Long>,
-)
-
-data class DlqStatusSnapshot(
-    val open: Long,
-    val replayed: Long,
-)
-
-data class MessagingOperationsSnapshot(
-    val outbox: OutboxStatusSnapshot,
-    val processedEvents: ProcessedEventSnapshot,
-    val dlq: DlqStatusSnapshot,
-    val consumerLag: List<ConsumerLagSnapshot>,
-    val lagHealthy: Boolean,
-    val checkedAt: LocalDateTime,
-)
 
 @Service
 @ConditionalOnProperty(prefix = "app.kafka", name = ["enabled"], havingValue = "true")

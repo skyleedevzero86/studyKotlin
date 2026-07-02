@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMessagingOperations, requeueFailedOutbox } from '../api/messagingApi'
+import PaginationBar from '../components/PaginationBar.vue'
+import { usePagination } from '../composables/usePagination'
 import { useAuth } from '../composables/useAuth'
 import type { MessagingOperationsSnapshot } from '../types/messaging'
+import { paginateArray } from '../utils/paginateArray'
 import { resolveApiError } from '../utils/resolveApiError'
+
+const LAG_PAGE_SIZE = 15
+const lagPagination = usePagination(LAG_PAGE_SIZE)
 
 const router = useRouter()
 const { accessToken, logout, isAdmin } = useAuth()
@@ -15,12 +21,35 @@ const isActing = ref(false)
 const errorMessage = ref<string | null>(null)
 const actionMessage = ref<string | null>(null)
 
+const lagRows = computed(() => snapshot.value?.consumerLag ?? [])
+const pagedLagRows = computed(() =>
+  paginateArray(lagRows.value, lagPagination.page.value, lagPagination.size.value),
+)
+
+const syncLagPagination = () => {
+  const total = lagRows.value.length
+  lagPagination.totalElements.value = total
+  lagPagination.totalPages.value = Math.max(1, Math.ceil(total / lagPagination.size.value))
+  if (lagPagination.page.value > 0 && lagPagination.page.value >= lagPagination.totalPages.value) {
+    lagPagination.resetPage()
+  }
+}
+
+const goLagPrev = () => {
+  lagPagination.goPrev()
+}
+
+const goLagNext = () => {
+  lagPagination.goNext()
+}
+
 const loadSnapshot = async () => {
   if (!accessToken.value) return
   isLoading.value = true
   errorMessage.value = null
   try {
     snapshot.value = await getMessagingOperations(accessToken.value)
+    syncLagPagination()
   } catch (error) {
     errorMessage.value = resolveApiError(error, '메시징 운영 정보를 불러오지 못했습니다.')
   } finally {
@@ -144,7 +173,7 @@ const handleLogout = async () => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in snapshot.consumerLag" :key="`${row.consumerGroup}-${row.partition}`">
+              <tr v-for="row in pagedLagRows" :key="`${row.consumerGroup}-${row.partition}`">
                 <td>{{ row.consumerGroup }}</td>
                 <td>{{ row.topic }}</td>
                 <td>{{ row.partition }}</td>
@@ -154,65 +183,21 @@ const handleLogout = async () => {
               </tr>
             </tbody>
           </table>
+          <PaginationBar
+            v-if="lagRows.length > LAG_PAGE_SIZE"
+            :page="lagPagination.page.value"
+            :total-pages="lagPagination.totalPages.value"
+            :total-elements="lagPagination.totalElements.value"
+            :has-prev="lagPagination.hasPrev.value"
+            :has-next="lagPagination.hasNext.value"
+            :page-label="lagPagination.pageLabel.value"
+            @prev="goLagPrev()"
+            @next="goLagNext()"
+          />
         </section>
       </template>
     </section>
   </main>
 </template>
 
-<style scoped>
-.messaging-card {
-  max-width: 1200px;
-}
-
-.messaging-toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.messaging-toolbar button {
-  margin-top: 0;
-}
-
-.doc-link {
-  color: #4f46e5;
-  font-size: 0.9rem;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.metric-card {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 16px;
-  background: #fff;
-}
-
-.metric-card.unhealthy {
-  border-color: #ef4444;
-  background: #fef2f2;
-}
-
-.metric-card h2 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-}
-
-.metric-card ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.lag-high {
-  color: #dc2626;
-  font-weight: 700;
-}
-</style>
+<style scoped src="../styles/views/AdminMessagingView.css"></style>

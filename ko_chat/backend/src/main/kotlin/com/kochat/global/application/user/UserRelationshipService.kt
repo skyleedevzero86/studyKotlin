@@ -14,6 +14,8 @@ import com.kochat.adapter.outbound.persistence.user.UserJpaEntity
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.domain.user.model.FriendRequestStatus
 import com.kochat.domain.user.model.UserStatus
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -114,8 +116,16 @@ class UserRelationshipService(
         userBlockJpaRepository.findByBlockerIdAndIsActiveTrueOrderByBlockedAtDesc(blockerId)
             .map { blockToRelationshipDto(it) }
 
+    fun getActiveBlocks(blockerId: Long, pageable: Pageable): Page<UserRelationshipDto> =
+        userBlockJpaRepository.findByBlockerIdAndIsActiveTrueOrderByBlockedAtDesc(blockerId, pageable)
+            .map { blockToRelationshipDto(it) }
+
     fun getBlockHistory(blockerId: Long): List<UserBlockHistoryDto> =
         userBlockJpaRepository.findByBlockerIdOrderByBlockedAtDesc(blockerId)
+            .map { blockToHistoryDto(it) }
+
+    fun getBlockHistory(blockerId: Long, pageable: Pageable): Page<UserBlockHistoryDto> =
+        userBlockJpaRepository.findByBlockerIdOrderByBlockedAtDesc(blockerId, pageable)
             .map { blockToHistoryDto(it) }
 
     fun blockUser(blockerId: Long, blockedId: Long): UserRelationshipDto {

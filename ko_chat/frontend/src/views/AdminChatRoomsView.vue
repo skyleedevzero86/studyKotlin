@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   adminKickChatRoomMember,
   getAdminChatRoomMembers,
   getAdminChatRooms,
 } from '../api/chatApi'
+import PaginationBar from '../components/PaginationBar.vue'
 import { useAuth } from '../composables/useAuth'
+import { usePagination } from '../composables/usePagination'
 import type { ChatRoom, ChatRoomMember } from '../types/chat'
 import { resolveApiError } from '../utils/resolveApiError'
 
 const router = useRouter()
 const { logout, isAdmin, getValidAccessToken } = useAuth()
+const roomPagination = usePagination(20)
+const memberPagination = usePagination(10)
 
 const rooms = ref<ChatRoom[]>([])
 const isLoading = ref(false)
@@ -58,8 +62,13 @@ const loadRooms = async () => {
   isLoading.value = true
   errorMessage.value = null
   try {
-    const page = await getAdminChatRooms(token, 0, 50)
+    const page = await getAdminChatRooms(
+      token,
+      roomPagination.page.value,
+      roomPagination.size.value,
+    )
     rooms.value = page.content
+    roomPagination.applyPageResponse(page)
   } catch (error) {
     errorMessage.value = resolveError(error, '채팅방 목록을 불러오지 못했습니다.')
   } finally {
@@ -73,7 +82,14 @@ const loadMembers = async (roomId: number) => {
   membersLoading.value = true
   errorMessage.value = null
   try {
-    membersByRoom.value[roomId] = await getAdminChatRoomMembers(token, roomId)
+    const page = await getAdminChatRoomMembers(
+      token,
+      roomId,
+      memberPagination.page.value,
+      memberPagination.size.value,
+    )
+    membersByRoom.value[roomId] = page.content
+    memberPagination.applyPageResponse(page)
   } catch (error) {
     errorMessage.value = resolveError(error, '멤버 목록을 불러오지 못했습니다.')
   } finally {
@@ -83,9 +99,8 @@ const loadMembers = async (roomId: number) => {
 
 const openMembers = async (roomId: number) => {
   expandedRoomId.value = roomId
-  if (!membersByRoom.value[roomId]) {
-    await loadMembers(roomId)
-  }
+  memberPagination.resetPage()
+  await loadMembers(roomId)
 }
 
 const closeMembers = () => {
@@ -119,6 +134,16 @@ onMounted(async () => {
     return
   }
   await loadRooms()
+})
+
+watch(() => roomPagination.page.value, () => {
+  void loadRooms()
+})
+
+watch(() => memberPagination.page.value, () => {
+  if (expandedRoomId.value !== null) {
+    void loadMembers(expandedRoomId.value)
+  }
 })
 
 const handleLogout = async () => {
@@ -192,6 +217,16 @@ const goAdminStatistics = async () => router.push({ name: 'admin-statistics' })
           </tbody>
         </table>
         <p v-if="!rooms.length" class="hint">활성 채팅방이 없습니다.</p>
+        <PaginationBar
+          :page="roomPagination.page.value"
+          :total-pages="roomPagination.totalPages.value"
+          :total-elements="roomPagination.totalElements.value"
+          :has-prev="roomPagination.hasPrev.value"
+          :has-next="roomPagination.hasNext.value"
+          :page-label="roomPagination.pageLabel.value"
+          @prev="roomPagination.goPrev()"
+          @next="roomPagination.goNext()"
+        />
       </div>
     </section>
 
@@ -222,6 +257,18 @@ const goAdminStatistics = async () => router.push({ name: 'admin-statistics' })
         </div>
         <p v-else class="hint">참여 중인 멤버가 없습니다.</p>
 
+        <PaginationBar
+          v-if="selectedMembers.length || memberPagination.totalElements.value > 0"
+          :page="memberPagination.page.value"
+          :total-pages="memberPagination.totalPages.value"
+          :total-elements="memberPagination.totalElements.value"
+          :has-prev="memberPagination.hasPrev.value"
+          :has-next="memberPagination.hasNext.value"
+          :page-label="memberPagination.pageLabel.value"
+          @prev="memberPagination.goPrev()"
+          @next="memberPagination.goNext()"
+        />
+
         <div class="modal-actions">
           <button type="button" class="secondary" @click="closeMembers">닫기</button>
         </div>
@@ -230,26 +277,4 @@ const goAdminStatistics = async () => router.push({ name: 'admin-statistics' })
   </main>
 </template>
 
-<style scoped>
-.admin-members-modal {
-  max-width: 560px;
-}
-
-.member-list {
-  display: grid;
-  gap: 8px;
-  margin: 16px 0;
-}
-
-.member-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.member-item button {
-  margin-top: 0;
-}
-</style>
+<style scoped src="../styles/views/AdminChatRoomsView.css"></style>

@@ -114,15 +114,21 @@ class ChatController(
     @Operation(summary = "채팅방 멤버 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/{id}/members")
-    fun getChatRoomMembers(@PathVariable id: Long): ResponseEntity<List<ChatRoomMemberDto>> =
-        ResponseEntity.ok(chatService.getChatRoomMembers(id))
+    fun getChatRoomMembers(
+        @PathVariable id: Long,
+        @PageableDefault(size = 20) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomMemberDto>> =
+        ResponseEntity.ok(chatService.getChatRoomMembers(id, pageable))
 
     @Operation(summary = "내 채팅 초대 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/invitations/pending")
-    fun getPendingInvitations(authentication: Authentication): ResponseEntity<List<ChatRoomInvitationDto>> {
+    fun getPendingInvitations(
+        authentication: Authentication,
+        @PageableDefault(size = 10) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomInvitationDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(chatService.getPendingInvitations(userId))
+        return ResponseEntity.ok(chatService.getPendingInvitations(userId, pageable))
     }
 
     @Operation(summary = "채팅방 초대")
@@ -270,8 +276,9 @@ class ChatController(
     fun searchChatRooms(
         authentication: Authentication,
         @RequestParam(required = false, defaultValue = "") q: String,
-    ): ResponseEntity<List<ChatRoomDto>> {
+        @PageableDefault(size = 20) pageable: Pageable,
+    ): ResponseEntity<Page<ChatRoomDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(chatService.searchChatRooms(q, userId))
+        return ResponseEntity.ok(chatService.searchChatRooms(q, userId, pageable))
     }
 }

@@ -1,0 +1,54 @@
+.messaging-card {
+  max-width: 1200px;
+}
+
+.messaging-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.messaging-toolbar button {
+  margin-top: 0;
+}
+
+.doc-link {
+  color: #4f46e5;
+  font-size: 0.9rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+}
+
+.metric-card.unhealthy {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.metric-card h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.metric-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.lag-high {
+  color: #dc2626;
+  font-weight: 700;
+}

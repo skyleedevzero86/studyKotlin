@@ -1,0 +1,19 @@
+.chat-window-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.chat-window.with-survey {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-survey-aside {
+  width: 360px;
+  max-width: 40%;
+  min-width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid #e5e7eb;
+  overflow: hidden;
+}

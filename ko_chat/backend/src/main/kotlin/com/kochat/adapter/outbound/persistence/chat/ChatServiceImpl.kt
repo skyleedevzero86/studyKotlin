@@ -349,13 +349,14 @@ class ChatServiceImpl(
     override fun getChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomDto> =
         chatRoomJpaRepository.findUserChatRooms(userId, pageable).map { chatRoomToDto(it, userId) }
 
-    override fun searchChatRooms(query: String, userId: Long): List<ChatRoomDto> {
-        val chatRooms = if (query.isBlank()) {
-            chatRoomJpaRepository.findUserChatRooms(userId, PageRequest.of(0, 50)).content
+    override fun searchChatRooms(query: String, userId: Long, pageable: Pageable): Page<ChatRoomDto> {
+        val normalizedQuery = query.trim()
+        return if (normalizedQuery.isBlank()) {
+            chatRoomJpaRepository.findUserChatRooms(userId, pageable).map { chatRoomToDto(it, userId) }
         } else {
-            chatRoomJpaRepository.searchUserChatRooms(userId, query)
+            chatRoomJpaRepository.searchUserChatRooms(userId, normalizedQuery, pageable)
+                .map { chatRoomToDto(it, userId) }
         }
-        return chatRooms.map { chatRoomToDto(it, userId) }
     }
 
     override fun discoverChatRooms(
@@ -452,9 +453,9 @@ class ChatServiceImpl(
         webMediaSessionRegistry.disconnectUser(roomId, userId)
     }
 
-    @Cacheable(value = ["chatRoomMembers"], key = "#roomId")
-    override fun getChatRoomMembers(roomId: Long): List<ChatRoomMemberDto> =
-        chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId).map { memberToDto(it) }
+    @Cacheable(value = ["chatRoomMembers"], key = "#roomId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+    override fun getChatRoomMembers(roomId: Long, pageable: Pageable): Page<ChatRoomMemberDto> =
+        chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId, pageable).map { memberToDto(it) }
 
     override fun inviteToChatRoom(roomId: Long, inviteeId: Long, inviterId: Long): ChatRoomInvitationDto {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
@@ -492,10 +493,11 @@ class ChatServiceImpl(
         return invitationToDto(chatRoomInvitationJpaRepository.save(invitation), inviteeId)
     }
 
-    override fun getPendingInvitations(userId: Long): List<ChatRoomInvitationDto> =
+    override fun getPendingInvitations(userId: Long, pageable: Pageable): Page<ChatRoomInvitationDto> =
         chatRoomInvitationJpaRepository.findByInviteeIdAndStatusOrderByCreatedAtDesc(
             userId,
             ChatInvitationStatus.PENDING,
+            pageable,
         ).map { invitationToDto(it, userId) }
 
     override fun acceptInvitation(invitationId: Long, inviteeId: Long): ChatRoomDto {

@@ -8,6 +8,7 @@ import type {
   UserSummaryResponse,
 } from '../types/user'
 import type { ChatUser } from '../types/chat'
+import type { PageResponse } from '../types/chat'
 
 export const fetchMyProfile = (token: string): Promise<UserProfileResponse> =>
   getJson<UserProfileResponse>('/api/v1/user/me', token)
@@ -15,10 +16,11 @@ export const fetchMyProfile = (token: string): Promise<UserProfileResponse> =>
 export const searchUsers = (
   token: string,
   query = '',
-  limit = 20,
-): Promise<ChatUser[]> =>
+  page = 0,
+  size = 20,
+): Promise<PageResponse<ChatUser>> =>
   getJson(
-    `/api/v1/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    `/api/v1/users/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`,
     token,
   )
 
@@ -66,11 +68,19 @@ export const rejectFriendRequest = (
 export const removeFriend = (token: string, targetUserId: number): Promise<void> =>
   deleteJson<void>(`/api/v1/users/friends/${targetUserId}`, token)
 
-export const fetchBlocks = (token: string): Promise<UserRelationshipResponse[]> =>
-  getJson<UserRelationshipResponse[]>('/api/v1/users/blocks', token)
+export const fetchBlocks = (
+  token: string,
+  page = 0,
+  size = 10,
+): Promise<PageResponse<UserRelationshipResponse>> =>
+  getJson(`/api/v1/users/blocks?page=${page}&size=${size}`, token)
 
-export const fetchBlockHistory = (token: string): Promise<UserBlockHistoryResponse[]> =>
-  getJson<UserBlockHistoryResponse[]>('/api/v1/users/blocks/history', token)
+export const fetchBlockHistory = (
+  token: string,
+  page = 0,
+  size = 10,
+): Promise<PageResponse<UserBlockHistoryResponse>> =>
+  getJson(`/api/v1/users/blocks/history?page=${page}&size=${size}`, token)
 
 export const blockUser = (
   token: string,
@@ -81,8 +91,12 @@ export const blockUser = (
 export const unblockUser = (token: string, targetUserId: number): Promise<void> =>
   deleteJson<void>(`/api/v1/users/blocks/${targetUserId}`, token)
 
-export const fetchAdminUsers = (token: string): Promise<UserSummaryResponse[]> =>
-  getJson<UserSummaryResponse[]>('/api/v1/admin/users', token)
+export const fetchAdminUsers = (
+  token: string,
+  page = 0,
+  size = 20,
+): Promise<PageResponse<UserSummaryResponse>> =>
+  getJson(`/api/v1/admin/users?page=${page}&size=${size}&sort=username,asc`, token)
 
 export const createAdminUser = (
   token: string,

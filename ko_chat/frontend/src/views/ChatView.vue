@@ -17,7 +17,9 @@ import ChatRoomList from '../components/ChatRoomList.vue'
 import ChatWindow from '../components/ChatWindow.vue'
 import FriendListPanel from '../components/FriendListPanel.vue'
 import MorePanel from '../components/MorePanel.vue'
+import PaginationBar from '../components/PaginationBar.vue'
 import { useAuth } from '../composables/useAuth'
+import { usePagination } from '../composables/usePagination'
 import type { ChatNotification, ChatRoom, ChatRoomInvitation } from '../types/chat'
 import type { UserFriendRequestResponse, UserProfileResponse } from '../types/user'
 
@@ -33,13 +35,16 @@ const serverStatus = ref<'checking' | 'online' | 'offline'>('checking')
 const roomListRefreshKey = ref(0)
 const friendRequests = ref<UserFriendRequestResponse[]>([])
 const chatInvitations = ref<ChatRoomInvitation[]>([])
+const invitationPagination = usePagination(5)
 const pendingActionId = ref<string | null>(null)
 const mainNav = ref<MainNav>('chats')
 const chatUnreadCount = ref(0)
 const friendListRef = ref<InstanceType<typeof FriendListPanel> | null>(null)
 let pendingPollTimer: ReturnType<typeof setInterval> | undefined
 
-const pendingActionCount = computed(() => friendRequests.value.length + chatInvitations.value.length)
+const pendingActionCount = computed(
+  () => friendRequests.value.length + invitationPagination.totalElements.value,
+)
 
 const addNotification = (type: ChatNotification['type'], title: string, message: string) => {
   const notification: ChatNotification = {
@@ -121,6 +126,10 @@ const goAdminMessaging = async () => {
   await router.push({ name: 'admin-messaging' })
 }
 
+const goAdminSurveys = async () => {
+  await router.push({ name: 'admin-surveys' })
+}
+
 const checkServerHealth = async () => {
   try {
     await checkHealth()
@@ -148,10 +157,15 @@ const loadPendingActions = async () => {
   try {
     const [incomingFriendRequests, pendingChatInvitations] = await Promise.all([
       fetchIncomingFriendRequests(accessToken.value),
-      getPendingChatInvitations(accessToken.value),
+      getPendingChatInvitations(
+        accessToken.value,
+        invitationPagination.page.value,
+        invitationPagination.size.value,
+      ),
     ])
     friendRequests.value = incomingFriendRequests
-    chatInvitations.value = pendingChatInvitations
+    chatInvitations.value = pendingChatInvitations.content
+    invitationPagination.applyPageResponse(pendingChatInvitations)
   } catch (error) {
     console.error(error)
   }
@@ -193,7 +207,7 @@ const handleAcceptChatInvitation = async (invitation: ChatRoomInvitation) => {
   pendingActionId.value = `chat-${invitation.id}`
   try {
     const room = await acceptChatInvitation(accessToken.value, invitation.id)
-    chatInvitations.value = chatInvitations.value.filter((item) => item.id !== invitation.id)
+    await loadPendingActions()
     selectedChatRoom.value = room
     mainNav.value = 'chats'
     roomListRefreshKey.value += 1
@@ -210,7 +224,7 @@ const handleRejectChatInvitation = async (invitation: ChatRoomInvitation) => {
   pendingActionId.value = `chat-${invitation.id}`
   try {
     await rejectChatInvitation(accessToken.value, invitation.id)
-    chatInvitations.value = chatInvitations.value.filter((item) => item.id !== invitation.id)
+    await loadPendingActions()
     roomListRefreshKey.value += 1
     handleNotice(`${roomLabel(invitation.chatRoom)} 초대를 거부했습니다`)
   } catch (error) {
@@ -309,6 +323,18 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
+
+        <PaginationBar
+          v-if="chatInvitations.length || invitationPagination.totalElements.value > 0"
+          :page="invitationPagination.page.value"
+          :total-pages="invitationPagination.totalPages.value"
+          :total-elements="invitationPagination.totalElements.value"
+          :has-prev="invitationPagination.hasPrev.value"
+          :has-next="invitationPagination.hasNext.value"
+          :page-label="invitationPagination.pageLabel.value"
+          @prev="() => { invitationPagination.goPrev(); void loadPendingActions() }"
+          @next="() => { invitationPagination.goNext(); void loadPendingActions() }"
+        />
       </div>
     </div>
 
@@ -393,6 +419,7 @@ onBeforeUnmount(() => {
           @go-admin-chat-rooms="goAdminChatRooms"
           @go-admin-statistics="goAdminStatistics"
           @go-admin-messaging="goAdminMessaging"
+          @go-admin-surveys="goAdminSurveys"
         />
       </aside>
 
@@ -402,6 +429,7 @@ onBeforeUnmount(() => {
           :token="accessToken"
           :chat-room="selectedChatRoom"
           :current-user-id="profile.id"
+          :is-admin="isAdmin"
           @error="handleError"
           @notice="handleNotice"
           @read="handleRoomRead"

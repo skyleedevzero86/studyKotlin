@@ -1,5 +1,7 @@
 package com.kochat.global.application.messaging
 
+import com.kochat.global.application.messaging.dto.ConsumerLagSnapshot
+import com.kochat.global.application.messaging.dto.KafkaLagReport
 import com.kochat.global.config.KafkaProperties
 import org.apache.kafka.clients.admin.AdminClient
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec
@@ -10,22 +12,6 @@ import org.springframework.stereotype.Service
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.LocalDateTime
 import java.util.Properties
-
-data class ConsumerLagSnapshot(
-    val consumerGroup: String,
-    val topic: String,
-    val partition: Int,
-    val currentOffset: Long,
-    val endOffset: Long,
-    val lag: Long,
-)
-
-data class KafkaLagReport(
-    val snapshots: List<ConsumerLagSnapshot>,
-    val healthy: Boolean,
-    val maxLag: Long,
-    val checkedAt: LocalDateTime,
-)
 
 @Service
 class KafkaLagMonitorService(

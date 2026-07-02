@@ -1,6 +1,8 @@
 package com.kochat.adapter.outbound.persistence.chat
 
 import com.kochat.domain.chat.model.ChatInvitationStatus
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
@@ -14,7 +16,8 @@ interface ChatRoomInvitationJpaRepository : JpaRepository<ChatRoomInvitationJpaE
     fun findByInviteeIdAndStatusOrderByCreatedAtDesc(
         inviteeId: Long,
         status: ChatInvitationStatus,
-    ): List<ChatRoomInvitationJpaEntity>
+        pageable: Pageable,
+    ): Page<ChatRoomInvitationJpaEntity>
 
     @Query(
         """

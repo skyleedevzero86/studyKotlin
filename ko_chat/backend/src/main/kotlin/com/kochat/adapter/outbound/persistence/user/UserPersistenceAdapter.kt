@@ -1,7 +1,9 @@
-﻿package com.kochat.adapter.outbound.persistence.user
+package com.kochat.adapter.outbound.persistence.user
 
 import com.kochat.domain.user.model.User
 import com.kochat.domain.user.port.out.UserPersistencePort
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,6 +29,10 @@ class UserPersistenceAdapter(
     @Transactional(readOnly = true)
     override fun findAll(): List<User> =
         userJpaRepository.findAll().map(UserPersistenceMapper::toDomain)
+
+    @Transactional(readOnly = true)
+    override fun findAll(pageable: Pageable): Page<User> =
+        userJpaRepository.findAll(pageable).map(UserPersistenceMapper::toDomain)
 
     @Transactional(readOnly = true)
     override fun existsByUsername(username: String): Boolean =

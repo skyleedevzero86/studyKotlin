@@ -9,6 +9,9 @@ import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.web.PageableDefault
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -97,17 +100,23 @@ class UserRelationshipController(
     @Operation(summary = "내 차단 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/blocks")
-    fun getBlocks(authentication: Authentication): ResponseEntity<List<UserRelationshipDto>> {
+    fun getBlocks(
+        authentication: Authentication,
+        @PageableDefault(size = 10) pageable: Pageable,
+    ): ResponseEntity<Page<UserRelationshipDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(userRelationshipService.getActiveBlocks(userId))
+        return ResponseEntity.ok(userRelationshipService.getActiveBlocks(userId, pageable))
     }
 
     @Operation(summary = "내 차단 기록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping("/blocks/history")
-    fun getBlockHistory(authentication: Authentication): ResponseEntity<List<UserBlockHistoryDto>> {
+    fun getBlockHistory(
+        authentication: Authentication,
+        @PageableDefault(size = 10) pageable: Pageable,
+    ): ResponseEntity<Page<UserBlockHistoryDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(userRelationshipService.getBlockHistory(userId))
+        return ResponseEntity.ok(userRelationshipService.getBlockHistory(userId, pageable))
     }
 
     @Operation(summary = "사용자 차단")
