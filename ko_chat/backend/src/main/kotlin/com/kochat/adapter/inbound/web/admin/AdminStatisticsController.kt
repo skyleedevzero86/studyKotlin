@@ -3,11 +3,15 @@ package com.kochat.adapter.inbound.web.admin
 import com.kochat.adapter.inbound.web.admin.dto.MessageTypeYearStatisticsResponse
 import com.kochat.adapter.inbound.web.admin.dto.RoomTypeDailyStatisticsResponse
 import com.kochat.adapter.inbound.web.admin.dto.StatisticsPeriodResponse
+import com.kochat.adapter.inbound.web.admin.dto.UserEventDailyStatisticsResponse
 import com.kochat.domain.chat.model.ChatRoomType
 import com.kochat.domain.chat.model.MessageType
+import com.kochat.domain.user.model.UserActivityEventType
 import com.kochat.global.application.admin.AdminStatisticsExportService
 import com.kochat.global.application.admin.AdminStatisticsQueryService
+import com.kochat.global.application.admin.AdminUserStatisticsQueryService
 import com.kochat.global.application.admin.StatisticsFilter
+import com.kochat.global.application.admin.UserStatisticsFilter
 import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -22,11 +26,12 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
-@Tag(name = "관리자 · 통계", description = "관리자용 채팅 통계 조회·엑셀·PDF보내기 API")
+@Tag(name = "관리자 · 통계", description = "관리자용 채팅·사용자 통계 조회·엑셀·PDF보내기 API")
 @RestController
 @RequestMapping("/api/v1/admin/statistics")
 class AdminStatisticsController(
     private val statisticsQueryService: AdminStatisticsQueryService,
+    private val userStatisticsQueryService: AdminUserStatisticsQueryService,
     private val statisticsExportService: AdminStatisticsExportService,
 ) {
     @Operation(summary = "시간대별 메시지 통계")
@@ -69,6 +74,20 @@ class AdminStatisticsController(
         ResponseEntity.ok(
             statisticsQueryService.getRoomTypeDailyStatistics(
                 buildFilter(from, to, null, messageType),
+            ),
+        )
+
+    @Operation(summary = "사용자 활동 일자별 통계 (가입·비밀번호변경·정지·탈퇴)")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/users/daily")
+    fun userEventsDaily(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate,
+        @RequestParam(required = false) eventType: UserActivityEventType?,
+    ): ResponseEntity<UserEventDailyStatisticsResponse> =
+        ResponseEntity.ok(
+            userStatisticsQueryService.getUserEventDailyStatistics(
+                buildUserFilter(from, to, eventType),
             ),
         )
 
@@ -182,6 +201,42 @@ class AdminStatisticsController(
         )
     }
 
+    @Operation(summary = "사용자 활동 통계 엑셀 다운로드")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/users/daily/export/excel")
+    fun exportUserEventsExcel(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate,
+        @RequestParam(required = false) eventType: UserActivityEventType?,
+    ): ResponseEntity<ByteArray> {
+        val data = userStatisticsQueryService.getUserEventDailyStatistics(
+            buildUserFilter(from, to, eventType),
+        )
+        return fileResponse(
+            statisticsExportService.exportUserEventDailyExcel(data),
+            "user-statistics.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    }
+
+    @Operation(summary = "사용자 활동 통계 PDF 다운로드")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/users/daily/export/pdf")
+    fun exportUserEventsPdf(
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate,
+        @RequestParam(required = false) eventType: UserActivityEventType?,
+    ): ResponseEntity<ByteArray> {
+        val data = userStatisticsQueryService.getUserEventDailyStatistics(
+            buildUserFilter(from, to, eventType),
+        )
+        return fileResponse(
+            statisticsExportService.exportUserEventDailyPdf(data),
+            "user-statistics.pdf",
+            MediaType.APPLICATION_PDF_VALUE,
+        )
+    }
+
     private fun buildFilter(
         from: LocalDate,
         to: LocalDate,
@@ -190,6 +245,15 @@ class AdminStatisticsController(
     ): StatisticsFilter {
         require(!to.isBefore(from)) { "종료일은 시작일보다 빠를 수 없습니다." }
         return StatisticsFilter(from, to, roomType, messageType)
+    }
+
+    private fun buildUserFilter(
+        from: LocalDate,
+        to: LocalDate,
+        eventType: UserActivityEventType?,
+    ): UserStatisticsFilter {
+        require(!to.isBefore(from)) { "종료일은 시작일보다 빠를 수 없습니다." }
+        return UserStatisticsFilter(from, to, eventType)
     }
 
     private fun fileResponse(bytes: ByteArray, filename: String, contentType: String): ResponseEntity<ByteArray> =

@@ -7,6 +7,7 @@ import {
   getHourlyStatistics,
   getMessageTypeStatistics,
   getRoomTypeStatistics,
+  getUserEventStatistics,
 } from '../api/statisticsApi'
 import StatisticsBarChart, { type ChartDataset } from '../components/StatisticsBarChart.vue'
 import { useAuth } from '../composables/useAuth'
@@ -16,6 +17,7 @@ import type {
   StatisticsFilterState,
   StatisticsPeriodResponse,
   StatisticsTab,
+  UserEventDailyStatisticsResponse,
 } from '../types/statistics'
 import { resolveApiError } from '../utils/resolveApiError'
 
@@ -30,6 +32,7 @@ const errorMessage = ref<string | null>(null)
 const hourlyData = ref<StatisticsPeriodResponse | null>(null)
 const messageTypeData = ref<MessageTypeYearStatisticsResponse | null>(null)
 const roomTypeData = ref<RoomTypeDailyStatisticsResponse | null>(null)
+const userEventData = ref<UserEventDailyStatisticsResponse | null>(null)
 
 const today = new Date()
 const defaultFrom = `${today.getFullYear()}-01-01`
@@ -40,6 +43,7 @@ const filter = reactive<StatisticsFilterState>({
   to: defaultTo,
   roomType: '',
   messageType: '',
+  userEventType: '',
 })
 
 const tabTitle = computed(() => {
@@ -48,6 +52,8 @@ const tabTitle = computed(() => {
       return '시간대별 통계'
     case 'message-types':
       return '메시지 유형별 통계'
+    case 'user-events':
+      return '사용자 활동 통계'
     default:
       return '채팅방 유형별 통계'
   }
@@ -63,6 +69,9 @@ const chartLabels = computed(() => {
   if (activeTab.value === 'room-types' && roomTypeData.value) {
     return roomTypeData.value.rows.map((row) => row.date)
   }
+  if (activeTab.value === 'user-events' && userEventData.value) {
+    return userEventData.value.rows.map((row) => row.date)
+  }
   return []
 })
 
@@ -75,6 +84,9 @@ const chartValues = computed(() => {
   }
   if (activeTab.value === 'room-types' && roomTypeData.value) {
     return roomTypeData.value.rows.map((row) => row.total)
+  }
+  if (activeTab.value === 'user-events' && userEventData.value) {
+    return userEventData.value.rows.map((row) => row.total)
   }
   return []
 })
@@ -92,15 +104,25 @@ const chartDatasets = computed((): ChartDataset[] => {
       values: roomTypeData.value!.rows.map((row) => row.types[type]?.count ?? 0),
     }))
   }
+  if (activeTab.value === 'user-events' && userEventData.value) {
+    return userEventData.value.typeLabels.map((type) => ({
+      label: userEventLabel(type),
+      values: userEventData.value!.rows.map((row) => row.types[type]?.count ?? 0),
+    }))
+  }
   return []
 })
 
 const chartStacked = computed(
-  () => activeTab.value === 'message-types' || activeTab.value === 'room-types',
+  () =>
+    activeTab.value === 'message-types' ||
+    activeTab.value === 'room-types' ||
+    activeTab.value === 'user-events',
 )
 
 const chartKey = computed(
-  () => `${activeTab.value}-${filter.from}-${filter.to}-${filter.roomType}-${filter.messageType}`,
+  () =>
+    `${activeTab.value}-${filter.from}-${filter.to}-${filter.roomType}-${filter.messageType}-${filter.userEventType}`,
 )
 
 const hasChartData = computed(() => chartLabels.value.length > 0)
@@ -138,6 +160,21 @@ const roomTypeLabel = (type: string): string => {
   }
 }
 
+const userEventLabel = (type: string): string => {
+  switch (type) {
+    case 'JOIN':
+      return '가입'
+    case 'PASSWORD_CHANGE':
+      return '비밀번호변경'
+    case 'SUSPEND':
+      return '정지'
+    case 'WITHDRAW':
+      return '탈퇴'
+    default:
+      return type
+  }
+}
+
 const loadReport = async () => {
   if (!accessToken.value) return
   isLoading.value = true
@@ -147,6 +184,8 @@ const loadReport = async () => {
       hourlyData.value = await getHourlyStatistics(accessToken.value, filter)
     } else if (activeTab.value === 'message-types') {
       messageTypeData.value = await getMessageTypeStatistics(accessToken.value, filter)
+    } else if (activeTab.value === 'user-events') {
+      userEventData.value = await getUserEventStatistics(accessToken.value, filter)
     } else {
       roomTypeData.value = await getRoomTypeStatistics(accessToken.value, filter)
     }
@@ -162,6 +201,7 @@ const resetFilter = () => {
   filter.to = defaultTo
   filter.roomType = ''
   filter.messageType = ''
+  filter.userEventType = ''
 }
 
 const switchTab = async (tab: StatisticsTab) => {
@@ -226,7 +266,7 @@ const handleLogout = async () => {
       <header class="admin-header">
         <div>
           <h1>관리자 · 통계</h1>
-          <p>채팅 메시지 데이터를 기준으로 시간대·유형별 현황을 조회합니다.</p>
+          <p>채팅 메시지·사용자 활동 데이터를 기준으로 현황을 조회합니다.</p>
         </div>
         <div class="header-actions">
           <button type="button" class="secondary" @click="goBack">이전</button>
@@ -260,6 +300,13 @@ const handleLogout = async () => {
         >
           채팅방 유형별 통계
         </button>
+        <button
+          type="button"
+          :class="{ active: activeTab === 'user-events' }"
+          @click="switchTab('user-events')"
+        >
+          사용자 활동 통계
+        </button>
       </nav>
 
       <section class="stats-filter-bar">
@@ -291,6 +338,16 @@ const handleLogout = async () => {
               <option value="FILE">파일</option>
               <option value="LINK">링크</option>
               <option value="SYSTEM">시스템</option>
+            </select>
+          </label>
+          <label v-if="activeTab === 'user-events'">
+            활동 유형
+            <select v-model="filter.userEventType">
+              <option value="">전체</option>
+              <option value="JOIN">가입</option>
+              <option value="PASSWORD_CHANGE">비밀번호변경</option>
+              <option value="SUSPEND">정지</option>
+              <option value="WITHDRAW">탈퇴</option>
             </select>
           </label>
           <div class="stats-filter-actions">
@@ -337,6 +394,7 @@ const handleLogout = async () => {
                 <h3 v-if="activeTab === 'hourly' && hourlyData">{{ hourlyData.title }}</h3>
                 <h3 v-else-if="activeTab === 'message-types' && messageTypeData">{{ messageTypeData.title }}</h3>
                 <h3 v-else-if="activeTab === 'room-types' && roomTypeData">{{ roomTypeData.title }}</h3>
+                <h3 v-else-if="activeTab === 'user-events' && userEventData">{{ userEventData.title }}</h3>
                 <p class="hint">검색기간: {{ filter.from }} ~ {{ filter.to }}</p>
               </div>
             </header>
@@ -440,6 +498,46 @@ const handleLogout = async () => {
                     <td>{{ roomTypeData.totals[type]?.ratio ?? 0 }}%</td>
                   </template>
                   <td>{{ roomTypeData.grandTotal }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-else-if="activeTab === 'user-events' && userEventData" class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>일자</th>
+                  <th v-for="type in userEventData.typeLabels" :key="type" colspan="2">
+                    {{ userEventLabel(type) }}
+                  </th>
+                  <th>합계</th>
+                </tr>
+                <tr>
+                  <th></th>
+                  <template v-for="type in userEventData.typeLabels" :key="`${type}-sub`">
+                    <th>건수</th>
+                    <th>비율</th>
+                  </template>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in userEventData.rows" :key="row.date">
+                  <td>{{ row.date }}</td>
+                  <template v-for="type in userEventData.typeLabels" :key="`${row.date}-${type}`">
+                    <td>{{ row.types[type]?.count ?? 0 }}</td>
+                    <td>{{ row.types[type]?.ratio ?? 0 }}%</td>
+                  </template>
+                  <td>{{ row.total }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td>계</td>
+                  <template v-for="type in userEventData.typeLabels" :key="`total-${type}`">
+                    <td>{{ userEventData.totals[type]?.count ?? 0 }}</td>
+                    <td>{{ userEventData.totals[type]?.ratio ?? 0 }}%</td>
+                  </template>
+                  <td>{{ userEventData.grandTotal }}</td>
                 </tr>
               </tbody>
             </table>

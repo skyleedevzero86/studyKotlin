@@ -5,6 +5,7 @@ import type {
   StatisticsFilterState,
   StatisticsPeriodResponse,
   StatisticsTab,
+  UserEventDailyStatisticsResponse,
 } from '../types/statistics'
 
 const statsPath = '/api/v1/admin/statistics'
@@ -21,6 +22,8 @@ const buildQuery = (filter: StatisticsFilterState, tab: StatisticsTab): string =
     if (filter.roomType) params.set('roomType', filter.roomType)
   } else if (tab === 'room-types') {
     if (filter.messageType) params.set('messageType', filter.messageType)
+  } else if (tab === 'user-events') {
+    if (filter.userEventType) params.set('eventType', filter.userEventType)
   }
   return params.toString()
 }
@@ -43,6 +46,12 @@ export const getRoomTypeStatistics = (
 ): Promise<RoomTypeDailyStatisticsResponse> =>
   getJson(`${statsPath}/room-types?${buildQuery(filter, 'room-types')}`, token)
 
+export const getUserEventStatistics = (
+  token: string,
+  filter: StatisticsFilterState,
+): Promise<UserEventDailyStatisticsResponse> =>
+  getJson(`${statsPath}/users/daily?${buildQuery(filter, 'user-events')}`, token)
+
 export const exportStatisticsExcel = (
   token: string,
   filter: StatisticsFilterState,
@@ -54,8 +63,12 @@ export const exportStatisticsExcel = (
       ? 'hourly-statistics.xlsx'
       : tab === 'message-types'
         ? 'message-type-statistics.xlsx'
-        : 'room-type-statistics.xlsx'
-  return downloadFile(`${statsPath}/${tab}/export/excel?${query}`, token, filename)
+        : tab === 'room-types'
+          ? 'room-type-statistics.xlsx'
+          : 'user-statistics.xlsx'
+  const exportPath =
+    tab === 'user-events' ? `${statsPath}/users/daily/export/excel` : `${statsPath}/${tab}/export/excel`
+  return downloadFile(`${exportPath}?${query}`, token, filename)
 }
 
 export const exportStatisticsPdf = (
@@ -69,6 +82,10 @@ export const exportStatisticsPdf = (
       ? 'hourly-statistics.pdf'
       : tab === 'message-types'
         ? 'message-type-statistics.pdf'
-        : 'room-type-statistics.pdf'
-  return downloadFile(`${statsPath}/${tab}/export/pdf?${query}`, token, filename)
+        : tab === 'room-types'
+          ? 'room-type-statistics.pdf'
+          : 'user-statistics.pdf'
+  const exportPath =
+    tab === 'user-events' ? `${statsPath}/users/daily/export/pdf` : `${statsPath}/${tab}/export/pdf`
+  return downloadFile(`${exportPath}?${query}`, token, filename)
 }

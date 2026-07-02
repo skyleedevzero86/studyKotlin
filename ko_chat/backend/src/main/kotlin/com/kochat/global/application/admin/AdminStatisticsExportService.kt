@@ -3,6 +3,7 @@ package com.kochat.global.application.admin
 import com.kochat.adapter.inbound.web.admin.dto.MessageTypeYearStatisticsResponse
 import com.kochat.adapter.inbound.web.admin.dto.RoomTypeDailyStatisticsResponse
 import com.kochat.adapter.inbound.web.admin.dto.StatisticsPeriodResponse
+import com.kochat.adapter.inbound.web.admin.dto.UserEventDailyStatisticsResponse
 import com.lowagie.text.Document
 import com.lowagie.text.Element
 import com.lowagie.text.Font
@@ -169,6 +170,66 @@ class AdminStatisticsExportService {
             addTable(headers, rows, totalCells)
         }
 
+    fun exportUserEventDailyExcel(data: UserEventDailyStatisticsResponse): ByteArray =
+        buildWorkbook(data.title) { sheet, styles ->
+            var rowIdx = writeMetaRows(sheet, styles, data.title, data.from, data.to, mapOf(
+                "활동 유형" to (data.eventType?.let(::userEventLabel) ?: "전체"),
+            ))
+            val headers = mutableListOf("일자")
+            data.typeLabels.forEach { type ->
+                headers.add("${userEventLabel(type)} 건수")
+                headers.add("${userEventLabel(type)} 비율")
+            }
+            headers.add("합계")
+            rowIdx = writeHeaderRow(sheet, styles, rowIdx, headers)
+            data.rows.forEach { row ->
+                val cells = mutableListOf(row.date.toString())
+                data.typeLabels.forEach { type ->
+                    val item = row.types[type]
+                    cells.add((item?.count ?: 0L).toString())
+                    cells.add("${item?.ratio ?: 0.0}%")
+                }
+                cells.add(row.total.toString())
+                writeDataRow(sheet, styles, rowIdx++, cells)
+            }
+            val totalCells = mutableListOf("계")
+            data.typeLabels.forEach { type ->
+                val item = data.totals[type]
+                totalCells.add((item?.count ?: 0L).toString())
+                totalCells.add("${item?.ratio ?: 0.0}%")
+            }
+            totalCells.add(data.grandTotal.toString())
+            writeTotalRow(sheet, styles, rowIdx, totalCells)
+        }
+
+    fun exportUserEventDailyPdf(data: UserEventDailyStatisticsResponse): ByteArray =
+        buildPdf(data.title, data.from, data.to) {
+            val headers = mutableListOf("일자")
+            data.typeLabels.forEach { type ->
+                headers.add("${userEventLabel(type)} 건수")
+                headers.add("${userEventLabel(type)} 비율")
+            }
+            headers.add("합계")
+            val rows = data.rows.map { row ->
+                val cells = mutableListOf(row.date.toString())
+                data.typeLabels.forEach { type ->
+                    val item = row.types[type]
+                    cells.add((item?.count ?: 0L).toString())
+                    cells.add("${item?.ratio ?: 0.0}%")
+                }
+                cells.add(row.total.toString())
+                cells.toList()
+            }
+            val totalCells = mutableListOf("계")
+            data.typeLabels.forEach { type ->
+                val item = data.totals[type]
+                totalCells.add((item?.count ?: 0L).toString())
+                totalCells.add("${item?.ratio ?: 0.0}%")
+            }
+            totalCells.add(data.grandTotal.toString())
+            addTable(headers, rows, totalCells)
+        }
+
     private fun buildWorkbook(
         sheetName: String,
         writer: (org.apache.poi.ss.usermodel.Sheet, ExcelStyles) -> Unit,
@@ -299,6 +360,14 @@ class AdminStatisticsExportService {
         "DIRECT" -> "1:1"
         "GROUP" -> "그룹"
         "CHANNEL" -> "채널"
+        else -> type
+    }
+
+    private fun userEventLabel(type: String): String = when (type) {
+        "JOIN" -> "가입"
+        "PASSWORD_CHANGE" -> "비밀번호변경"
+        "SUSPEND" -> "정지"
+        "WITHDRAW" -> "탈퇴"
         else -> type
     }
 

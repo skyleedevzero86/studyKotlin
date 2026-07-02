@@ -6,3 +6,8 @@ export type {
 } from './message-type-statistics'
 export type { RoomTypeDailyRow, RoomTypeDailyStatisticsResponse } from './room-type-statistics'
 export type { StatisticsTab, StatisticsFilterState } from './statistics-filter'
+export type {
+  UserEventDailyRow,
+  UserEventDailyStatisticsResponse,
+  UserActivityEventType,
+} from './user-event-statistics'
