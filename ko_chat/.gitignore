@@ -12,3 +12,6 @@ backend/**/application-*.properties
 Samples/**
 backend/.gradle-user-home/**
 .idea/**
+*.md
+*.sql
+*.yml
