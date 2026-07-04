@@ -450,7 +450,12 @@ class ChatServiceImpl(
         val user = userJpaRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $userId") }
 
-        chatRoomMemberJpaRepository.leaveChatRoom(roomId, userId)
+        val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserId(roomId, userId).orElse(null)
+        if (member != null) {
+            member.isActive = false
+            member.leftAt = java.time.LocalDateTime.now()
+            chatRoomMemberJpaRepository.save(member)
+        }
         webMediaSessionRegistry.disconnectUser(roomId, userId)
 
         if (isRoomOwner(chatRoom, userId)) {
@@ -578,7 +583,12 @@ class ChatServiceImpl(
         val target = userJpaRepository.findById(targetUserId)
             .orElseThrow { IllegalArgumentException("추방할 사용자를 찾을 수 없습니다: $targetUserId") }
 
-        chatRoomMemberJpaRepository.leaveChatRoom(roomId, targetUserId)
+        val targetMember = chatRoomMemberJpaRepository.findByChatRoomIdAndUserId(roomId, targetUserId).orElse(null)
+        if (targetMember != null) {
+            targetMember.isActive = false
+            targetMember.leftAt = java.time.LocalDateTime.now()
+            chatRoomMemberJpaRepository.save(targetMember)
+        }
         webMediaSessionRegistry.kickUser(roomId, targetUserId)
         val targetName = target.displayName ?: target.username ?: "사용자"
         saveSystemMessage(chatRoom, actor, "$targetName 님이 채팅방에서 내보졌습니다.")

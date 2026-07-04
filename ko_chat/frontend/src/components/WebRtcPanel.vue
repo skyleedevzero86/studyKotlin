@@ -255,7 +255,7 @@ onMounted(() => {
         >
           공유 종료
         </button>
-        <button type="button" class="webrtc-tool danger" @click="stopPublish">나가기</button>
+        <button type="button" class="webrtc-tool danger" @click="stopPublish">영상 종료</button>
       </template>
     </div>
 

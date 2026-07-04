@@ -455,10 +455,6 @@ const handleUpdateSettings = async () => {
 }
 
 const handleLeaveRoom = async () => {
-  if (!window.confirm('채팅방에서 나가시겠습니까?')) {
-    return
-  }
-
   leaveLoading.value = true
   try {
     await leaveChatRoom(props.token, props.chatRoom.id)
@@ -702,16 +698,14 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <div class="sleekydz86-chat-header-actions">
-        <span v-if="!showRoomMenu" class="sleekydz86-connection" :class="{ online: isConnected }">
-          {{ isConnected ? '연결됨' : '연결 중' }}
-        </span>
+        <span v-if="!showRoomMenu" class="sleekydz86-connection" :class="{ online: isConnected }" :title="isConnected ? '연결됨' : '연결 중'" />
         <button type="button" class="sleekydz86-header-btn" title="참여자" @click="toggleMemberOverlay">
           🔍
         </button>
         <button type="button" class="sleekydz86-header-btn" title="메뉴" @click="toggleRoomMenu">
           ☰
         </button>
-        <button type="button" class="sleekydz86-header-btn" title="닫기" @click="emit('left')">
+        <button type="button" class="sleekydz86-header-btn" title="채팅방 나가기" @click="handleLeaveRoom">
           ✕
         </button>
       </div>
@@ -721,8 +715,8 @@ onBeforeUnmount(() => {
           설정
         </button>
         <button type="button" @click="openSurveyPanel">설문조사</button>
-        <button v-if="canLeaveRoom" type="button" :disabled="leaveLoading" @click="handleLeaveRoom">
-          {{ leaveLoading ? '처리 중...' : '나가기' }}
+        <button v-if="canLeaveRoom" type="button" class="danger" :disabled="leaveLoading" @click="handleLeaveRoom">
+          {{ leaveLoading ? '처리 중...' : (canManageRoom ? '채팅방 종료' : '채팅방 나가기') }}
         </button>
       </div>
     </header>

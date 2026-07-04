@@ -162,14 +162,52 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     }
   }
 
+  const createCanvasVideoTrack = (): MediaStreamTrack => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 640
+    canvas.height = 480
+    const ctx = canvas.getContext('2d')!
+    const hue = (options.currentUserId * 137) % 360
+    let frame = 0
+    const interval = setInterval(() => {
+      frame++
+      ctx.fillStyle = `hsl(${hue}, 40%, ${25 + Math.sin(frame * 0.02) * 5}%)`
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 36px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(`User ${options.currentUserId}`, canvas.width / 2, canvas.height / 2)
+      ctx.font = '20px sans-serif'
+      ctx.fillText('Virtual Camera', canvas.width / 2, canvas.height / 2 + 40)
+    }, 1000 / 15)
+    const stream = canvas.captureStream(15)
+    const track = stream.getVideoTracks()[0]
+    const origStop = track.stop.bind(track)
+    track.stop = () => { clearInterval(interval); origStop() }
+    return track
+  }
+
   const acquireMedia = async (withVideo: boolean) => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: withVideo,
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-      },
-    })
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: withVideo,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      })
+    } catch (error) {
+      if (withVideo && error instanceof DOMException &&
+          (error.name === 'NotReadableError' || error.name === 'NotFoundError')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+        const virtualTrack = createCanvasVideoTrack()
+        stream.addTrack(virtualTrack)
+        options.onError?.('카메라를 사용할 수 없어 가상 비디오로 대체합니다 (다른 브라우저에서 사용 중일 수 있음)')
+      } else {
+        throw error
+      }
+    }
     micTrack = stream.getAudioTracks()[0] ?? null
     if (withVideo) {
       cameraTrack = stream.getVideoTracks()[0] ?? null
@@ -343,7 +381,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     screenTrack = null
     isScreenSharing.value = false
 
-    if (restoreCamera && isPublishing.value && cameraTrack) {
+    if (restoreCamera && isPublishing.value) {
       try {
         if (!cameraTrack || cameraTrack.readyState === 'ended') {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true })
@@ -352,18 +390,27 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
         }
         if (cameraTrack) {
           cameraTrack.enabled = !isCameraOff.value
+          if (!isCameraOff.value) {
+            await republishWithTrack(cameraTrack)
+          }
         }
-        await publisher?.replaceTrack('video', isCameraOff.value ? null : cameraTrack)
       } catch {
         isCameraOff.value = true
         isAudioOnly.value = true
-        await publisher?.replaceTrack('video', null)
         options.onError?.('카메라를 다시 켜지 못했습니다')
       }
-    } else {
-      await publisher?.replaceTrack('video', isCameraOff.value ? null : cameraTrack)
     }
     refreshLocalPreview()
+  }
+
+  const republishWithTrack = async (videoTrack: MediaStreamTrack) => {
+    if (!client || !isJoined.value) return
+    publisher?.close()
+    const publishStream = new MediaStream()
+    if (micTrack) publishStream.addTrack(micTrack)
+    publishStream.addTrack(videoTrack)
+    publisher = createWebMediaPublisher(apiUrl, streamUrl)
+    await publisher.publish(publishStream, String(options.chatRoomId), mediaUserId)
   }
 
   const startScreenShare = async () => {
@@ -393,7 +440,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
         void stopScreenShareInternal(true)
       }
 
-      await publisher.replaceTrack('video', screenTrack)
+      await republishWithTrack(screenTrack)
       refreshLocalPreview()
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
