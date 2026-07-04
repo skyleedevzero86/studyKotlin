@@ -313,20 +313,60 @@ class SurveyServiceImpl(
         return toDetail(saved, adminUserId)
     }
 
+    override fun adminCreateSurveyWithoutRoom(
+        adminUserId: Long,
+        request: CreateSurveyRequest,
+    ): SurveyDetailDto {
+        requireAdmin(adminUserId)
+        validateSurveyRequest(request)
+        val creator = requireUser(adminUserId)
+        val survey = SurveyJpaEntity().apply {
+            chatRoom = null
+            title = request.title.trim()
+            description = request.description?.trim()
+            status = SurveyStatus.DRAFT
+            targetMode = request.targetMode
+            randomTargetCount = request.randomTargetCount
+            startAt = request.startAt
+            endAt = request.endAt
+            createdBy = creator
+        }
+        val saved = surveyJpaRepository.save(survey)
+        saveQuestions(saved, request.questions)
+        if (request.targetMode == TargetMode.SELECTED && request.targetUserIds.isNotEmpty()) {
+            assignParticipantsDirect(saved, request.targetUserIds)
+        }
+        return toDetail(saved, adminUserId)
+    }
+
     override fun adminPublishSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto {
         requireAdmin(adminUserId)
         val survey = surveyJpaRepository.findById(surveyId)
             .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
-        val roomId = survey.chatRoom?.id ?: throw IllegalArgumentException("설문 채팅방이 없습니다.")
-        return publishSurvey(roomId, surveyId, adminUserId)
+        val roomId = survey.chatRoom?.id
+        return if (roomId != null) {
+            publishSurvey(roomId, surveyId, adminUserId)
+        } else {
+            require(survey.status == SurveyStatus.DRAFT) { "작성중 상태의 설문만 게시할 수 있습니다." }
+            survey.status = SurveyStatus.ACTIVE
+            surveyJpaRepository.save(survey)
+            toDetail(survey, adminUserId)
+        }
     }
 
     override fun adminCloseSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto {
         requireAdmin(adminUserId)
         val survey = surveyJpaRepository.findById(surveyId)
             .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
-        val roomId = survey.chatRoom?.id ?: throw IllegalArgumentException("설문 채팅방이 없습니다.")
-        return closeSurvey(roomId, surveyId, adminUserId)
+        val roomId = survey.chatRoom?.id
+        return if (roomId != null) {
+            closeSurvey(roomId, surveyId, adminUserId)
+        } else {
+            require(survey.status == SurveyStatus.ACTIVE) { "진행중인 설문만 종료할 수 있습니다." }
+            survey.status = SurveyStatus.CLOSED
+            surveyJpaRepository.save(survey)
+            toDetail(survey, adminUserId)
+        }
     }
 
     override fun adminAssignRandomParticipants(
@@ -547,6 +587,19 @@ class SurveyServiceImpl(
         }
     }
 
+    private fun assignParticipantsDirect(survey: SurveyJpaEntity, targetUserIds: List<Long>) {
+        targetUserIds.distinct().forEach { targetUserId ->
+            if (!surveyParticipantJpaRepository.existsBySurveyIdAndUserId(survey.id!!, targetUserId)) {
+                surveyParticipantJpaRepository.save(
+                    SurveyParticipantJpaEntity().apply {
+                        this.survey = survey
+                        user = requireUser(targetUserId)
+                    },
+                )
+            }
+        }
+    }
+
     private fun assignAllMembers(survey: SurveyJpaEntity) {
         val roomId = survey.chatRoom?.id ?: return
         val members = chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId)
@@ -586,10 +639,8 @@ class SurveyServiceImpl(
     private fun canRespond(survey: SurveyJpaEntity, userId: Long): Boolean =
         when (survey.targetMode) {
             TargetMode.ALL_MEMBERS -> {
-                chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(
-                    survey.chatRoom?.id!!,
-                    userId,
-                )
+                val roomId = survey.chatRoom?.id ?: return true
+                chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
             }
             TargetMode.SELECTED, TargetMode.RANDOM -> {
                 surveyParticipantJpaRepository.existsBySurveyIdAndUserId(survey.id!!, userId)
@@ -615,7 +666,7 @@ class SurveyServiceImpl(
         } ?: false
         return SurveySummaryDto(
             id = surveyId,
-            chatRoomId = survey.chatRoom?.id!!,
+            chatRoomId = survey.chatRoom?.id,
             chatRoomName = survey.chatRoom?.name ?: "",
             title = survey.title,
             description = survey.description,
@@ -672,7 +723,7 @@ class SurveyServiceImpl(
         val hasResponded = surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, viewerUserId).isNotEmpty()
         return SurveyDetailDto(
             id = surveyId,
-            chatRoomId = survey.chatRoom?.id!!,
+            chatRoomId = survey.chatRoom?.id,
             chatRoomName = survey.chatRoom?.name ?: "",
             title = survey.title,
             description = survey.description,

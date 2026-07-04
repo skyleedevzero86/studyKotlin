@@ -29,6 +29,9 @@ class LoginAccountValidator(
             UserStatus.PASSWORD_LOCKED ->
                 throw LoginDeniedException("비밀번호 변경 실패 횟수(3회)를 초과했습니다. 관리자에게 문의하세요.")
 
+            UserStatus.LOGIN_LOCKED ->
+                throw LoginDeniedException("로그인 실패 횟수(3회)를 초과하여 계정이 잠겼습니다. 관리자에게 문의하세요.")
+
             UserStatus.ACTIVE -> {
                 if (user.isPasswordExpired()) {
                     throw PasswordChangeRequiredException()

@@ -9,11 +9,13 @@ import {
   adminExportSurveyStatisticsExcel,
   adminExportSurveyStatisticsPdf,
   adminGetSurveyStatistics,
+  adminListSelectableUsers,
   adminPublishSurvey,
   adminRoomStatistics,
   adminUploadParticipants,
   listAdminSurveys,
 } from '../api/surveyApi'
+import type { SurveyUserItem } from '../api/surveyApi'
 import PaginationBar from '../components/PaginationBar.vue'
 import StatisticsBarChart from '../components/StatisticsBarChart.vue'
 import SurveyParticipantUploadModal from '../components/SurveyParticipantUploadModal.vue'
@@ -40,6 +42,8 @@ const participantStatsPagination = usePagination(10)
 
 const surveys = ref<SurveySummary[]>([])
 const rooms = ref<ChatRoom[]>([])
+const selectableUsers = ref<SurveyUserItem[]>([])
+const selectedUserIds = ref<Set<number>>(new Set())
 const statistics = ref<SurveyStatistics | null>(null)
 const roomStats = ref<Awaited<ReturnType<typeof adminRoomStatistics>> | null>(null)
 const isLoading = ref(false)
@@ -65,10 +69,9 @@ const filter = reactive({
 })
 
 const form = reactive({
-  roomId: 0,
   title: '',
   description: '',
-  targetMode: 'RANDOM' as TargetMode,
+  targetMode: 'SELECTED' as TargetMode,
   randomTargetCount: 5,
   startAt: '',
   endAt: '',
@@ -179,12 +182,44 @@ const loadRooms = async () => {
   try {
     const page = await getAdminChatRooms(token, 0, 100)
     rooms.value = page.content
-    if (!form.roomId && rooms.value.length > 0) {
-      form.roomId = rooms.value[0].id
-    }
   } catch (error) {
     errorMessage.value = resolveApiError(error, '채팅방 목록을 불러오지 못했습니다.')
   }
+}
+
+const loadSelectableUsers = async () => {
+  const token = getValidAccessToken()
+  if (!token) return
+  try {
+    selectableUsers.value = await adminListSelectableUsers(token)
+    randomSelectUsers()
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '회원 목록을 불러오지 못했습니다.')
+  }
+}
+
+const randomSelectUsers = () => {
+  const count = Math.min(form.randomTargetCount, selectableUsers.value.length)
+  const shuffled = [...selectableUsers.value].sort(() => Math.random() - 0.5)
+  selectedUserIds.value = new Set(shuffled.slice(0, count).map((u) => u.id))
+}
+
+const toggleUser = (userId: number) => {
+  const newSet = new Set(selectedUserIds.value)
+  if (newSet.has(userId)) {
+    newSet.delete(userId)
+  } else {
+    newSet.add(userId)
+  }
+  selectedUserIds.value = newSet
+}
+
+const selectAllUsers = () => {
+  selectedUserIds.value = new Set(selectableUsers.value.map((u) => u.id))
+}
+
+const deselectAllUsers = () => {
+  selectedUserIds.value = new Set()
 }
 
 const buildRequest = (): CreateSurveyRequest => ({
@@ -192,6 +227,7 @@ const buildRequest = (): CreateSurveyRequest => ({
   description: form.description.trim() || null,
   targetMode: form.targetMode,
   randomTargetCount: form.targetMode === 'RANDOM' ? form.randomTargetCount : null,
+  targetUserIds: form.targetMode === 'SELECTED' ? [...selectedUserIds.value] : undefined,
   startAt: toIsoDateTime(form.startAt),
   endAt: toIsoDateTime(form.endAt),
   questions: form.questions.map((q) => ({
@@ -203,14 +239,15 @@ const buildRequest = (): CreateSurveyRequest => ({
 
 const createSurvey = async () => {
   const token = getValidAccessToken()
-  if (!token || !form.roomId) return
+  if (!token) return
+  if (form.targetMode === 'SELECTED' && selectedUserIds.value.size === 0) {
+    errorMessage.value = '대상자를 1명 이상 선택해 주세요.'
+    return
+  }
   isSaving.value = true
   errorMessage.value = null
   try {
-    const detail = await adminCreateSurvey(token, form.roomId, buildRequest())
-    if (form.targetMode === 'RANDOM') {
-      await adminAssignRandomParticipants(token, detail.id, { count: form.randomTargetCount })
-    }
+    const detail = await adminCreateSurvey(token, buildRequest())
     await adminPublishSurvey(token, detail.id)
     activeTab.value = 'list'
     await loadSurveys()
@@ -330,7 +367,7 @@ onMounted(async () => {
     await router.push({ name: 'home' })
     return
   }
-  await Promise.all([loadSurveys(), loadRooms()])
+  await Promise.all([loadSurveys(), loadRooms(), loadSelectableUsers()])
 })
 
 watch(() => surveyPagination.page.value, () => {
@@ -404,7 +441,7 @@ watch(() => surveyPagination.page.value, () => {
         <tbody>
           <tr v-for="survey in surveys" :key="survey.id">
             <td>{{ survey.title }}</td>
-            <td>{{ survey.chatRoomName }}</td>
+            <td>{{ survey.chatRoomName || '—' }}</td>
             <td>{{ statusLabel(survey.status) }}</td>
             <td>{{ survey.participantCount }}</td>
             <td>{{ survey.completedCount }}</td>
@@ -443,12 +480,6 @@ watch(() => surveyPagination.page.value, () => {
 
     <section v-else-if="activeTab === 'create'" class="admin-section admin-form">
       <label>
-        채팅방
-        <select v-model.number="form.roomId">
-          <option v-for="room in rooms" :key="room.id" :value="room.id">{{ room.name }}</option>
-        </select>
-      </label>
-      <label>
         설문 제목
         <input v-model="form.title" type="text" required />
       </label>
@@ -467,15 +498,38 @@ watch(() => surveyPagination.page.value, () => {
       <label>
         대상자 모드
         <select v-model="form.targetMode">
-          <option value="ALL_MEMBERS">전체 멤버</option>
-          <option value="SELECTED">선택 멤버 (업로드)</option>
-          <option value="RANDOM">랜덤 배정 (관리자)</option>
+          <option value="SELECTED">대상자 선택</option>
+          <option value="ALL_MEMBERS">전체 회원</option>
         </select>
       </label>
-      <label v-if="form.targetMode === 'RANDOM'">
-        랜덤 인원
-        <input v-model.number="form.randomTargetCount" type="number" min="1" />
-      </label>
+
+      <div v-if="form.targetMode === 'SELECTED'" class="user-select-panel">
+        <div class="user-select-header">
+          <span class="user-select-count">선택됨: {{ selectedUserIds.size }}명 / {{ selectableUsers.length }}명</span>
+          <div class="user-select-actions">
+            <input v-model.number="form.randomTargetCount" type="number" min="1" class="random-input" />
+            <button type="button" @click="randomSelectUsers">랜덤 배정</button>
+            <button type="button" class="secondary" @click="selectAllUsers">전체 선택</button>
+            <button type="button" class="secondary" @click="deselectAllUsers">전체 해제</button>
+          </div>
+        </div>
+        <div class="user-select-list">
+          <label
+            v-for="user in selectableUsers"
+            :key="user.id"
+            class="user-select-item"
+            :class="{ selected: selectedUserIds.has(user.id) }"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedUserIds.has(user.id)"
+              @change="toggleUser(user.id)"
+            />
+            <span class="user-select-name">{{ user.displayName || user.username }}</span>
+            <span v-if="user.displayName" class="user-select-username">({{ user.username }})</span>
+          </label>
+        </div>
+      </div>
 
       <div v-for="(question, qi) in form.questions" :key="qi" class="question-block">
         <label>

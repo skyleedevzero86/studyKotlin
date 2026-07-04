@@ -50,8 +50,12 @@ const loadSnapshot = async () => {
   try {
     snapshot.value = await getMessagingOperations(accessToken.value)
     syncLagPagination()
-  } catch (error) {
-    errorMessage.value = resolveApiError(error, '메시징 운영 정보를 불러오지 못했습니다.')
+  } catch (error: any) {
+    if (error?.status === 404) {
+      errorMessage.value = 'Kafka가 비활성화되어 있거나 백엔드가 실행 중이지 않습니다. docker compose up -d 후 백엔드를 재시작해 주세요.'
+    } else {
+      errorMessage.value = resolveApiError(error, '메시징 운영 정보를 불러오지 못했습니다.')
+    }
   } finally {
     isLoading.value = false
   }

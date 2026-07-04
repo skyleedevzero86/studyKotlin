@@ -95,11 +95,11 @@ class UserCommandService(
 
     fun activate(command: ActivateUserCommand): User {
         val user = findUser(command.username)
-        if (user.status != UserStatus.SUSPENDED && user.status != UserStatus.PASSWORD_LOCKED) {
-            throw InvalidUserStatusException("정지 또는 비밀번호 잠금 상태의 회원만 활성화할 수 있습니다.")
+        if (user.status != UserStatus.SUSPENDED && user.status != UserStatus.PASSWORD_LOCKED && user.status != UserStatus.LOGIN_LOCKED) {
+            throw InvalidUserStatusException("정지 또는 잠금 상태의 회원만 활성화할 수 있습니다.")
         }
         return userPersistencePort.save(
-            user.withStatus(UserStatus.ACTIVE).withPasswordChangeFailCount(0),
+            user.withStatus(UserStatus.ACTIVE).withPasswordChangeFailCount(0).withLoginFailCount(0),
         )
     }
 
@@ -130,11 +130,11 @@ class UserCommandService(
 
     fun unlock(command: UnlockUserCommand): User {
         val user = findUser(command.username)
-        if (user.status != UserStatus.PASSWORD_LOCKED) {
-            throw InvalidUserStatusException("비밀번호 잠금 상태의 회원만 잠금 해제할 수 있습니다.")
+        if (user.status != UserStatus.PASSWORD_LOCKED && user.status != UserStatus.LOGIN_LOCKED) {
+            throw InvalidUserStatusException("잠금 상태의 회원만 잠금 해제할 수 있습니다.")
         }
         return userPersistencePort.save(
-            user.withStatus(UserStatus.ACTIVE).withPasswordChangeFailCount(0),
+            user.withStatus(UserStatus.ACTIVE).withPasswordChangeFailCount(0).withLoginFailCount(0),
         )
     }
 
@@ -182,7 +182,13 @@ class UserCommandService(
 
     fun recordLoginFailure(command: RecordLoginFailureCommand): User? {
         val user = userPersistencePort.findByUsername(command.username) ?: return null
-        return userPersistencePort.save(user.withLoginFailCount(user.loginFailCount + 1))
+        val newCount = user.loginFailCount + 1
+        val updated = if (newCount >= User.MAX_LOGIN_FAILS) {
+            user.withLoginLocked()
+        } else {
+            user.withLoginFailCount(newCount)
+        }
+        return userPersistencePort.save(updated)
     }
 
     fun delete(command: DeleteUserCommand) {

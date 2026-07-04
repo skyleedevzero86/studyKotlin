@@ -13,6 +13,8 @@ interface UserJpaRepository : JpaRepository<UserJpaEntity, Long> {
 
     fun deleteByUsername(username: String)
 
+    fun findByStatusOrderByUsernameAsc(status: UserStatus): List<UserJpaEntity>
+
     fun findByStatusAndIdNotOrderByUsernameAsc(
         status: UserStatus,
         excludeUserId: Long,

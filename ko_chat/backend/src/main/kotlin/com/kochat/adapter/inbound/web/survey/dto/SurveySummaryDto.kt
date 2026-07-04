@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 
 data class SurveySummaryDto(
     val id: Long,
-    val chatRoomId: Long,
+    val chatRoomId: Long?,
     val chatRoomName: String,
     val title: String,
     val description: String?,

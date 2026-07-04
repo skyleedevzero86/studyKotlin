@@ -584,7 +584,18 @@ const openManagePanel = async () => {
 const copyRoomUrl = async () => {
   const url = `${window.location.origin}/?room=${props.chatRoom.id}`
   try {
-    await navigator.clipboard.writeText(url)
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
     emit('notice', '채팅방 URL을 복사했습니다')
   } catch {
     emit('error', 'URL 복사에 실패했습니다')

@@ -39,9 +39,10 @@ const loadBlocks = async () => {
   loading.value = true
   try {
     const page = await fetchBlocks(props.token, pagination.page.value, pagination.size.value)
-    blocks.value = page.content
+    blocks.value = page?.content ?? []
     pagination.applyPageResponse(page)
   } catch (error) {
+    blocks.value = []
     emit('error', resolveError(error, '차단 목록을 불러오지 못했습니다'))
   } finally {
     loading.value = false
@@ -126,7 +127,7 @@ defineExpose({ loadBlocks })
     <section class="sleekydz86-more-section">
       <h3>차단한 사용자</h3>
       <p v-if="loading" class="chat-empty slim">불러오는 중...</p>
-      <p v-else-if="blocks.length === 0" class="chat-empty slim">차단한 사용자가 없습니다</p>
+      <p v-else-if="!blocks || blocks.length === 0" class="chat-empty slim">차단한 사용자가 없습니다</p>
       <div v-else class="sleekydz86-friend-list">
         <div v-for="block in blocks" :key="block.id" class="sleekydz86-friend-item">
           <div class="sleekydz86-friend-info">

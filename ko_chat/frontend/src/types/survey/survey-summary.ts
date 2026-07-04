@@ -2,7 +2,7 @@
 
 export interface SurveySummary {
   id: number
-  chatRoomId: number
+  chatRoomId: number | null
   chatRoomName: string
   title: string
   description: string | null

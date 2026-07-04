@@ -1,6 +1,8 @@
 ﻿package com.kochat.global.security.login
 
 import com.kochat.domain.user.model.RecordLoginFailureCommand
+import com.kochat.domain.user.model.User
+import com.kochat.domain.user.model.UserStatus
 import com.kochat.global.application.user.UserLifecycleApplicationService
 import com.kochat.global.exception.ApiErrorResponse
 import com.kochat.global.exception.ErrorCode
@@ -26,18 +28,21 @@ class LoginAuthenticationFailureHandler(
         exception: AuthenticationException,
     ) {
         val username = request.getAttribute(LOGIN_USERNAME_ATTRIBUTE) as? String
-        val loginFailCount = if (exception is BadCredentialsException && username != null) {
-            userLifecycleApplicationService.recordLoginFailure(RecordLoginFailureCommand(username))?.loginFailCount
+        val failedUser = if (exception is BadCredentialsException && username != null) {
+            userLifecycleApplicationService.recordLoginFailure(RecordLoginFailureCommand(username))
         } else {
             null
         }
 
         val message = when (exception) {
             is BadCredentialsException -> {
-                if (loginFailCount != null && loginFailCount > 0) {
-                    "${ErrorCode.AUTHENTICATION_FAILED.defaultMessage} (로그인 실패 ${loginFailCount}회)"
-                } else {
-                    ErrorCode.AUTHENTICATION_FAILED.defaultMessage
+                when {
+                    failedUser?.status == UserStatus.LOGIN_LOCKED ->
+                        "로그인 실패 횟수(${User.MAX_LOGIN_FAILS}회)를 초과하여 계정이 잠겼습니다. 관리자에게 문의하세요."
+                    failedUser != null && failedUser.loginFailCount > 0 ->
+                        "${ErrorCode.AUTHENTICATION_FAILED.defaultMessage} (로그인 실패 ${failedUser.loginFailCount}/${User.MAX_LOGIN_FAILS}회)"
+                    else ->
+                        ErrorCode.AUTHENTICATION_FAILED.defaultMessage
                 }
             }
             is DisabledException -> "비활성화된 계정입니다."

@@ -7,9 +7,11 @@ import com.kochat.adapter.inbound.web.survey.dto.SurveyDetailDto
 import com.kochat.adapter.inbound.web.survey.dto.SurveyRoomStatisticsListResponse
 import com.kochat.adapter.inbound.web.survey.dto.SurveyStatisticsDto
 import com.kochat.adapter.inbound.web.survey.dto.SurveySummaryDto
+import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.domain.survey.model.SurveyStatus
 import com.kochat.domain.survey.model.TargetMode
 import com.kochat.domain.survey.service.SurveyService
+import com.kochat.domain.user.model.UserStatus
 import com.kochat.global.application.chat.ChatUserResolver
 import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
@@ -43,7 +45,21 @@ import java.time.LocalTime
 class AdminSurveyController(
     private val surveyService: SurveyService,
     private val chatUserResolver: ChatUserResolver,
+    private val userJpaRepository: UserJpaRepository,
 ) {
+    data class SurveyUserItem(val id: Long, val username: String, val displayName: String?)
+
+    @Operation(summary = "설문 대상자 선택용 활성 회원 목록")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/users")
+    fun listSelectableUsers(): ResponseEntity<List<SurveyUserItem>> {
+        val users = userJpaRepository.findByStatusOrderByUsernameAsc(UserStatus.ACTIVE)
+            .mapNotNull { u ->
+                val id = u.id ?: return@mapNotNull null
+                SurveyUserItem(id, u.username!!, u.displayName)
+            }
+        return ResponseEntity.ok(users)
+    }
     @Operation(summary = "전체 설문 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping
@@ -63,10 +79,10 @@ class AdminSurveyController(
         )
     }
 
-    @Operation(summary = "관리자 설문 생성")
+    @Operation(summary = "관리자 설문 생성 (채팅방 지정)")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/rooms/{roomId}")
-    fun createSurvey(
+    fun createSurveyWithRoom(
         authentication: Authentication,
         @PathVariable roomId: Long,
         @Valid @RequestBody request: CreateSurveyRequest,
@@ -74,6 +90,18 @@ class AdminSurveyController(
         val adminUserId = chatUserResolver.resolveUserId(authentication.name)
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(surveyService.adminCreateSurvey(roomId, adminUserId, request))
+    }
+
+    @Operation(summary = "관리자 설문 생성 (채팅방 없이)")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping
+    fun createSurvey(
+        authentication: Authentication,
+        @Valid @RequestBody request: CreateSurveyRequest,
+    ): ResponseEntity<SurveyDetailDto> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(surveyService.adminCreateSurveyWithoutRoom(adminUserId, request))
     }
 
     @Operation(summary = "관리자 설문 게시")

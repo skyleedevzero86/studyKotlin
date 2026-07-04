@@ -110,6 +110,24 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.error--locked {
+  border: 2px solid #dc2626;
+  background: #fef2f2;
+  padding: 16px;
+  text-align: center;
+}
+
+.error--locked p {
+  margin: 0;
+}
+
+.error__contact {
+  margin-top: 8px !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #991b1b;
+}
+
 .success {
   margin: 0;
   padding: 12px;
@@ -167,6 +185,54 @@ button.secondary:hover:not(:disabled) {
 .admin-page {
   min-height: 100vh;
   padding: 24px;
+}
+
+.admin-page button:not(.pagination-btn) {
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  margin-top: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.admin-page button:not(.pagination-btn):hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.admin-page button.active {
+  background: #5b8def;
+  color: #fff;
+  border-color: #5b8def;
+}
+
+.admin-page button.primary {
+  background: #5b8def;
+  color: #fff;
+  border-color: #5b8def;
+}
+
+.admin-page button.primary:hover:not(:disabled) {
+  background: #4a7ddf;
+}
+
+.admin-page button.secondary {
+  background: #6b7280;
+  color: #fff;
+  border-color: #6b7280;
+}
+
+.admin-page button.danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.admin-page .pagination-bar {
+  margin-top: 12px;
+  padding: 14px 0;
+  border-top: 1px solid #f3f4f6;
 }
 
 .admin-card {

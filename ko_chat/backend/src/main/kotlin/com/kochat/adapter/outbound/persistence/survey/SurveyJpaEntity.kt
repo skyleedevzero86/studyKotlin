@@ -38,7 +38,7 @@ class SurveyJpaEntity {
     var id: Long? = null
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chat_room_id", nullable = false)
+    @JoinColumn(name = "chat_room_id", nullable = true)
     var chatRoom: ChatRoomJpaEntity? = null
 
     @Column(nullable = false, length = 200)

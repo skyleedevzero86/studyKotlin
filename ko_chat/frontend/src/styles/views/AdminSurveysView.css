@@ -22,6 +22,7 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #f9fafb;
+  color: #374151;
   cursor: pointer;
 }
 
@@ -112,6 +113,7 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #f9fafb;
+  color: #374151;
   cursor: pointer;
 }
 
@@ -143,4 +145,93 @@
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.user-select-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.user-select-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-select-count {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.user-select-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.user-select-actions button {
+  margin-top: 0;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  color: #fff;
+}
+
+.user-select-actions .random-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.user-select-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px;
+}
+
+.user-select-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 0;
+}
+
+.user-select-item:hover {
+  background: #f3f4f6;
+}
+
+.user-select-item.selected {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.user-select-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #5b8def;
+}
+
+.user-select-name {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.user-select-username {
+  font-size: 0.75rem;
+  color: #6b7280;
 }

@@ -20,8 +20,8 @@ export const resolveApiError = (error: unknown, fallback: string): string => {
       }
       return '인증에 실패했습니다. 다시 로그인해 주세요.'
     }
-    if (error.status === 404 && error.code === 'NOT_FOUND') {
-      return '요청한 API를 찾을 수 없습니다. 백엔드를 최신 코드로 재시작했는지 확인해 주세요.'
+    if (error.status === 404) {
+      return '요청한 API를 찾을 수 없습니다. 백엔드가 실행 중인지, 관련 서비스(Kafka 등)가 활성화되어 있는지 확인해 주세요.'
     }
     return error.message
   }

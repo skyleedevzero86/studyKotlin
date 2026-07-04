@@ -217,7 +217,7 @@ class AdminUserController(
         @PathVariable username: String,
     ): ResponseEntity<ApiMessageResponse> {
         val user = userLifecycleApplicationService.unlock(UnlockUserCommand(username))
-        return ResponseEntity.ok(ApiMessageResponse(message = "비밀번호 잠금 해제", status = user.status.name))
+        return ResponseEntity.ok(ApiMessageResponse(message = "계정 잠금 해제", status = user.status.name))
     }
 
     @Operation(summary = "회원 프로필 수정", description = "관리자가 회원의 표시 이름 등 프로필 정보를 수정합니다.")

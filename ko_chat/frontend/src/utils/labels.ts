@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<string, string> = {
   WITHDRAWN: '탈퇴',
   SUSPENDED: '이용 정지',
   PASSWORD_LOCKED: '비밀번호 잠금',
+  LOGIN_LOCKED: '로그인 잠금',
 }
 
 export const formatRole = (role: string | null | undefined): string =>

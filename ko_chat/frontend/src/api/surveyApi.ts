@@ -122,9 +122,14 @@ export const listAdminSurveys = (
 
 export const adminCreateSurvey = (
   token: string,
-  roomId: number,
   data: CreateSurveyRequest,
-): Promise<SurveyDetail> => postJson(`${adminSurveyPath}/rooms/${roomId}`, data, token)
+): Promise<SurveyDetail> => postJson(adminSurveyPath, data, token)
+
+export type SurveyUserItem = { id: number; username: string; displayName: string | null }
+
+export const adminListSelectableUsers = (
+  token: string,
+): Promise<SurveyUserItem[]> => getJson(`${adminSurveyPath}/users`, token)
 
 export const adminPublishSurvey = (
   token: string,

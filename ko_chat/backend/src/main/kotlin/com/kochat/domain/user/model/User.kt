@@ -39,6 +39,9 @@ class User private constructor(
 
     fun withLoginFailCount(count: Int): User = copy(loginFailCount = count)
 
+    fun withLoginLocked(): User =
+        copy(status = UserStatus.LOGIN_LOCKED, loginFailCount = MAX_LOGIN_FAILS)
+
     fun withPasswordLocked(): User =
         copy(status = UserStatus.PASSWORD_LOCKED, passwordChangeFailCount = MAX_PASSWORD_CHANGE_FAILS)
 
@@ -73,6 +76,7 @@ class User private constructor(
     companion object {
         const val PASSWORD_VALID_DAYS = 30L
         const val MAX_PASSWORD_CHANGE_FAILS = 3
+        const val MAX_LOGIN_FAILS = 3
 
         fun createPending(
             username: String,

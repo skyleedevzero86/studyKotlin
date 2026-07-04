@@ -13,6 +13,10 @@ const sessionNotice = computed(() =>
     : null,
 )
 
+const isAccountLocked = computed(() =>
+  errorMessage.value?.includes('관리자에게 문의') ?? false,
+)
+
 const handleSubmit = async () => {
   const success = await submit()
   if (success) {
@@ -50,9 +54,12 @@ const handleSubmit = async () => {
           />
         </label>
 
-        <p v-if="errorMessage" class="error" role="alert">
-          {{ errorMessage }}
-        </p>
+        <div v-if="errorMessage" :class="['error', { 'error--locked': isAccountLocked }]" role="alert">
+          <p>{{ errorMessage }}</p>
+          <p v-if="isAccountLocked" class="error__contact">
+            관리자 이메일: admin@kochat.com
+          </p>
+        </div>
 
         <button type="submit" :disabled="isLoading">
           {{ isLoading ? '로그인 중...' : '로그인' }}

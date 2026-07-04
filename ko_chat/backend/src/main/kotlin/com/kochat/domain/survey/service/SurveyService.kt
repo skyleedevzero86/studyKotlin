@@ -61,6 +61,8 @@ interface SurveyService {
 
     fun adminCreateSurvey(roomId: Long, adminUserId: Long, request: CreateSurveyRequest): SurveyDetailDto
 
+    fun adminCreateSurveyWithoutRoom(adminUserId: Long, request: CreateSurveyRequest): SurveyDetailDto
+
     fun adminPublishSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto
 
     fun adminCloseSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto

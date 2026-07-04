@@ -18,4 +18,7 @@ enum class UserStatus {
 
     @Schema(description = "비밀번호 변경 잠금")
     PASSWORD_LOCKED,
+
+    @Schema(description = "로그인 실패 잠금")
+    LOGIN_LOCKED,
 }
