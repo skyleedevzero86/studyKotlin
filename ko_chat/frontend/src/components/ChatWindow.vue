@@ -45,6 +45,7 @@ const emit = defineEmits<{
   read: [room: ChatRoom]
   roomUpdated: [room: ChatRoom]
   left: []
+  close: []
   relationshipChanged: []
 }>()
 
@@ -711,7 +712,7 @@ onBeforeUnmount(() => {
         <button type="button" class="sleekydz86-header-btn" title="메뉴" @click="toggleRoomMenu">
           ☰
         </button>
-        <button type="button" class="sleekydz86-header-btn" title="채팅방 나가기" @click="handleLeaveRoom">
+        <button type="button" class="sleekydz86-header-btn" title="창 닫기" @click="emit('close')">
           ✕
         </button>
       </div>

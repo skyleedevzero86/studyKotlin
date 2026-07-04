@@ -88,11 +88,16 @@ const requestJson = async <TResponse>(
     throw await parseError(response)
   }
 
-  if (response.status === 204) {
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
     return undefined as TResponse
   }
 
-  return (await response.json()) as TResponse
+  const text = await response.text()
+  if (!text) {
+    return undefined as TResponse
+  }
+
+  return JSON.parse(text) as TResponse
 }
 
 export const postJson = async <TResponse>(

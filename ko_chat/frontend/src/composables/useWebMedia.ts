@@ -198,12 +198,20 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
         },
       })
     } catch (error) {
-      if (withVideo && error instanceof DOMException &&
-          (error.name === 'NotReadableError' || error.name === 'NotFoundError')) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-        const virtualTrack = createCanvasVideoTrack()
-        stream.addTrack(virtualTrack)
-        options.onError?.('카메라를 사용할 수 없어 가상 비디오로 대체합니다 (다른 브라우저에서 사용 중일 수 있음)')
+      if (withVideo && error instanceof DOMException) {
+        const recoverableErrors = ['NotReadableError', 'NotFoundError', 'AbortError', 'OverconstrainedError']
+        if (recoverableErrors.includes(error.name)) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+            const virtualTrack = createCanvasVideoTrack()
+            stream.addTrack(virtualTrack)
+            options.onError?.('카메라를 사용할 수 없어 가상 비디오로 대체합니다 (다른 브라우저에서 사용 중일 수 있음)')
+          } catch {
+            throw new Error('마이크 접근에 실패했습니다. 브라우저 권한을 확인하세요.')
+          }
+        } else {
+          throw error
+        }
       } else {
         throw error
       }
@@ -228,7 +236,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     if (!isPublishing.value || !publisher || isScreenSharing.value) {
       return
     }
-    if (cameraTrack) {
+    if (cameraTrack && cameraTrack.readyState !== 'ended') {
       isCameraOff.value = false
       cameraTrack.enabled = true
       isAudioOnly.value = false
@@ -238,11 +246,17 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      cameraTrack = stream.getVideoTracks()[0] ?? null
-      if (!cameraTrack) {
-        throw new Error('카메라 트랙을 가져오지 못했습니다')
+      let newTrack: MediaStreamTrack
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        newTrack = stream.getVideoTracks()[0]
+        if (!newTrack) throw new Error('no track')
+      } catch {
+        newTrack = createCanvasVideoTrack()
+        options.onError?.('카메라를 사용할 수 없어 가상 비디오로 대체합니다')
       }
+      stopTrack(cameraTrack)
+      cameraTrack = newTrack
       isCameraOff.value = false
       isAudioOnly.value = false
       await publisher.replaceTrack('video', cameraTrack)
@@ -384,9 +398,14 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     if (restoreCamera && isPublishing.value) {
       try {
         if (!cameraTrack || cameraTrack.readyState === 'ended') {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-          stopTrack(cameraTrack)
-          cameraTrack = stream.getVideoTracks()[0] ?? null
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+            stopTrack(cameraTrack)
+            cameraTrack = stream.getVideoTracks()[0] ?? null
+          } catch {
+            stopTrack(cameraTrack)
+            cameraTrack = createCanvasVideoTrack()
+          }
         }
         if (cameraTrack) {
           cameraTrack.enabled = !isCameraOff.value

@@ -62,6 +62,17 @@ class AdminSurveyController(
             }
         return ResponseEntity.ok(users)
     }
+    @Operation(summary = "설문 상세 조회")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @GetMapping("/{surveyId}")
+    fun getSurveyDetail(
+        authentication: Authentication,
+        @PathVariable surveyId: Long,
+    ): ResponseEntity<SurveyDetailDto> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(surveyService.getSurveyById(surveyId, adminUserId))
+    }
+
     @Operation(summary = "전체 설문 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping

@@ -411,8 +411,8 @@ defineExpose({ loadChatRooms, totalUnreadCount })
       />
     </div>
 
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-      <div class="modal-card" @click.stop>
+    <div v-if="showCreateModal" class="modal-overlay" @mousedown.self="showCreateModal = false">
+      <div class="modal-card">
         <h2>채팅방 만들기</h2>
         <form class="profile-form" @submit.prevent="handleCreateRoom">
           <label>

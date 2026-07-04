@@ -31,7 +31,6 @@ import com.kochat.domain.user.model.UserRole
 import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -345,7 +344,6 @@ class ChatServiceImpl(
         return chatRoomToDto(savedRoom, currentUserId)
     }
 
-    @Cacheable(value = ["chatRooms"], key = "#roomId + '-' + #viewerUserId")
     override fun getChatRoom(roomId: Long, viewerUserId: Long): ChatRoomDto {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -396,7 +394,7 @@ class ChatServiceImpl(
             pageable,
         ).map { chatRoomToDto(it, userId) }
 
-    @CacheEvict(value = ["chatRooms"], key = "#roomId")
+    @CacheEvict(value = ["chatRooms"], allEntries = true)
     override fun joinChatRoom(roomId: Long, userId: Long, password: String?) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -443,7 +441,7 @@ class ChatServiceImpl(
         }
     }
 
-    @CacheEvict(value = ["chatRooms"], key = "#roomId")
+    @CacheEvict(value = ["chatRooms"], allEntries = true)
     override fun leaveChatRoom(roomId: Long, userId: Long) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -461,6 +459,14 @@ class ChatServiceImpl(
         if (isRoomOwner(chatRoom, userId)) {
             chatRoom.isActive = false
             chatRoomJpaRepository.save(chatRoom)
+
+            val pendingInvitations = chatRoomInvitationJpaRepository.findByChatRoomIdAndStatus(
+                roomId,
+                ChatInvitationStatus.PENDING,
+            )
+            pendingInvitations.forEach { it.status = ChatInvitationStatus.REJECTED }
+            chatRoomInvitationJpaRepository.saveAll(pendingInvitations)
+
             val ownerName = user.displayName ?: user.username ?: "방장"
             saveSystemMessage(chatRoom, user, "$ownerName 님이 방을 나가 채팅방이 종료되었습니다.")
         }

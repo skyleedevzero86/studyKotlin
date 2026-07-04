@@ -32,6 +32,7 @@ import com.kochat.domain.survey.model.SurveyStatus
 import com.kochat.domain.survey.model.TargetMode
 import com.kochat.domain.survey.service.SurveyService
 import com.kochat.domain.user.model.UserRole
+import com.kochat.domain.user.model.UserStatus
 import com.kochat.global.application.admin.SurveyExportService
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -425,6 +426,24 @@ class SurveyServiceImpl(
             publishSurvey(roomId, surveyId, adminUserId)
         } else {
             require(survey.status == SurveyStatus.DRAFT) { "작성중 상태의 설문만 게시할 수 있습니다." }
+
+            if (survey.targetMode == TargetMode.ALL_MEMBERS &&
+                surveyParticipantJpaRepository.countBySurveyId(surveyId) == 0L
+            ) {
+                val allActiveUsers = userJpaRepository.findByStatusOrderByUsernameAsc(UserStatus.ACTIVE)
+                allActiveUsers.forEach { user ->
+                    val uid = user.id ?: return@forEach
+                    if (!surveyParticipantJpaRepository.existsBySurveyIdAndUserId(surveyId, uid)) {
+                        surveyParticipantJpaRepository.save(
+                            SurveyParticipantJpaEntity().apply {
+                                this.survey = survey
+                                this.user = user
+                            },
+                        )
+                    }
+                }
+            }
+
             survey.status = SurveyStatus.ACTIVE
             surveyJpaRepository.save(survey)
             toDetail(survey, adminUserId)

@@ -120,6 +120,11 @@ export const listAdminSurveys = (
   return getJson(`${adminSurveyPath}?${params}`, token)
 }
 
+export const adminGetSurveyDetail = (
+  token: string,
+  surveyId: number,
+): Promise<SurveyDetail> => getJson(`${adminSurveyPath}/${surveyId}`, token)
+
 export const adminCreateSurvey = (
   token: string,
   data: CreateSurveyRequest,

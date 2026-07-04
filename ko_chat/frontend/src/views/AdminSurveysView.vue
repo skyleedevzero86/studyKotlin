@@ -8,6 +8,7 @@ import {
   adminCreateSurvey,
   adminExportSurveyStatisticsExcel,
   adminExportSurveyStatisticsPdf,
+  adminGetSurveyDetail,
   adminGetSurveyStatistics,
   adminListSelectableUsers,
   adminPublishSurvey,
@@ -26,6 +27,7 @@ import type {
   CreateSurveyRequest,
   QuestionType,
   StatisticsTab,
+  SurveyDetail,
   SurveyStatistics,
   SurveySummary,
   TargetMode,
@@ -54,9 +56,10 @@ const errorMessage = ref<string | null>(null)
 const showUploadModal = ref(false)
 const uploadTargetSurveyId = ref<number | null>(null)
 const uploadResult = ref<ParticipantUploadResult | null>(null)
-const activeTab = ref<'list' | 'create' | 'stats'>('list')
+const activeTab = ref<'list' | 'create' | 'stats' | 'detail'>('list')
 const statsTab = ref<StatisticsTab>('by-question')
 const selectedSurveyId = ref<number | null>(null)
+const surveyDetail = ref<SurveyDetail | null>(null)
 const randomCount = ref(5)
 
 const filter = reactive({
@@ -286,6 +289,21 @@ const loadStatistics = async (surveyId: number) => {
   }
 }
 
+const loadSurveyDetail = async (surveyId: number) => {
+  const token = getValidAccessToken()
+  if (!token) return
+  isLoading.value = true
+  errorMessage.value = null
+  try {
+    surveyDetail.value = await adminGetSurveyDetail(token, surveyId)
+    activeTab.value = 'detail'
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '설문 상세를 불러오지 못했습니다.')
+  } finally {
+    isLoading.value = false
+  }
+}
+
 const handleExportExcel = async () => {
   const token = getValidAccessToken()
   if (!token || !selectedSurveyId.value) return
@@ -397,6 +415,14 @@ watch(() => surveyPagination.page.value, () => {
       >
         통계
       </button>
+      <button
+        v-if="surveyDetail"
+        type="button"
+        :class="{ active: activeTab === 'detail' }"
+        @click="activeTab = 'detail'"
+      >
+        상세
+      </button>
     </nav>
 
     <p v-if="errorMessage" class="admin-error">{{ errorMessage }}</p>
@@ -440,7 +466,7 @@ watch(() => surveyPagination.page.value, () => {
         </thead>
         <tbody>
           <tr v-for="survey in surveys" :key="survey.id">
-            <td>{{ survey.title }}</td>
+            <td class="clickable-cell" @click="loadSurveyDetail(survey.id)">{{ survey.title }}</td>
             <td>
               <span v-if="survey.chatRoomId" class="badge badge--room">{{ survey.chatRoomName }}</span>
               <span v-else class="badge badge--event">이벤트</span>
@@ -648,6 +674,40 @@ watch(() => surveyPagination.page.value, () => {
           @prev="roomFilterPagination.goPrev()"
           @next="roomFilterPagination.goNext()"
         />
+      </div>
+    </section>
+
+    <section v-else-if="activeTab === 'detail' && surveyDetail" class="admin-section">
+      <div class="survey-detail-header">
+        <h2>{{ surveyDetail.title }}</h2>
+        <button type="button" class="secondary" @click="activeTab = 'list'">목록으로</button>
+      </div>
+      <p v-if="surveyDetail.description" class="survey-detail-desc">{{ surveyDetail.description }}</p>
+      <p class="survey-detail-meta">
+        상태: <strong>{{ statusLabel(surveyDetail.status) }}</strong>
+        · 참여자: {{ surveyDetail.participants?.length ?? 0 }}명
+      </p>
+
+      <div v-for="question in surveyDetail.questions" :key="question.id" class="stat-card">
+        <strong>Q{{ question.questionNo }}. {{ question.questionText }}</strong>
+        <span class="question-type-badge">{{ question.questionType }}</span>
+        <ul v-if="question.options?.length">
+          <li v-for="opt in question.options" :key="opt.id">{{ opt.optionText }}</li>
+        </ul>
+        <p v-else class="text-muted">(주관식)</p>
+      </div>
+
+      <div v-if="surveyDetail.participants?.length" class="survey-participants-section">
+        <h3>대상자 목록</h3>
+        <table class="admin-table">
+          <thead><tr><th>이름</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr v-for="p in surveyDetail.participants" :key="p.userId">
+              <td>{{ p.displayName ?? p.username }}</td>
+              <td>{{ p.status === 'COMPLETED' ? '완료' : '대기' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </div>

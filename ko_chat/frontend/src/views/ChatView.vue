@@ -46,8 +46,13 @@ const surveyNotification = ref<SurveyNotification | null>(null)
 let pendingPollTimer: ReturnType<typeof setInterval> | undefined
 let notificationWs: WebSocket | null = null
 
+let notificationWsReconnectTimer: ReturnType<typeof setTimeout> | undefined
+let notificationWsIntentionalClose = false
+
 const connectNotificationWs = () => {
   if (!accessToken.value) return
+  if (notificationWs && notificationWs.readyState === WebSocket.OPEN) return
+  notificationWsIntentionalClose = false
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/chat?token=${encodeURIComponent(accessToken.value)}`
   notificationWs = new WebSocket(wsUrl)
@@ -65,10 +70,15 @@ const connectNotificationWs = () => {
   }
   notificationWs.onclose = () => {
     notificationWs = null
+    if (!notificationWsIntentionalClose) {
+      notificationWsReconnectTimer = setTimeout(connectNotificationWs, 3000)
+    }
   }
 }
 
 const disconnectNotificationWs = () => {
+  notificationWsIntentionalClose = true
+  clearTimeout(notificationWsReconnectTimer)
   if (notificationWs) {
     notificationWs.close(1000)
     notificationWs = null
@@ -488,6 +498,7 @@ onBeforeUnmount(() => {
           @read="handleRoomRead"
           @room-updated="handleRoomUpdated"
           @left="handleLeftRoom"
+          @close="selectedChatRoom = null"
           @relationship-changed="handleRelationshipChanged"
         />
 

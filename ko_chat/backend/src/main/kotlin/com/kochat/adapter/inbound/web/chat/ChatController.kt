@@ -108,7 +108,7 @@ class ChatController(
     ): ResponseEntity<Void> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
         chatService.leaveChatRoom(id, userId)
-        return ResponseEntity.ok().build()
+        return ResponseEntity.noContent().build()
     }
 
     @Operation(summary = "채팅방 멤버 목록")
