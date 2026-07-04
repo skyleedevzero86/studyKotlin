@@ -2197,6 +2197,31 @@ button.compact {
   border-top: 1px solid #fecaca;
   font-size: 0.9rem;
   font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.sleekydz86-room-closed p {
+  margin: 0;
+}
+.sleekydz86-room-closed-btn {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 6px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sleekydz86-room-closed-btn:hover {
+  background: #b91c1c;
+}
+.sleekydz86-room-closed-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .sleekydz86-input-area {

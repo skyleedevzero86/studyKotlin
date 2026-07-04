@@ -69,6 +69,7 @@ const capacityLoading = ref(false)
 const showSettings = ref(false)
 const settingsLoading = ref(false)
 const leaveLoading = ref(false)
+const roomClosed = ref(false)
 const settingsName = ref(props.chatRoom.name)
 const settingsDescription = ref(props.chatRoom.description ?? '')
 const settingsPrivate = ref(props.chatRoom.isPrivate ?? false)
@@ -269,6 +270,10 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
   messages.value = upsertMessageBySequence(messages.value, newMessage)
   void scrollToBottom()
   void markRead()
+
+  if (newMessage.type === 'SYSTEM' && newMessage.content?.includes('종료되었습니다')) {
+    roomClosed.value = true
+  }
 }
 
 const { isConnected, sendMessage, error: wsError } = useWebSocket({
@@ -622,6 +627,7 @@ watch(
     settingsPrivate.value = props.chatRoom.isPrivate ?? false
     settingsPassword.value = ''
     showSettings.value = false
+    roomClosed.value = false
     void loadMessages()
     if (props.chatRoom.mediaMode === 'WEBRTC') {
       void loadMembers()
@@ -949,8 +955,11 @@ onBeforeUnmount(() => {
       <div ref="messagesEndRef" />
     </div>
 
-    <div v-if="!chatRoom.isActive" class="sleekydz86-room-closed">
-      이 채팅방은 종료되었습니다.
+    <div v-if="!chatRoom.isActive || roomClosed" class="sleekydz86-room-closed">
+      <p>이 채팅방은 종료되었습니다.</p>
+      <button type="button" class="sleekydz86-room-closed-btn" @click="handleLeaveRoom" :disabled="leaveLoading">
+        {{ leaveLoading ? '처리 중...' : '채팅방 나가기' }}
+      </button>
     </div>
 
     <form v-else class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
