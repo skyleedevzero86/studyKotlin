@@ -62,7 +62,6 @@ class ChatCacheConfig : CachingConfigurer {
             .cacheDefaults(configuration)
             .withCacheConfiguration("users", configuration.entryTtl(Duration.ofHours(1)))
             .withCacheConfiguration("chatRooms", configuration.entryTtl(Duration.ofMinutes(15)))
-            .withCacheConfiguration("chatRoomMembers", configuration.entryTtl(Duration.ofMinutes(10)))
             .withCacheConfiguration("messages", configuration.entryTtl(Duration.ofMinutes(5)))
             .build()
     }

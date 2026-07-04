@@ -1,13 +1,21 @@
 package com.kochat.adapter.outbound.persistence.chat
 
+import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
-import org.springframework.data.repository.CrudRepository
 import java.util.Optional
 
-interface ChatRoomMemberJpaRepository : CrudRepository<ChatRoomMemberJpaEntity, Long> {
+interface ChatRoomMemberJpaRepository : JpaRepository<ChatRoomMemberJpaEntity, Long> {
     fun findByChatRoomIdAndIsActiveTrue(chatRoomId: Long): List<ChatRoomMemberJpaEntity>
 
+    @Query(
+        """
+        SELECT m FROM ChatRoomMemberJpaEntity m
+        JOIN FETCH m.user
+        WHERE m.chatRoom.id = :chatRoomId AND m.isActive = true
+        """,
+        countQuery = "SELECT COUNT(m) FROM ChatRoomMemberJpaEntity m WHERE m.chatRoom.id = :chatRoomId AND m.isActive = true",
+    )
     fun findByChatRoomIdAndIsActiveTrue(
         chatRoomId: Long,
         pageable: org.springframework.data.domain.Pageable,

@@ -26,6 +26,8 @@ interface SurveyService {
 
     fun getSurvey(roomId: Long, surveyId: Long, userId: Long): SurveyDetailDto
 
+    fun getSurveyById(surveyId: Long, userId: Long): SurveyDetailDto
+
     fun createSurvey(roomId: Long, userId: Long, request: CreateSurveyRequest): SurveyDetailDto
 
     fun updateSurvey(roomId: Long, surveyId: Long, userId: Long, request: UpdateSurveyRequest): SurveyDetailDto
@@ -37,6 +39,8 @@ interface SurveyService {
     fun deleteSurvey(roomId: Long, surveyId: Long, userId: Long)
 
     fun submitResponse(roomId: Long, surveyId: Long, userId: Long, request: SubmitSurveyResponseRequest): SurveyDetailDto
+
+    fun submitResponseById(surveyId: Long, userId: Long, request: SubmitSurveyResponseRequest): SurveyDetailDto
 
     fun getStatistics(roomId: Long, surveyId: Long, userId: Long): SurveyStatisticsDto
 

@@ -5,6 +5,7 @@ import com.kochat.adapter.inbound.web.chat.dto.MessageMetadataDto
 import com.kochat.adapter.outbound.persistence.chat.ChatRoomMemberJpaRepository
 import com.kochat.adapter.outbound.storage.MinioStorageService
 import com.kochat.domain.chat.model.MessageType
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDateTime
@@ -14,12 +15,20 @@ class ChatAttachmentService(
     private val minioStorageService: MinioStorageService,
     private val chatRoomMemberJpaRepository: ChatRoomMemberJpaRepository,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     fun upload(chatRoomId: Long, userId: Long, file: MultipartFile): AttachmentUploadResponse {
         requireMember(chatRoomId, userId)
         require(!file.isEmpty) { "빈 파일은 업로드할 수 없습니다." }
         require(file.size <= MAX_FILE_SIZE) { "파일 크기는 50MB 이하여야 합니다." }
 
-        val stored = minioStorageService.uploadChatFile(chatRoomId, file)
+        val stored = try {
+            minioStorageService.uploadChatFile(chatRoomId, file)
+        } catch (e: Exception) {
+            logger.error("MinIO 파일 업로드 실패 (roomId={}, userId={}, fileName={}): {}",
+                chatRoomId, userId, file.originalFilename, e.message)
+            throw IllegalStateException("파일 저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.")
+        }
         val expiresAt = LocalDateTime.now().plusDays(FILE_RETENTION_DAYS)
         val messageType = if (stored.mimeType.startsWith("image/")) MessageType.IMAGE else MessageType.FILE
 
@@ -41,14 +50,18 @@ class ChatAttachmentService(
 
     fun refreshDownloadUrl(objectKey: String, userId: Long): String {
         val roomId = extractRoomId(objectKey)
-        chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
-            ?: throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
+        val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+        if (!member.isPresent) {
+            throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
+        }
         return minioStorageService.createPresignedUrl(objectKey)
     }
 
     private fun requireMember(chatRoomId: Long, userId: Long) {
-        chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(chatRoomId, userId)
-            ?: throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
+        val member = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(chatRoomId, userId)
+        if (!member.isPresent) {
+            throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
+        }
     }
 
     private fun extractRoomId(objectKey: String): Long {

@@ -25,4 +25,15 @@ interface SurveyParticipantJpaRepository : JpaRepository<SurveyParticipantJpaEnt
         """,
     )
     fun findUserIdsBySurveyId(@Param("surveyId") surveyId: Long): List<Long>
+
+    @Query(
+        """
+        SELECT p FROM SurveyParticipantJpaEntity p
+        JOIN FETCH p.survey s
+        WHERE p.user.id = :userId
+          AND s.status = com.kochat.domain.survey.model.SurveyStatus.ACTIVE
+        ORDER BY p.assignedAt DESC
+        """,
+    )
+    fun findActiveByUserId(@Param("userId") userId: Long): List<SurveyParticipantJpaEntity>
 }

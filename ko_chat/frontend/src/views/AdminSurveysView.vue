@@ -431,7 +431,7 @@ watch(() => surveyPagination.page.value, () => {
         <thead>
           <tr>
             <th>설문명</th>
-            <th>채팅방</th>
+            <th>구분</th>
             <th>상태</th>
             <th>대상</th>
             <th>응답</th>
@@ -441,7 +441,10 @@ watch(() => surveyPagination.page.value, () => {
         <tbody>
           <tr v-for="survey in surveys" :key="survey.id">
             <td>{{ survey.title }}</td>
-            <td>{{ survey.chatRoomName || '—' }}</td>
+            <td>
+              <span v-if="survey.chatRoomId" class="badge badge--room">{{ survey.chatRoomName }}</span>
+              <span v-else class="badge badge--event">이벤트</span>
+            </td>
             <td>{{ statusLabel(survey.status) }}</td>
             <td>{{ survey.participantCount }}</td>
             <td>{{ survey.completedCount }}</td>

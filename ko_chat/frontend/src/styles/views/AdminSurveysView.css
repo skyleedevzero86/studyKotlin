@@ -141,6 +141,24 @@
   border-radius: 6px;
 }
 
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge--room {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge--event {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .admin-export-actions {
   display: flex;
   gap: 8px;

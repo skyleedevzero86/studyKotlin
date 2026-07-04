@@ -91,6 +91,7 @@ const loadSearch = async () => {
 }
 
 const handleStartDirectChat = async (user: ChatUser | UserRelationshipResponse['user']) => {
+  if (directLoading.value) return
   directLoading.value = true
   try {
     const room = await findOrCreateDirectRoom(props.token, { targetUserId: user.id })
@@ -261,7 +262,7 @@ defineExpose({ loadFriends })
           <span class="sleekydz86-friend-avatar" :style="{ backgroundColor: avatarColor(friend.user.id) }">
             {{ avatarLabel(friend.user) }}
           </span>
-          <button type="button" class="sleekydz86-friend-info sleekydz86-friend-info-btn" @click="handleStartDirectChat(friend.user)">
+          <button type="button" class="sleekydz86-friend-info sleekydz86-friend-info-btn" :disabled="directLoading" @click="handleStartDirectChat(friend.user)">
             <strong>{{ userLabel(friend.user) }}</strong>
             <span>@{{ friend.user.username }}</span>
           </button>

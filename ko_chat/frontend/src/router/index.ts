@@ -12,6 +12,7 @@ const AdminStatisticsView = () => import('../views/AdminStatisticsView.vue')
 const AdminMessagingView = () => import('../views/AdminMessagingView.vue')
 const AdminUsersView = () => import('../views/AdminUsersView.vue')
 const AdminSurveysView = () => import('../views/AdminSurveysView.vue')
+const MySurveysView = () => import('../views/MySurveysView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -75,6 +76,12 @@ const router = createRouter({
       name: 'admin-surveys',
       component: AdminSurveysView,
       meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/my-surveys',
+      name: 'my-surveys',
+      component: MySurveysView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/error',

@@ -182,3 +182,27 @@ export const adminRoomStatistics = (
   const query = surveyId ? `?surveyId=${surveyId}` : ''
   return getJson(`${adminSurveyPath}/statistics/by-room${query}`, token)
 }
+
+export type MySurveyItem = {
+  surveyId: number
+  title: string
+  description: string | null
+  status: string
+  chatRoomId: number | null
+  chatRoomName: string | null
+  hasResponded: boolean
+}
+
+export const fetchMySurveys = (token: string): Promise<MySurveyItem[]> =>
+  getJson('/api/v1/surveys/my', token)
+
+export const getMySurveyDetail = (
+  token: string,
+  surveyId: number,
+): Promise<SurveyDetail> => getJson(`/api/v1/surveys/my/${surveyId}`, token)
+
+export const submitMySurveyResponse = (
+  token: string,
+  surveyId: number,
+  data: SubmitSurveyResponseRequest,
+): Promise<SurveyDetail> => postJson(`/api/v1/surveys/my/${surveyId}/responses`, data, token)

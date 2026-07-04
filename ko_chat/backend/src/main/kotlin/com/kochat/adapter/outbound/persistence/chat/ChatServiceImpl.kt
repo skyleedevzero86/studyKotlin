@@ -32,7 +32,6 @@ import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.cache.annotation.Caching
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -273,6 +272,7 @@ class ChatServiceImpl(
     }
 
     @CacheEvict(value = ["chatRooms"], allEntries = true)
+    @Synchronized
     override fun findOrCreateDirectRoom(targetUserId: Long, currentUserId: Long): ChatRoomDto {
         if (targetUserId == currentUserId) {
             throw IllegalArgumentException("자기 자신과는 1:1 채팅을 시작할 수 없습니다")
@@ -297,6 +297,12 @@ class ChatServiceImpl(
             .firstOrNull()
         if (pendingInvitation?.chatRoom != null) {
             return chatRoomToDto(pendingInvitation.chatRoom!!, currentUserId)
+        }
+
+        val reversePendingInvitation = chatRoomInvitationJpaRepository.findPendingDirectInvitations(targetUserId, currentUserId)
+            .firstOrNull()
+        if (reversePendingInvitation?.chatRoom != null) {
+            return chatRoomToDto(reversePendingInvitation.chatRoom!!, currentUserId)
         }
 
         val currentName = currentUser.displayName ?: currentUser.username ?: "사용자"
@@ -390,12 +396,7 @@ class ChatServiceImpl(
             pageable,
         ).map { chatRoomToDto(it, userId) }
 
-    @Caching(
-        evict = [
-            org.springframework.cache.annotation.CacheEvict(value = ["chatRoomMembers"], key = "#roomId"),
-            org.springframework.cache.annotation.CacheEvict(value = ["chatRooms"], key = "#roomId"),
-        ],
-    )
+    @CacheEvict(value = ["chatRooms"], key = "#roomId")
     override fun joinChatRoom(roomId: Long, userId: Long, password: String?) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -442,18 +443,24 @@ class ChatServiceImpl(
         }
     }
 
-    @Caching(
-        evict = [
-            org.springframework.cache.annotation.CacheEvict(value = ["chatRoomMembers"], key = "#roomId"),
-            org.springframework.cache.annotation.CacheEvict(value = ["chatRooms"], key = "#roomId"),
-        ],
-    )
+    @CacheEvict(value = ["chatRooms"], key = "#roomId")
     override fun leaveChatRoom(roomId: Long, userId: Long) {
+        val chatRoom = chatRoomJpaRepository.findById(roomId)
+            .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
+        val user = userJpaRepository.findById(userId)
+            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다: $userId") }
+
         chatRoomMemberJpaRepository.leaveChatRoom(roomId, userId)
         webMediaSessionRegistry.disconnectUser(roomId, userId)
+
+        if (isRoomOwner(chatRoom, userId)) {
+            chatRoom.isActive = false
+            chatRoomJpaRepository.save(chatRoom)
+            val ownerName = user.displayName ?: user.username ?: "방장"
+            saveSystemMessage(chatRoom, user, "$ownerName 님이 방을 나가 채팅방이 종료되었습니다.")
+        }
     }
 
-    @Cacheable(value = ["chatRoomMembers"], key = "#roomId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     override fun getChatRoomMembers(roomId: Long, pageable: Pageable): Page<ChatRoomMemberDto> =
         chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId, pageable).map { memberToDto(it) }
 
@@ -543,7 +550,6 @@ class ChatServiceImpl(
         return invitationToDto(saved, inviteeId)
     }
 
-    @CacheEvict(value = ["chatRoomMembers"], key = "#roomId")
     override fun kickMember(roomId: Long, targetUserId: Long, ownerUserId: Long) {
         val chatRoom = chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -551,7 +557,6 @@ class ChatServiceImpl(
         removeMemberFromRoom(roomId, targetUserId, ownerUserId)
     }
 
-    @CacheEvict(value = ["chatRoomMembers"], key = "#roomId")
     override fun adminKickMember(roomId: Long, targetUserId: Long, adminUserId: Long) {
         require(isAdminUser(adminUserId)) { "관리자만 강제 퇴장시킬 수 있습니다." }
         chatRoomJpaRepository.findById(roomId)

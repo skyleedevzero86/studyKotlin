@@ -131,6 +131,27 @@ class WebSocketSessionManager(
             .map { it.role == UserRole.ADMIN }
             .orElse(false)
 
+    fun sendToUser(userId: Long, payload: Any) {
+        val json = objectMapper.writeValueAsString(payload)
+        val sessions = userSession[userId] ?: return
+        val closedSessions = mutableSetOf<WebSocketSession>()
+        sessions.forEach { session ->
+            if (session.isOpen) {
+                try {
+                    session.sendMessage(TextMessage(json))
+                } catch (e: Exception) {
+                    logger.error("사용자($userId)에게 메시지 전송 실패", e)
+                    closedSessions.add(session)
+                }
+            } else {
+                closedSessions.add(session)
+            }
+        }
+        if (closedSessions.isNotEmpty()) {
+            sessions.removeAll(closedSessions)
+        }
+    }
+
     fun isUserOnlineLocally(userId: Long): Boolean {
         val sessions = userSession[userId] ?: return false
         val openSessions = sessions.filter { it.isOpen }

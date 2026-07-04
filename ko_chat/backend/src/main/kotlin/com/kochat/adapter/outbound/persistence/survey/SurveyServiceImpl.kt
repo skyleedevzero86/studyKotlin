@@ -82,6 +82,15 @@ class SurveyServiceImpl(
         return toDetail(survey, userId)
     }
 
+    override fun getSurveyById(surveyId: Long, userId: Long): SurveyDetailDto {
+        val survey = surveyJpaRepository.findById(surveyId)
+            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
+        val isParticipant = surveyParticipantJpaRepository.existsBySurveyIdAndUserId(surveyId, userId)
+        val isAdmin = isAdminUser(userId)
+        require(isParticipant || isAdmin) { "해당 설문에 접근 권한이 없습니다." }
+        return toDetail(survey, userId)
+    }
+
     override fun createSurvey(roomId: Long, userId: Long, request: CreateSurveyRequest): SurveyDetailDto {
         val room = requireRoom(roomId)
         requireRoomOwner(room, userId)
@@ -240,6 +249,74 @@ class SurveyServiceImpl(
             } else {
                 null
             }
+        if (participant != null) {
+            participant.status = ParticipantStatus.COMPLETED
+            participant.completedAt = LocalDateTime.now()
+        }
+        return toDetail(survey, userId)
+    }
+
+    @Transactional
+    override fun submitResponseById(
+        surveyId: Long,
+        userId: Long,
+        request: SubmitSurveyResponseRequest,
+    ): SurveyDetailDto {
+        val survey = surveyJpaRepository.findById(surveyId)
+            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
+        require(survey.status == SurveyStatus.ACTIVE) { "진행 중인 설문만 응답할 수 있습니다." }
+        require(isWithinSchedule(survey)) { "설문 응답 기간이 아닙니다." }
+        require(canRespond(survey, userId)) { "설문 대상자가 아닙니다." }
+        val existing = surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
+        require(existing.isEmpty()) { "이미 응답한 설문입니다." }
+        val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
+        val questionMap = questions.associateBy { it.id!! }
+        val user = requireUser(userId)
+        request.answers.forEach { answer ->
+            val question = questionMap[answer.questionId]
+                ?: throw IllegalArgumentException("유효하지 않은 문항입니다.")
+            validateAnswer(question, answer)
+            when (question.questionType) {
+                QuestionType.TEXT -> {
+                    surveyAnswerJpaRepository.save(
+                        SurveyAnswerJpaEntity().apply {
+                            this.survey = survey
+                            this.question = question
+                            this.user = user
+                            textAnswer = answer.textAnswer?.trim()
+                        },
+                    )
+                }
+                QuestionType.SINGLE_CHOICE -> {
+                    val optionId = answer.optionIds.single()
+                    val option = surveyOptionJpaRepository.findById(optionId)
+                        .orElseThrow { IllegalArgumentException("유효하지 않은 보기입니다.") }
+                    surveyAnswerJpaRepository.save(
+                        SurveyAnswerJpaEntity().apply {
+                            this.survey = survey
+                            this.question = question
+                            this.option = option
+                            this.user = user
+                        },
+                    )
+                }
+                QuestionType.MULTIPLE_CHOICE -> {
+                    answer.optionIds.forEach { optionId ->
+                        val option = surveyOptionJpaRepository.findById(optionId)
+                            .orElseThrow { IllegalArgumentException("유효하지 않은 보기입니다.") }
+                        surveyAnswerJpaRepository.save(
+                            SurveyAnswerJpaEntity().apply {
+                                this.survey = survey
+                                this.question = question
+                                this.option = option
+                                this.user = user
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        val participant = surveyParticipantJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
         if (participant != null) {
             participant.status = ParticipantStatus.COMPLETED
             participant.completedAt = LocalDateTime.now()

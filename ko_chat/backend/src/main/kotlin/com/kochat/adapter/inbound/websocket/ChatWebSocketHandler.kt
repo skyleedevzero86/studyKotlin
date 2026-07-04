@@ -116,9 +116,12 @@ class ChatWebSocketHandler(
                         ?: throw IllegalArgumentException("채팅방 ID는 필수입니다")
                     val messageTypeText = jsonNode.get("messageType")?.asText()
                         ?: throw IllegalArgumentException("메시지 타입은 필수입니다")
-                    val content = jsonNode.get("content")?.asText()
+                    val contentNode = jsonNode.get("content")
+                    val content = if (contentNode == null || contentNode.isNull) null else contentNode.asText()
                     val metadata = jsonNode.get("metadata")?.let { node ->
-                        if (node.isTextual) node.asText() else node.toString()
+                        if (node.isNull) null
+                        else if (node.isTextual) node.asText()
+                        else node.toString()
                     }
 
                     val sendMessageRequest = SendMessageRequest(

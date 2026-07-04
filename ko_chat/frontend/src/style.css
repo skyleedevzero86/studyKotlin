@@ -1043,17 +1043,21 @@ button.danger:hover:not(:disabled) {
   flex-shrink: 0;
 }
 
-.sleekydz86-friend-action {
+button.sleekydz86-friend-action {
+  margin-top: 0;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 0.75rem;
+  font-weight: 500;
   background: #ffffff;
+  color: #374151;
   cursor: pointer;
 }
 
-.sleekydz86-friend-action.danger {
+button.sleekydz86-friend-action.danger {
   color: #b91c1c;
+  border-color: #fecaca;
 }
 
 .sleekydz86-friends-rejected {
@@ -1466,7 +1470,9 @@ button.danger:hover:not(:disabled) {
   border-radius: 8px;
   font: inherit;
   font-size: 0.9rem;
+  color: #374151;
   cursor: pointer;
+  margin-top: 0;
 }
 
 .sleekydz86-room-menu button:hover {
@@ -2177,6 +2183,17 @@ button.compact {
 
 .chat-message-bubble time {
   display: none;
+}
+
+.sleekydz86-room-closed {
+  flex-shrink: 0;
+  padding: 16px;
+  text-align: center;
+  color: #991b1b;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .sleekydz86-input-area {

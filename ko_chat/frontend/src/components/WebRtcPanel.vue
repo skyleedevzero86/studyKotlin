@@ -274,9 +274,5 @@ onMounted(() => {
       <button type="button" class="webrtc-join-cancel" @click="closeJoinChoice">취소</button>
     </div>
 
-    <p class="webrtc-hint">
-      SRS 미디어 서버가 필요합니다. 실행: <code>docker compose -f docker-compose.srs.yml up -d</code>
-      · 자세히: <code>docs/WEBRTC.md</code>
-    </p>
   </section>
 </template>

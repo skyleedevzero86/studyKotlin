@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   error: [message: string]
   goProfile: []
+  goMySurveys: []
   goAdmin: []
   goAdminChatRooms: []
   goAdminStatistics: []
@@ -81,6 +82,9 @@ defineExpose({ loadBlocks })
     <div class="sleekydz86-more-menu">
       <button type="button" class="sleekydz86-more-menu-item" @click="emit('goProfile')">
         내 정보
+      </button>
+      <button type="button" class="sleekydz86-more-menu-item" @click="emit('goMySurveys')">
+        내 설문조사
       </button>
       <button
         v-if="isAdmin"

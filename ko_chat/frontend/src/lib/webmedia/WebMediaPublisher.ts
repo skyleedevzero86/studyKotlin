@@ -26,25 +26,36 @@ export function createWebMediaPublisher(apiUrl: string, streamUrl: string) {
       .toString(16)
       .slice(0, 7)
 
-    const response = await fetch(fullApiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api: fullApiUrl,
-        streamurl: fullStreamUrl,
-        tid: transactionId,
-        clientip: null,
-        sdp: offer.sdp,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('SRS publish 요청 실패')
+    let response: Response
+    try {
+      response = await fetch(fullApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api: fullApiUrl,
+          streamurl: fullStreamUrl,
+          tid: transactionId,
+          clientip: null,
+          sdp: offer.sdp,
+        }),
+      })
+    } catch {
+      throw new Error('미디어 서버에 연결할 수 없습니다. SRS 서버가 실행 중인지 확인하세요.')
     }
 
-    const session = await response.json()
+    if (!response.ok) {
+      throw new Error('미디어 서버 연결 실패 (SRS 서버가 실행 중인지 확인하세요)')
+    }
+
+    let session: { code?: number; sdp?: string }
+    try {
+      session = await response.json()
+    } catch {
+      throw new Error('미디어 서버 응답을 처리할 수 없습니다. SRS 서버가 실행 중인지 확인하세요.')
+    }
+
     if (session.code) {
-      throw new Error('SRS publish 응답 오류')
+      throw new Error('미디어 서버 응답 오류')
     }
 
     await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: session.sdp }))

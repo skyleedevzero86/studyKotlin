@@ -10,6 +10,7 @@ import com.kochat.adapter.inbound.web.survey.dto.SurveySummaryDto
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.domain.survey.model.SurveyStatus
 import com.kochat.domain.survey.model.TargetMode
+import com.kochat.domain.survey.service.SurveyNotificationService
 import com.kochat.domain.survey.service.SurveyService
 import com.kochat.domain.user.model.UserStatus
 import com.kochat.global.application.chat.ChatUserResolver
@@ -46,6 +47,7 @@ class AdminSurveyController(
     private val surveyService: SurveyService,
     private val chatUserResolver: ChatUserResolver,
     private val userJpaRepository: UserJpaRepository,
+    private val surveyNotificationService: SurveyNotificationService,
 ) {
     data class SurveyUserItem(val id: Long, val username: String, val displayName: String?)
 
@@ -112,7 +114,10 @@ class AdminSurveyController(
         @PathVariable surveyId: Long,
     ): ResponseEntity<SurveyDetailDto> {
         val adminUserId = chatUserResolver.resolveUserId(authentication.name)
-        return ResponseEntity.ok(surveyService.adminPublishSurvey(surveyId, adminUserId))
+        val result = surveyService.adminPublishSurvey(surveyId, adminUserId)
+        surveyNotificationService.notifyParticipants(surveyId)
+        surveyNotificationService.sendSystemMessageToRoom(surveyId, adminUserId)
+        return ResponseEntity.ok(result)
     }
 
     @Operation(summary = "관리자 설문 종료")

@@ -158,8 +158,8 @@ const loadMembers = async () => {
     )
     members.value = page.content
     memberPagination.applyPageResponse(page)
-  } catch (error) {
-    emit('error', resolveError(error, '참여자 목록을 불러오지 못했습니다'))
+  } catch {
+    members.value = []
   } finally {
     membersLoading.value = false
   }
@@ -344,7 +344,11 @@ const handleFileSelected = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (!file || !isConnected.value) {
+  if (!file) {
+    return
+  }
+  if (!isConnected.value) {
+    emit('error', '서버에 연결되어 있지 않습니다. 잠시 후 다시 시도해 주세요.')
     return
   }
 
@@ -352,7 +356,7 @@ const handleFileSelected = async (event: Event) => {
   try {
     const uploaded = await uploadChatAttachment(props.token, props.chatRoom.id, file)
     if (!sendRichMessage(uploaded.messageType, uploaded.content, uploaded.metadata)) {
-      emit('error', '메시지 전송에 실패했습니다')
+      emit('error', '파일이 업로드되었지만 메시지 전송에 실패했습니다. 다시 시도해 주세요.')
     }
   } catch (error) {
     emit('error', resolveError(error, '파일 업로드에 실패했습니다'))
@@ -491,7 +495,7 @@ const roomTitle = computed(() => {
   return props.chatRoom.name
 })
 
-const canLeaveRoom = computed(() => props.chatRoom.type !== 'DIRECT')
+const canLeaveRoom = computed(() => true)
 
 const isWebRtcRoom = computed(() => props.chatRoom.mediaMode === 'WEBRTC')
 
@@ -698,11 +702,17 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <div class="sleekydz86-chat-header-actions">
+        <span v-if="!showRoomMenu" class="sleekydz86-connection" :class="{ online: isConnected }">
+          {{ isConnected ? '연결됨' : '연결 중' }}
+        </span>
         <button type="button" class="sleekydz86-header-btn" title="참여자" @click="toggleMemberOverlay">
           🔍
         </button>
         <button type="button" class="sleekydz86-header-btn" title="메뉴" @click="toggleRoomMenu">
           ☰
+        </button>
+        <button type="button" class="sleekydz86-header-btn" title="닫기" @click="emit('left')">
+          ✕
         </button>
       </div>
       <div v-if="showRoomMenu" class="sleekydz86-room-menu">
@@ -714,9 +724,6 @@ onBeforeUnmount(() => {
         <button v-if="canLeaveRoom" type="button" :disabled="leaveLoading" @click="handleLeaveRoom">
           {{ leaveLoading ? '처리 중...' : '나가기' }}
         </button>
-        <span class="sleekydz86-connection" :class="{ online: isConnected }">
-          {{ isConnected ? '연결됨' : '연결 중' }}
-        </span>
       </div>
     </header>
 
@@ -948,7 +955,11 @@ onBeforeUnmount(() => {
       <div ref="messagesEndRef" />
     </div>
 
-    <form class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
+    <div v-if="!chatRoom.isActive" class="sleekydz86-room-closed">
+      이 채팅방은 종료되었습니다.
+    </div>
+
+    <form v-else class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
       <textarea
         v-model="messageInput"
         class="sleekydz86-input-textarea"

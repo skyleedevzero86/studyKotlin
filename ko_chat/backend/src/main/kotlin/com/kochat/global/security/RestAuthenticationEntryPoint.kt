@@ -24,8 +24,8 @@ class RestAuthenticationEntryPoint(
             response,
             HttpStatus.UNAUTHORIZED.value(),
             ApiErrorResponse(
-                error = ErrorCode.AUTHENTICATION_FAILED.defaultMessage,
-                code = ErrorCode.AUTHENTICATION_FAILED.name,
+                error = ErrorCode.EXPIRED_TOKEN.defaultMessage,
+                code = ErrorCode.EXPIRED_TOKEN.name,
             ),
         )
     }

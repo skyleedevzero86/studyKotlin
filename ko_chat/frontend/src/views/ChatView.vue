@@ -7,7 +7,7 @@ import {
   getPendingChatInvitations,
   rejectChatInvitation,
 } from '../api/chatApi'
-import { getJson } from '../api/http'
+import { ApiError, getJson } from '../api/http'
 import {
   acceptFriendRequest,
   fetchIncomingFriendRequests,
@@ -18,6 +18,8 @@ import ChatWindow from '../components/ChatWindow.vue'
 import FriendListPanel from '../components/FriendListPanel.vue'
 import MorePanel from '../components/MorePanel.vue'
 import PaginationBar from '../components/PaginationBar.vue'
+import SurveyNotificationPopup from '../components/SurveyNotificationPopup.vue'
+import type { SurveyNotification } from '../components/SurveyNotificationPopup.vue'
 import { useAuth } from '../composables/useAuth'
 import { usePagination } from '../composables/usePagination'
 import type { ChatNotification, ChatRoom, ChatRoomInvitation } from '../types/chat'
@@ -40,7 +42,38 @@ const pendingActionId = ref<string | null>(null)
 const mainNav = ref<MainNav>('chats')
 const chatUnreadCount = ref(0)
 const friendListRef = ref<InstanceType<typeof FriendListPanel> | null>(null)
+const surveyNotification = ref<SurveyNotification | null>(null)
 let pendingPollTimer: ReturnType<typeof setInterval> | undefined
+let notificationWs: WebSocket | null = null
+
+const connectNotificationWs = () => {
+  if (!accessToken.value) return
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/chat?token=${encodeURIComponent(accessToken.value)}`
+  notificationWs = new WebSocket(wsUrl)
+  notificationWs.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'SURVEY_NOTIFICATION') {
+        surveyNotification.value = {
+          surveyId: data.surveyId,
+          title: data.title,
+          description: data.description ?? null,
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  }
+  notificationWs.onclose = () => {
+    notificationWs = null
+  }
+}
+
+const disconnectNotificationWs = () => {
+  if (notificationWs) {
+    notificationWs.close(1000)
+    notificationWs = null
+  }
+}
 
 const pendingActionCount = computed(
   () => friendRequests.value.length + invitationPagination.totalElements.value,
@@ -130,6 +163,14 @@ const goAdminSurveys = async () => {
   await router.push({ name: 'admin-surveys' })
 }
 
+const goMySurveys = async () => {
+  await router.push({ name: 'my-surveys' })
+}
+
+const dismissSurveyNotification = () => {
+  surveyNotification.value = null
+}
+
 const checkServerHealth = async () => {
   try {
     await checkHealth()
@@ -147,6 +188,13 @@ const roomLabel = (room: ChatRoom): string => {
     return room.peerUser.displayName ?? room.peerUser.username
   }
   return room.name
+}
+
+const stopPendingPoll = () => {
+  if (pendingPollTimer) {
+    clearInterval(pendingPollTimer)
+    pendingPollTimer = undefined
+  }
 }
 
 const loadPendingActions = async () => {
@@ -167,7 +215,10 @@ const loadPendingActions = async () => {
     chatInvitations.value = pendingChatInvitations.content
     invitationPagination.applyPageResponse(pendingChatInvitations)
   } catch (error) {
-    console.error(error)
+    if (error instanceof ApiError && error.status === 401) {
+      stopPendingPoll()
+      return
+    }
   }
 }
 
@@ -207,11 +258,12 @@ const handleAcceptChatInvitation = async (invitation: ChatRoomInvitation) => {
   pendingActionId.value = `chat-${invitation.id}`
   try {
     const room = await acceptChatInvitation(accessToken.value, invitation.id)
-    await loadPendingActions()
+    chatInvitations.value = chatInvitations.value.filter((i) => i.id !== invitation.id)
     selectedChatRoom.value = room
     mainNav.value = 'chats'
     roomListRefreshKey.value += 1
     handleNotice(`${roomLabel(room)} 초대를 수락했습니다`)
+    void loadPendingActions()
   } catch (error) {
     handleError(error instanceof Error ? error.message : '채팅 초대 수락에 실패했습니다')
   } finally {
@@ -224,9 +276,9 @@ const handleRejectChatInvitation = async (invitation: ChatRoomInvitation) => {
   pendingActionId.value = `chat-${invitation.id}`
   try {
     await rejectChatInvitation(accessToken.value, invitation.id)
-    await loadPendingActions()
-    roomListRefreshKey.value += 1
+    chatInvitations.value = chatInvitations.value.filter((i) => i.id !== invitation.id)
     handleNotice(`${roomLabel(invitation.chatRoom)} 초대를 거부했습니다`)
+    void loadPendingActions()
   } catch (error) {
     handleError(error instanceof Error ? error.message : '채팅 초대 거부에 실패했습니다')
   } finally {
@@ -244,6 +296,7 @@ onMounted(async () => {
 
   try {
     profile.value = await getJson<UserProfileResponse>('/api/v1/user/me', accessToken.value)
+    connectNotificationWs()
     await loadPendingActions()
     pendingPollTimer = setInterval(() => {
       void loadPendingActions()
@@ -254,9 +307,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (pendingPollTimer) {
-    clearInterval(pendingPollTimer)
-  }
+  stopPendingPoll()
+  disconnectNotificationWs()
 })
 </script>
 
@@ -415,6 +467,7 @@ onBeforeUnmount(() => {
           :is-admin="isAdmin"
           @error="handleError"
           @go-profile="goProfile"
+          @go-my-surveys="goMySurveys"
           @go-admin="goAdminUsers"
           @go-admin-chat-rooms="goAdminChatRooms"
           @go-admin-statistics="goAdminStatistics"
@@ -445,5 +498,9 @@ onBeforeUnmount(() => {
         </section>
       </main>
     </div>
+    <SurveyNotificationPopup
+      :notification="surveyNotification"
+      @dismiss="dismissSurveyNotification"
+    />
   </div>
 </template>

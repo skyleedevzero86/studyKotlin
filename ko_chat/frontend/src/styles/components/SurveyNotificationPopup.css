@@ -1,0 +1,89 @@
+.survey-notification-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 300;
+  animation: fadeIn 0.2s ease;
+}
+
+.survey-notification-card {
+  width: 100%;
+  max-width: 380px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px 24px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+  text-align: center;
+  animation: slideUp 0.3s ease;
+}
+
+.survey-notification-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.survey-notification-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.survey-notification-title {
+  font-weight: 600;
+  color: #3b82f6;
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.survey-notification-desc {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 0 0 20px;
+}
+
+.survey-notification-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.survey-notification-actions button {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+
+.survey-notification-actions .primary {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.survey-notification-actions .primary:hover {
+  background: #2563eb;
+}
+
+.survey-notification-actions .secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.survey-notification-actions .secondary:hover {
+  background: #e2e8f0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
