@@ -38,6 +38,12 @@
   font-size: 1rem;
 }
 
+.survey-notification-lead {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0 0 8px;
+}
+
 .survey-notification-desc {
   color: #64748b;
   font-size: 0.85rem;

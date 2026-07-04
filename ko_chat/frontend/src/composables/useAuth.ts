@@ -5,6 +5,8 @@ import type { LoginRequest } from '../types/auth'
 import { isAccessToken, isAdminRole, isTokenExpired, parseJwtRole, parseJwtSubject } from '../utils/crypto'
 
 const TOKEN_KEY = 'accessToken'
+const SELECTED_ROOM_STORAGE_KEY = 'kochat:selectedRoomId'
+const CHAT_PANEL_OPEN_STORAGE_KEY = 'kochat:chatPanelOpen'
 
 const readStoredToken = (): string | null => {
   const token = localStorage.getItem(TOKEN_KEY)?.trim()
@@ -20,13 +22,20 @@ const accessToken = ref<string | null>(readStoredToken())
 const errorMessage = ref<string | null>(null)
 const isLoading = ref(false)
 
+const clearChatSessionState = (): void => {
+  sessionStorage.removeItem(SELECTED_ROOM_STORAGE_KEY)
+  sessionStorage.removeItem(CHAT_PANEL_OPEN_STORAGE_KEY)
+}
+
 const persistToken = (token: string | null): void => {
   accessToken.value = token
   if (token) {
     localStorage.setItem(TOKEN_KEY, token)
+    clearChatSessionState()
     return
   }
   localStorage.removeItem(TOKEN_KEY)
+  clearChatSessionState()
 }
 
 const resolveLoginError = (error: unknown): string => {

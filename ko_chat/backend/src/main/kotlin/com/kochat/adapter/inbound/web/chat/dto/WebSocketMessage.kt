@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = ChatMessage::class, name = "CHAT_MESSAGE"),
+    JsonSubTypes.Type(value = MemberReadReceipt::class, name = "MEMBER_READ"),
     JsonSubTypes.Type(value = ErrorMessage::class, name = "ERROR"),
 )
 sealed class WebSocketMessage {

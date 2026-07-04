@@ -19,4 +19,5 @@ export interface SurveySummary {
   createdAt: string | null
   canRespond?: boolean
   hasResponded?: boolean
+  waitingForStart?: boolean
 }

@@ -130,6 +130,12 @@ export const adminCreateSurvey = (
   data: CreateSurveyRequest,
 ): Promise<SurveyDetail> => postJson(adminSurveyPath, data, token)
 
+export const adminUpdateSurvey = (
+  token: string,
+  surveyId: number,
+  data: CreateSurveyRequest,
+): Promise<SurveyDetail> => putJson(`${adminSurveyPath}/${surveyId}`, data, token)
+
 export type SurveyUserItem = { id: number; username: string; displayName: string | null }
 
 export const adminListSelectableUsers = (
@@ -145,6 +151,9 @@ export const adminCloseSurvey = (
   token: string,
   surveyId: number,
 ): Promise<SurveyDetail> => postJson(`${adminSurveyPath}/${surveyId}/close`, {}, token)
+
+export const adminDeleteSurvey = (token: string, surveyId: number): Promise<void> =>
+  deleteJson(`${adminSurveyPath}/${surveyId}`, token)
 
 export const adminAssignRandomParticipants = (
   token: string,
@@ -195,7 +204,11 @@ export type MySurveyItem = {
   status: string
   chatRoomId: number | null
   chatRoomName: string | null
+  startAt: string | null
+  endAt: string | null
   hasResponded: boolean
+  canRespond: boolean
+  waitingForStart: boolean
 }
 
 export const fetchMySurveys = (token: string): Promise<MySurveyItem[]> =>

@@ -7,6 +7,7 @@ import com.kochat.adapter.inbound.web.survey.dto.SurveyDetailDto
 import com.kochat.adapter.inbound.web.survey.dto.SurveyRoomStatisticsListResponse
 import com.kochat.adapter.inbound.web.survey.dto.SurveyStatisticsDto
 import com.kochat.adapter.inbound.web.survey.dto.SurveySummaryDto
+import com.kochat.adapter.inbound.web.survey.dto.UpdateSurveyRequest
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
 import com.kochat.domain.survey.model.SurveyStatus
 import com.kochat.domain.survey.model.TargetMode
@@ -28,9 +29,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -117,6 +120,18 @@ class AdminSurveyController(
             .body(surveyService.adminCreateSurveyWithoutRoom(adminUserId, request))
     }
 
+    @Operation(summary = "관리자 설문 수정 (작성중·진행중)")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PutMapping("/{surveyId}")
+    fun updateSurvey(
+        authentication: Authentication,
+        @PathVariable surveyId: Long,
+        @Valid @RequestBody request: UpdateSurveyRequest,
+    ): ResponseEntity<SurveyDetailDto> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        return ResponseEntity.ok(surveyService.adminUpdateSurvey(surveyId, adminUserId, request))
+    }
+
     @Operation(summary = "관리자 설문 게시")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @PostMapping("/{surveyId}/publish")
@@ -140,6 +155,18 @@ class AdminSurveyController(
     ): ResponseEntity<SurveyDetailDto> {
         val adminUserId = chatUserResolver.resolveUserId(authentication.name)
         return ResponseEntity.ok(surveyService.adminCloseSurvey(surveyId, adminUserId))
+    }
+
+    @Operation(summary = "관리자 설문 삭제")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @DeleteMapping("/{surveyId}")
+    fun deleteSurvey(
+        authentication: Authentication,
+        @PathVariable surveyId: Long,
+    ): ResponseEntity<Void> {
+        val adminUserId = chatUserResolver.resolveUserId(authentication.name)
+        surveyService.adminDeleteSurvey(surveyId, adminUserId)
+        return ResponseEntity.noContent().build()
     }
 
     @Operation(summary = "랜덤 참여자 배정")

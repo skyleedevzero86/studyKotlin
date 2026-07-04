@@ -88,6 +88,40 @@
   margin-bottom: 12px;
 }
 
+.question-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.survey-options {
+  margin-top: 8px;
+}
+
+.survey-option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.survey-option-row input {
+  flex: 1;
+  margin-top: 0;
+}
+
+.survey-option-row button {
+  flex-shrink: 0;
+  padding: 6px 10px;
+}
+
+.admin-form-actions .secondary {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
 .admin-form-actions {
   display: flex;
   gap: 8px;
@@ -195,10 +229,33 @@
 
 .user-select-actions button {
   margin-top: 0;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.8rem;
   border-radius: 6px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.user-select-actions button.primary {
+  background: #5b8def;
   color: #fff;
+  border-color: #5b8def;
+}
+
+.user-select-actions button.primary:hover:not(:disabled) {
+  background: #4a7ddf;
+  border-color: #4a7ddf;
+}
+
+.user-select-actions button.secondary {
+  background: #fff;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.user-select-actions button.secondary:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .user-select-actions .random-input {
@@ -210,11 +267,10 @@
 }
 
 .user-select-list {
-  max-height: 280px;
-  overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 4px;
+  margin-bottom: 8px;
 }
 
 .user-select-item {
@@ -268,6 +324,11 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.survey-detail-actions {
+  display: flex;
+  gap: 8px;
 }
 .survey-detail-desc {
   color: #4b5563;

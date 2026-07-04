@@ -5,7 +5,6 @@ import com.kochat.global.config.OpenApiConfig
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "관리자 · 메시징 운영", description = "Outbox, DLQ, Kafka lag 모니터링")
 @RestController
 @RequestMapping("/api/v1/admin/messaging")
-@ConditionalOnProperty(prefix = "app.kafka", name = ["enabled"], havingValue = "true")
 class AdminMessagingController(
     private val messagingOperationsService: MessagingOperationsService,
 ) {

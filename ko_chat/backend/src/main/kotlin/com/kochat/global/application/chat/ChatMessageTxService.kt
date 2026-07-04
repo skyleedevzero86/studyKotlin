@@ -142,6 +142,42 @@ class ChatMessageTxService(
         )
     }
 
+    @Transactional
+    fun updateLinkMetadata(messageId: Long, preview: com.kochat.adapter.inbound.web.chat.dto.MessageMetadataDto): SavedChatMessage? {
+        val message = messageJpaRepository.findById(messageId).orElse(null) ?: return null
+        if (message.type != MessageType.LINK || message.isDeleted) {
+            return null
+        }
+
+        message.metadata = messageMetadataMapper.toJson(preview)
+        val savedMessage = messageJpaRepository.save(message)
+
+        val sender = savedMessage.sender ?: return null
+        val roomId = savedMessage.chatRoom?.id ?: return null
+        val senderId = sender.id ?: return null
+        val savedMessageId = savedMessage.id ?: return null
+
+        val chatMessage = ChatMessage(
+            id = savedMessageId,
+            content = savedMessage.content ?: "",
+            messageType = savedMessage.type,
+            metadata = savedMessage.metadata,
+            chatRoomId = roomId,
+            senderId = senderId,
+            senderName = sender.displayName ?: sender.username ?: "",
+            sequenceNumber = savedMessage.sequenceNumber,
+            timestamp = savedMessage.createdAt,
+        )
+
+        return SavedChatMessage(
+            messageDto = messageToDto(savedMessage, sender),
+            chatMessage = chatMessage,
+            roomId = roomId,
+            senderId = senderId,
+            attachment = null,
+        )
+    }
+
     private fun messageToDto(message: MessageJpaEntity, sender: UserJpaEntity): MessageDto =
         MessageDto(
             id = message.id ?: throw IllegalArgumentException("메시지 ID가 없습니다"),

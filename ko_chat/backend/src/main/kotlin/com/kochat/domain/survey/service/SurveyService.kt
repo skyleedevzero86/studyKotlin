@@ -1,5 +1,6 @@
 package com.kochat.domain.survey.service
 
+import com.kochat.adapter.inbound.web.survey.dto.MySurveyItemDto
 import com.kochat.adapter.inbound.web.survey.dto.AssignRandomParticipantsRequest
 import com.kochat.adapter.inbound.web.survey.dto.CreateSurveyRequest
 import com.kochat.adapter.inbound.web.survey.dto.ParticipantUploadResultDto
@@ -42,6 +43,8 @@ interface SurveyService {
 
     fun submitResponseById(surveyId: Long, userId: Long, request: SubmitSurveyResponseRequest): SurveyDetailDto
 
+    fun listMySurveys(userId: Long): List<MySurveyItemDto>
+
     fun getStatistics(roomId: Long, surveyId: Long, userId: Long): SurveyStatisticsDto
 
     fun exportStatistics(roomId: Long, surveyId: Long, userId: Long, format: String): ByteArray
@@ -67,9 +70,13 @@ interface SurveyService {
 
     fun adminCreateSurveyWithoutRoom(adminUserId: Long, request: CreateSurveyRequest): SurveyDetailDto
 
+    fun adminUpdateSurvey(surveyId: Long, adminUserId: Long, request: UpdateSurveyRequest): SurveyDetailDto
+
     fun adminPublishSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto
 
     fun adminCloseSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto
+
+    fun adminDeleteSurvey(surveyId: Long, adminUserId: Long)
 
     fun adminAssignRandomParticipants(
         surveyId: Long,

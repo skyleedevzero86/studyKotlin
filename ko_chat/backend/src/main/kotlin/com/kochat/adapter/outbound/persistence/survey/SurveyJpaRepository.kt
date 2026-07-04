@@ -49,4 +49,14 @@ interface SurveyJpaRepository : JpaRepository<SurveyJpaEntity, Long> {
         @Param("to") to: LocalDateTime?,
         pageable: Pageable,
     ): Page<SurveyJpaEntity>
+
+    @Query(
+        """
+        SELECT s FROM SurveyJpaEntity s
+        WHERE s.status = com.kochat.domain.survey.model.SurveyStatus.ACTIVE
+          AND s.endAt IS NOT NULL
+          AND s.endAt < :now
+        """,
+    )
+    fun findExpiredActiveSurveys(@Param("now") now: LocalDateTime): List<SurveyJpaEntity>
 }

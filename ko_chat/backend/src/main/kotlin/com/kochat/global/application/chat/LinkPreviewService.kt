@@ -8,17 +8,30 @@ import java.net.URI
 
 @Service
 class LinkPreviewService {
+    fun placeholder(rawUrl: String): MessageMetadataDto {
+        val normalizedUrl = normalizeUrl(rawUrl)
+        val youtubeId = extractYoutubeId(normalizedUrl)
+        if (youtubeId != null) {
+            return previewYoutube(normalizedUrl, youtubeId, fetchTitle = false)
+        }
+        return MessageMetadataDto(
+            linkUrl = normalizedUrl,
+            title = normalizedUrl,
+            domain = runCatching { URI(normalizedUrl).host }.getOrNull(),
+        )
+    }
+
     fun preview(rawUrl: String): MessageMetadataDto {
         val normalizedUrl = normalizeUrl(rawUrl)
         val youtubeId = extractYoutubeId(normalizedUrl)
         if (youtubeId != null) {
-            return previewYoutube(normalizedUrl, youtubeId)
+            return previewYoutube(normalizedUrl, youtubeId, fetchTitle = true)
         }
 
         return try {
             val document = Jsoup.connect(normalizedUrl)
                 .userAgent("Mozilla/5.0 (compatible; ko-chat-bot/1.0)")
-                .timeout(8000)
+                .timeout(5000)
                 .followRedirects(true)
                 .get()
 
@@ -56,16 +69,20 @@ class LinkPreviewService {
 
     fun extractFirstUrl(text: String): String? = URL_REGEX.find(text.trim())?.value
 
-    private fun previewYoutube(url: String, videoId: String): MessageMetadataDto {
-        val title = runCatching {
-            Jsoup.connect("https://www.youtube.com/watch?v=$videoId")
-                .userAgent("Mozilla/5.0")
-                .timeout(8000)
-                .get()
-                .title()
-                .removeSuffix(" - YouTube")
-                .trim()
-        }.getOrDefault("YouTube 영상")
+    private fun previewYoutube(url: String, videoId: String, fetchTitle: Boolean): MessageMetadataDto {
+        val title = if (fetchTitle) {
+            runCatching {
+                Jsoup.connect("https://www.youtube.com/watch?v=$videoId")
+                    .userAgent("Mozilla/5.0")
+                    .timeout(5000)
+                    .get()
+                    .title()
+                    .removeSuffix(" - YouTube")
+                    .trim()
+            }.getOrDefault("YouTube 영상")
+        } else {
+            "YouTube 영상"
+        }
 
         return MessageMetadataDto(
             linkUrl = url,

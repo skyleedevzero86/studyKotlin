@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import {
-  fetchLinkPreview,
   getChatRoom,
   getChatRoomMembers,
   getMessages,
@@ -44,7 +43,7 @@ const emit = defineEmits<{
   notice: [message: string]
   read: [room: ChatRoom]
   roomUpdated: [room: ChatRoom]
-  left: []
+  left: [roomId: number]
   close: []
   relationshipChanged: []
 }>()
@@ -71,13 +70,16 @@ const showSettings = ref(false)
 const settingsLoading = ref(false)
 const leaveLoading = ref(false)
 const roomClosed = ref(false)
+const selfInitiatedLeave = ref(false)
 const settingsName = ref(props.chatRoom.name)
 const settingsDescription = ref(props.chatRoom.description ?? '')
 const settingsPrivate = ref(props.chatRoom.isPrivate ?? false)
 const settingsPassword = ref('')
 const messagesEndRef = ref<HTMLElement | null>(null)
+const memberReadMap = ref<Record<number, number | null>>({})
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadLoading = ref(false)
+const dragDepth = ref(0)
 const showInputSubmenu = ref(false)
 const inputToolsRef = ref<HTMLElement | null>(null)
 
@@ -92,8 +94,6 @@ const inputSubmenuItems = [
   { id: 'minigame', label: '미니게임' },
 ] as const
 
-const URL_ONLY_REGEX = /^https?:\/\/[^\s<>"']+$/i
-
 const compareMessagesBySequence = (a: Message, b: Message) => {
   if (a.sequenceNumber !== b.sequenceNumber) {
     return a.sequenceNumber - b.sequenceNumber
@@ -105,8 +105,11 @@ const sortMessagesBySequence = (list: Message[]) =>
   [...list].sort(compareMessagesBySequence)
 
 const upsertMessageBySequence = (list: Message[], incoming: Message): Message[] => {
-  if (list.some((message) => message.id === incoming.id)) {
-    return list
+  const existingIndex = list.findIndex((message) => message.id === incoming.id)
+  if (existingIndex >= 0) {
+    const next = [...list]
+    next[existingIndex] = { ...next[existingIndex], ...incoming }
+    return next
   }
   return sortMessagesBySequence([...list, incoming])
 }
@@ -135,13 +138,71 @@ const markRead = async () => {
   }
 }
 
+const loadMemberReadStatus = async () => {
+  try {
+    const page = await getChatRoomMembers(props.token, props.chatRoom.id, 0, 100)
+    const map: Record<number, number | null> = {}
+    for (const member of page.content) {
+      if (member.isActive) {
+        map[member.user.id] = member.lastReadMessageId ?? null
+      }
+    }
+    memberReadMap.value = map
+  } catch {
+    memberReadMap.value = {}
+  }
+}
+
+const countUnreadForMessage = (messageId: number): number => {
+  let count = 0
+  for (const [userId, lastRead] of Object.entries(memberReadMap.value)) {
+    if (Number(userId) === props.currentUserId) {
+      continue
+    }
+    if (lastRead == null || lastRead < messageId) {
+      count += 1
+    }
+  }
+  return count
+}
+
+const refreshOwnUnreadCounts = () => {
+  messages.value = messages.value.map((message) => {
+    if (message.sender.id !== props.currentUserId || message.type === 'SYSTEM') {
+      return message
+    }
+    const count = countUnreadForMessage(message.id)
+    return { ...message, unreadMemberCount: count > 0 ? count : null }
+  })
+}
+
+const getUnreadMemberCount = (message: Message): number | null => {
+  if (message.sender.id !== props.currentUserId || message.type === 'SYSTEM') {
+    return null
+  }
+  const count =
+    message.unreadMemberCount != null && message.unreadMemberCount > 0
+      ? message.unreadMemberCount
+      : countUnreadForMessage(message.id)
+  return count > 0 ? count : null
+}
+
+const formatReadReceipt = (count: number) => (count > 99 ? '99+' : String(count))
+
 const loadMessages = async () => {
   isLoadingMessages.value = true
   try {
+    await loadMemberReadStatus()
+    const freshRoom = await getChatRoom(props.token, props.chatRoom.id)
+    emit('roomUpdated', freshRoom)
+    roomClosed.value = !freshRoom.isActive
+
     const response = await getMessages(props.token, props.chatRoom.id, 0, 50)
     messages.value = sortMessagesBySequence(response.content)
     await scrollToBottom()
-    await markRead()
+    if (freshRoom.isActive) {
+      await markRead()
+    }
   } catch (error) {
     emit('error', resolveError(error, '메시지를 불러오지 못했습니다'))
   } finally {
@@ -205,6 +266,7 @@ const isChatMessage = (
   timestamp: string
   messageType?: MessageType
   metadata?: string | MessageMetadata | null
+  unreadMemberCount?: number | null
 } => {
   return (
     typeof payload === 'object' &&
@@ -242,13 +304,34 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
     return
   }
 
+  if (
+    'type' in payload &&
+    payload.type === 'MEMBER_READ' &&
+    'userId' in payload &&
+    typeof payload.userId === 'number'
+  ) {
+    if (payload.chatRoomId !== props.chatRoom.id) {
+      return
+    }
+    memberReadMap.value = {
+      ...memberReadMap.value,
+      [payload.userId]:
+        typeof payload.lastReadMessageId === 'number' ? payload.lastReadMessageId : null,
+    }
+    refreshOwnUnreadCounts()
+    return
+  }
+
   if (!isChatMessage(payload) || payload.chatRoomId !== props.chatRoom.id) {
     return
   }
 
-  if (messages.value.some((message) => message.id === payload.id)) {
-    return
-  }
+  const unreadMemberCount =
+    typeof payload.unreadMemberCount === 'number' && payload.unreadMemberCount > 0
+      ? payload.unreadMemberCount
+      : payload.senderId === props.currentUserId
+        ? countUnreadForMessage(payload.id) || null
+        : null
 
   const newMessage: Message = {
     id: payload.id,
@@ -266,6 +349,7 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
     isEdited: false,
     isDeleted: false,
     createdAt: new Date(payload.timestamp).toISOString(),
+    unreadMemberCount,
   }
 
   messages.value = upsertMessageBySequence(messages.value, newMessage)
@@ -274,6 +358,7 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
 
   if (newMessage.type === 'SYSTEM' && newMessage.content?.includes('종료되었습니다')) {
     roomClosed.value = true
+    emit('roomUpdated', { ...props.chatRoom, isActive: false })
   }
 }
 
@@ -298,23 +383,10 @@ const sendRichMessage = (
   return sendMessage(wsMessage)
 }
 
-const handleSendMessage = async () => {
+const handleSendMessage = () => {
   const content = messageInput.value.trim()
   if (!content || !isConnected.value || uploadLoading.value) {
     return
-  }
-
-  if (URL_ONLY_REGEX.test(content)) {
-    try {
-      const preview = await fetchLinkPreview(props.token, content)
-      if (sendRichMessage('LINK', preview.linkUrl ?? content, preview)) {
-        messageInput.value = ''
-      }
-      return
-    } catch (error) {
-      emit('error', resolveError(error, '링크 미리보기를 가져오지 못했습니다'))
-      return
-    }
   }
 
   if (sendRichMessage('TEXT', content)) {
@@ -353,22 +425,78 @@ const handleFileSelected = async (event: Event) => {
   if (!file) {
     return
   }
+  await uploadChatFiles([file])
+}
+
+const uploadChatFiles = async (files: File[]) => {
+  const validFiles = files.filter((file) => file.size > 0)
+  if (!validFiles.length) {
+    return
+  }
   if (!isConnected.value) {
     emit('error', '서버에 연결되어 있지 않습니다. 잠시 후 다시 시도해 주세요.')
+    return
+  }
+  if (isRoomTerminated.value) {
+    emit('error', '종료된 채팅방에는 파일을 업로드할 수 없습니다.')
     return
   }
 
   uploadLoading.value = true
   try {
-    const uploaded = await uploadChatAttachment(props.token, props.chatRoom.id, file)
-    if (!sendRichMessage(uploaded.messageType, uploaded.content, uploaded.metadata)) {
-      emit('error', '파일이 업로드되었지만 메시지 전송에 실패했습니다. 다시 시도해 주세요.')
+    for (const file of validFiles) {
+      const uploaded = await uploadChatAttachment(props.token, props.chatRoom.id, file)
+      if (!sendRichMessage(uploaded.messageType, uploaded.content, uploaded.metadata)) {
+        emit('error', '파일이 업로드되었지만 메시지 전송에 실패했습니다. 다시 시도해 주세요.')
+        break
+      }
     }
   } catch (error) {
     emit('error', resolveError(error, '파일 업로드에 실패했습니다'))
   } finally {
     uploadLoading.value = false
   }
+}
+
+const onDragEnter = (event: DragEvent) => {
+  if (!canUploadFiles.value || !hasDraggedFiles(event)) {
+    return
+  }
+  event.preventDefault()
+  dragDepth.value += 1
+}
+
+const onDragLeave = (event: DragEvent) => {
+  if (dragDepth.value === 0) {
+    return
+  }
+  event.preventDefault()
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+}
+
+const onDragOver = (event: DragEvent) => {
+  if (!canUploadFiles.value || !hasDraggedFiles(event)) {
+    return
+  }
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy'
+  }
+}
+
+const onDrop = async (event: DragEvent) => {
+  event.preventDefault()
+  dragDepth.value = 0
+  if (!canUploadFiles.value) {
+    return
+  }
+
+  const files = event.dataTransfer?.files
+  if (!files?.length) {
+    return
+  }
+
+  await uploadChatFiles(Array.from(files))
 }
 
 const handleAddFriend = async (userId: number) => {
@@ -460,22 +588,36 @@ const handleUpdateSettings = async () => {
   }
 }
 
-const handleLeaveRoom = async () => {
+const handleLeaveRoom = async (options?: { skipConfirm?: boolean }) => {
+  if (!options?.skipConfirm) {
+    const message = isRoomOwner.value
+      ? '채팅방을 종료하면 모든 참여자가 더 이상 대화할 수 없습니다. 종료하시겠습니까?'
+      : '채팅방에서 나가시겠습니까?'
+    if (!window.confirm(message)) {
+      return
+    }
+  }
+
+  selfInitiatedLeave.value = true
   leaveLoading.value = true
   try {
     await leaveChatRoom(props.token, props.chatRoom.id)
-    emit('left')
-    emit('notice', '채팅방에서 나갔습니다')
+    emit('left', props.chatRoom.id)
+    emit('notice', isRoomOwner.value ? '채팅방을 종료했습니다' : '채팅방에서 나갔습니다')
   } catch (error) {
+    selfInitiatedLeave.value = false
     emit('error', resolveError(error, '채팅방 나가기에 실패했습니다'))
   } finally {
     leaveLoading.value = false
   }
 }
 
+const confirmForcedLeave = () => {
+  void handleLeaveRoom({ skipConfirm: true })
+}
+
 const handleKicked = (message: string) => {
   emit('error', message)
-  emit('left')
 }
 
 const handleBlockUser = async (userId: number) => {
@@ -498,6 +640,34 @@ const roomTitle = computed(() => {
 })
 
 const canLeaveRoom = computed(() => true)
+
+const isRoomOwner = computed(() => props.chatRoom.createdBy.id === props.currentUserId)
+
+const leaveButtonLabel = computed(() =>
+  isRoomOwner.value ? '채팅방 종료' : '채팅방 나가기',
+)
+
+const isRoomTerminated = computed(() => {
+  if (props.chatRoom.isActive === false) return true
+  return roomClosed.value
+})
+
+const canUploadFiles = computed(
+  () =>
+    isConnected.value &&
+    !uploadLoading.value &&
+    !isRoomTerminated.value &&
+    !showMemberOverlay.value,
+)
+
+const isDragOver = computed(() => dragDepth.value > 0)
+
+const hasDraggedFiles = (event: DragEvent) =>
+  Array.from(event.dataTransfer?.types ?? []).includes('Files')
+
+const showRoomClosedModal = computed(
+  () => isRoomTerminated.value && !selfInitiatedLeave.value,
+)
 
 const isWebRtcRoom = computed(() => props.chatRoom.mediaMode === 'WEBRTC')
 
@@ -524,6 +694,10 @@ const formatTime = (dateString: string): string => {
 }
 
 const memberCount = computed(() => props.chatRoom.memberCount)
+
+const memberCountLabel = computed(() => `${memberCount.value}명`)
+
+const connectionLabel = computed(() => (isConnected.value ? '연결됨' : '연결 중'))
 
 const filteredMembers = computed(() => {
   const query = memberSearchQuery.value.trim().toLowerCase()
@@ -629,6 +803,7 @@ watch(
     settingsPassword.value = ''
     showSettings.value = false
     roomClosed.value = false
+    selfInitiatedLeave.value = false
     void loadMessages()
     if (props.chatRoom.mediaMode === 'WEBRTC') {
       void loadMembers()
@@ -688,42 +863,112 @@ watch(showInputSubmenu, (open) => {
   }
 })
 
+watch(showMemberOverlay, (open) => {
+  if (open) {
+    dragDepth.value = 0
+  }
+})
+
 onBeforeUnmount(() => {
   document.removeEventListener('click', onInputToolsOutsideClick, true)
+  dragDepth.value = 0
 })
 </script>
 
 <template>
   <div class="chat-window-layout">
-  <section class="chat-window" :class="{ 'with-survey': showSurveyPanel }">
+  <section
+    class="chat-window"
+    :class="{ 'with-survey': showSurveyPanel, 'chat-window--drag-over': isDragOver && canUploadFiles }"
+    @dragenter="onDragEnter"
+    @dragleave="onDragLeave"
+    @dragover="onDragOver"
+    @drop="onDrop"
+  >
     <header class="sleekydz86-chat-header">
       <div class="sleekydz86-chat-header-main">
         <h2 class="sleekydz86-chat-title">{{ roomTitle }}</h2>
-        <button type="button" class="sleekydz86-member-trigger" @click="toggleMemberOverlay">
-          <span class="sleekydz86-member-icon" aria-hidden="true">👤</span>
-          <span>{{ memberCount }}</span>
+        <div class="sleekydz86-chat-header-meta">
+          <span
+            class="sleekydz86-connection-chip"
+            :class="{ online: isConnected }"
+            :title="connectionLabel"
+          >
+            <span class="sleekydz86-connection-dot" aria-hidden="true" />
+            {{ connectionLabel }}
+          </span>
+          <button
+            type="button"
+            class="sleekydz86-member-chip"
+            :class="{ active: showMemberOverlay }"
+            @click="toggleMemberOverlay"
+          >
+            <svg class="sleekydz86-header-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill="currentColor" />
+            </svg>
+            <span>참여자 {{ memberCountLabel }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sleekydz86-chat-header-toolbar">
+        <button
+          type="button"
+          class="sleekydz86-header-btn"
+          :class="{ active: showMemberOverlay }"
+          title="참여자 검색"
+          aria-label="참여자 검색"
+          @click="toggleMemberOverlay"
+        >
+          <svg class="sleekydz86-header-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none" />
+            <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="sleekydz86-header-btn"
+          :class="{ active: showRoomMenu }"
+          title="메뉴"
+          aria-label="채팅방 메뉴"
+          @click="toggleRoomMenu"
+        >
+          <svg class="sleekydz86-header-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="18" r="1.5" fill="currentColor" />
+          </svg>
+        </button>
+        <span class="sleekydz86-header-divider" aria-hidden="true" />
+        <button
+          type="button"
+          class="sleekydz86-header-btn sleekydz86-header-btn--close"
+          title="창 닫기 (채팅방은 유지됩니다)"
+          aria-label="채팅 창 닫기"
+          @click="emit('close')"
+        >
+          <svg class="sleekydz86-header-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
         </button>
       </div>
-      <div class="sleekydz86-chat-header-actions">
-        <span v-if="!showRoomMenu" class="sleekydz86-connection" :class="{ online: isConnected }" :title="isConnected ? '연결됨' : '연결 중'" />
-        <button type="button" class="sleekydz86-header-btn" title="참여자" @click="toggleMemberOverlay">
-          🔍
-        </button>
-        <button type="button" class="sleekydz86-header-btn" title="메뉴" @click="toggleRoomMenu">
-          ☰
-        </button>
-        <button type="button" class="sleekydz86-header-btn" title="창 닫기" @click="emit('close')">
-          ✕
-        </button>
-      </div>
+
       <div v-if="showRoomMenu" class="sleekydz86-room-menu">
+        <p class="sleekydz86-room-menu-label">채팅방 메뉴</p>
         <button v-if="canManageRoom" type="button" @click="openManagePanel">방 관리</button>
         <button v-if="canManageRoom" type="button" @click="showSettings = !showSettings; showRoomMenu = false">
           설정
         </button>
         <button type="button" @click="openSurveyPanel">설문조사</button>
-        <button v-if="canLeaveRoom" type="button" class="danger" :disabled="leaveLoading" @click="handleLeaveRoom">
-          {{ leaveLoading ? '처리 중...' : (canManageRoom ? '채팅방 종료' : '채팅방 나가기') }}
+        <div class="sleekydz86-room-menu-divider" />
+        <button
+          v-if="canLeaveRoom"
+          type="button"
+          class="danger"
+          :disabled="leaveLoading"
+          @click="handleLeaveRoom()"
+        >
+          {{ leaveLoading ? '처리 중...' : leaveButtonLabel }}
         </button>
       </div>
     </header>
@@ -924,6 +1169,9 @@ onBeforeUnmount(() => {
 
         <div v-else-if="message.sender.id === currentUserId" class="chat-message-row own">
           <div class="chat-message-meta own-meta">
+            <span v-if="getUnreadMemberCount(message)" class="chat-read-receipt">
+              {{ formatReadReceipt(getUnreadMemberCount(message)!) }}
+            </span>
             <time>{{ formatTime(message.createdAt) }}</time>
           </div>
           <div class="chat-message-bubble" :class="message.type.toLowerCase()">
@@ -956,14 +1204,11 @@ onBeforeUnmount(() => {
       <div ref="messagesEndRef" />
     </div>
 
-    <div v-if="!chatRoom.isActive || roomClosed" class="sleekydz86-room-closed">
+    <div v-if="isRoomTerminated && selfInitiatedLeave" class="sleekydz86-room-closed">
       <p>이 채팅방은 종료되었습니다.</p>
-      <button type="button" class="sleekydz86-room-closed-btn" @click="handleLeaveRoom" :disabled="leaveLoading">
-        {{ leaveLoading ? '처리 중...' : '채팅방 나가기' }}
-      </button>
     </div>
 
-    <form v-else class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
+    <form v-else-if="!isRoomTerminated" class="sleekydz86-input-area" @submit.prevent="handleSendMessage">
       <textarea
         v-model="messageInput"
         class="sleekydz86-input-textarea"
@@ -1034,6 +1279,14 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </form>
+
+    <div
+      v-if="isDragOver && canUploadFiles"
+      class="chat-drop-overlay"
+      aria-hidden="true"
+    >
+      <p>파일을 여기에 놓으면 업로드됩니다</p>
+    </div>
   </section>
   <aside v-if="showSurveyPanel" class="chat-survey-aside">
     <SurveyPanel
@@ -1046,6 +1299,23 @@ onBeforeUnmount(() => {
       @error="emit('error', $event)"
     />
   </aside>
+
+  <Teleport to="body">
+    <div v-if="showRoomClosedModal" class="sleekydz86-room-closed-overlay">
+      <div class="sleekydz86-room-closed-dialog" role="alertdialog" aria-modal="true">
+        <h3>채팅방 종료</h3>
+        <p>방장이 나가 이 채팅방이 종료되었습니다.</p>
+        <button
+          type="button"
+          class="sleekydz86-room-closed-dialog-btn"
+          :disabled="leaveLoading"
+          @click="confirmForcedLeave"
+        >
+          {{ leaveLoading ? '처리 중...' : '확인' }}
+        </button>
+      </div>
+    </div>
+  </Teleport>
   </div>
 </template>
 

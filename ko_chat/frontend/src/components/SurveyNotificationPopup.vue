@@ -30,6 +30,7 @@ const goToMySurveys = () => {
       <div class="survey-notification-card">
         <div class="survey-notification-icon">📋</div>
         <h3>새 설문조사가 도착했습니다</h3>
+        <p class="survey-notification-lead">참여 대기 중인 설문이 있습니다.</p>
         <p class="survey-notification-title">{{ notification.title }}</p>
         <p v-if="notification.description" class="survey-notification-desc">
           {{ notification.description }}

@@ -6,6 +6,7 @@ import com.kochat.adapter.inbound.web.chat.dto.ChatRoomMemberDto
 import com.kochat.adapter.inbound.web.chat.dto.ChatUserDto
 import com.kochat.adapter.inbound.web.chat.dto.CreateChatRoomRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessageDto
+import com.kochat.adapter.inbound.web.chat.dto.MemberReadReceipt
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageRequest
 import com.kochat.adapter.inbound.web.chat.dto.MessagePageResponse
 import com.kochat.adapter.inbound.web.chat.dto.SendMessageRequest
@@ -24,9 +25,12 @@ import com.kochat.domain.chat.service.ChatService
 import com.kochat.global.application.chat.ChatMessageDispatchService
 import com.kochat.global.application.chat.ChatMessageTxService
 import com.kochat.global.application.chat.ChatUnreadCountService
+import com.kochat.global.application.chat.LinkPreviewEnrichmentService
 import com.kochat.global.application.chat.LinkPreviewService
 import com.kochat.global.application.chat.MessageMetadataMapper
+import com.kochat.global.application.chat.MessageReadReceiptService
 import com.kochat.global.application.chat.PreparedChatMessage
+import com.kochat.global.application.chat.SavedChatMessage
 import com.kochat.domain.user.model.UserRole
 import com.kochat.domain.user.model.UserStatus
 import org.slf4j.LoggerFactory
@@ -59,6 +63,8 @@ class ChatServiceImpl(
     private val webMediaSessionRegistry: WebMediaSessionRegistry,
     private val messageMetadataMapper: MessageMetadataMapper,
     private val linkPreviewService: LinkPreviewService,
+    private val linkPreviewEnrichmentService: LinkPreviewEnrichmentService,
+    private val messageReadReceiptService: MessageReadReceiptService,
 ) : ChatService {
 
     private val logger = LoggerFactory.getLogger(ChatServiceImpl::class.java)
@@ -79,7 +85,14 @@ class ChatServiceImpl(
             ).firstOrNull()
         } else {
             messageJpaRepository.findLatestMessage(roomId)
-        }?.let { messageToDto(it) }
+        }?.let { message ->
+            val readMap = if (viewerUserId != null) {
+                messageReadReceiptService.memberReadMap(roomId)
+            } else {
+                emptyMap()
+            }
+            messageToDto(message, viewerUserId ?: -1L, readMap)
+        }
         val unreadCount = if (viewerUserId != null && viewerMember != null) {
             chatUnreadCountService.getUnreadCount(
                 chatRoomId = roomId,
@@ -131,12 +144,18 @@ class ChatServiceImpl(
             .firstOrNull { it.id != viewerUserId }
             ?.let { userToDto(it) }
 
-    private fun messageToDto(message: MessageJpaEntity): MessageDto {
+    private fun messageToDto(
+        message: MessageJpaEntity,
+        viewerUserId: Long,
+        memberReadMap: Map<Long, Long?>,
+    ): MessageDto {
         val sender = message.sender ?: throw IllegalArgumentException("메시지 발신자가 없습니다")
         val chatRoom = message.chatRoom ?: throw IllegalArgumentException("채팅방이 없습니다")
+        val messageId = message.id ?: throw IllegalArgumentException("메시지 ID가 없습니다")
+        val senderId = sender.id ?: throw IllegalArgumentException("발신자 ID가 없습니다")
 
-        return MessageDto(
-            id = message.id ?: throw IllegalArgumentException("메시지 ID가 없습니다"),
+        val dto = MessageDto(
+            id = messageId,
             chatRoomId = chatRoom.id ?: throw IllegalArgumentException("채팅방 ID가 없습니다"),
             sender = userToDto(sender),
             type = message.type,
@@ -147,6 +166,26 @@ class ChatServiceImpl(
             createdAt = message.createdAt,
             editedAt = message.editedAt,
             sequenceNumber = message.sequenceNumber,
+        )
+        return messageReadReceiptService.enrich(dto, viewerUserId, memberReadMap)
+    }
+
+    private fun enrichSavedMessage(saved: SavedChatMessage, senderId: Long, roomId: Long): SavedChatMessage {
+        val readMap = messageReadReceiptService.memberReadMap(roomId)
+        val enrichedDto = messageReadReceiptService.enrich(saved.messageDto, senderId, readMap)
+        val unreadCount = enrichedDto.unreadMemberCount
+        val enrichedChatMessage = saved.chatMessage.copy(unreadMemberCount = unreadCount)
+        return saved.copy(messageDto = enrichedDto, chatMessage = enrichedChatMessage)
+    }
+
+    private fun broadcastMemberRead(roomId: Long, userId: Long, lastReadMessageId: Long?) {
+        webSocketSessionManager.sendEventToRoom(
+            roomId,
+            MemberReadReceipt(
+                userId = userId,
+                lastReadMessageId = lastReadMessageId,
+                chatRoomId = roomId,
+            ),
         )
     }
 
@@ -681,6 +720,7 @@ class ChatServiceImpl(
         member.lastReadMessageId = latestVisibleMessage?.id
         chatRoomMemberJpaRepository.save(member)
         chatUnreadCountService.resetUnread(roomId, userId)
+        broadcastMemberRead(roomId, userId, member.lastReadMessageId)
 
         val chatRoom = member.chatRoom ?: chatRoomJpaRepository.findById(roomId)
             .orElseThrow { IllegalArgumentException("채팅방을 찾을 수 없습니다: $roomId") }
@@ -691,12 +731,13 @@ class ChatServiceImpl(
         if (!chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)) {
             throw IllegalArgumentException("채팅방 멤버가 아닙니다")
         }
+        val memberReadMap = messageReadReceiptService.memberReadMap(roomId)
         return messageJpaRepository.findByChatRoomIdVisibleTo(
             chatRoomId = roomId,
             viewerUserId = userId,
             viewerIsAdmin = isAdminUser(userId),
             pageable = pageable,
-        ).map { messageToDto(it) }
+        ).map { messageToDto(it, userId, memberReadMap) }
     }
 
     override fun getMessagesByCursor(request: MessagePageRequest, userId: Long): MessagePageResponse {
@@ -733,7 +774,8 @@ class ChatServiceImpl(
                 ).reversed()
         }
 
-        val messageDtos = messages.map { messageToDto(it) }
+        val memberReadMap = messageReadReceiptService.memberReadMap(request.chatRoomId)
+        val messageDtos = messages.map { messageToDto(it, userId, memberReadMap) }
         val nextCursor = messageDtos.lastOrNull()?.id
         val prevCursor = messageDtos.firstOrNull()?.id
         val hasNext = messages.size == request.limit
@@ -763,11 +805,14 @@ class ChatServiceImpl(
         var content = request.content
         var metadataJson = request.metadata
 
+        var linkPreviewUrl: String? = null
         if (messageType == MessageType.TEXT && !content.isNullOrBlank() && linkPreviewService.isUrlOnly(content)) {
             messageType = MessageType.LINK
-            val preview = linkPreviewService.preview(content.trim())
+            val url = content.trim()
+            val preview = linkPreviewService.placeholder(url)
             metadataJson = messageMetadataMapper.toJson(preview)
             content = preview.linkUrl
+            linkPreviewUrl = preview.linkUrl
         }
 
         if (messageType == MessageType.IMAGE || messageType == MessageType.FILE) {
@@ -783,8 +828,13 @@ class ChatServiceImpl(
         )
 
         val saved = chatMessageTxService.saveMessage(chatRoom, sender, senderMember, prepared)
-        chatMessageDispatchService.scheduleDispatch(saved)
+        val enriched = enrichSavedMessage(saved, senderId, request.chatRoomId)
+        chatMessageDispatchService.scheduleDispatch(enriched)
 
-        return saved.messageDto
+        linkPreviewUrl?.let { url ->
+            linkPreviewEnrichmentService.scheduleEnrichment(enriched.messageDto.id, url)
+        }
+
+        return enriched.messageDto
     }
 }

@@ -17,22 +17,49 @@ import type {
 const chatPath = '/api/v1/chat-rooms'
 const adminChatPath = '/api/v1/admin/chat-rooms'
 
-export const createChatRoom = (
+type ChatRoomLike = ChatRoom & { active?: boolean }
+
+export const normalizeChatRoom = (room: ChatRoomLike): ChatRoom => ({
+  ...room,
+  isActive: room.isActive ?? room.active ?? true,
+})
+
+const normalizeChatRoomPage = (
+  page: PageResponse<ChatRoomLike>,
+): PageResponse<ChatRoom> => ({
+  ...page,
+  content: page.content.map(normalizeChatRoom),
+})
+
+const normalizeInvitation = (invitation: ChatRoomInvitation & { chatRoom?: ChatRoomLike }): ChatRoomInvitation => ({
+  ...invitation,
+  chatRoom: invitation.chatRoom ? normalizeChatRoom(invitation.chatRoom) : invitation.chatRoom,
+})
+
+export const createChatRoom = async (
   token: string,
   data: CreateChatRoomRequest,
-): Promise<ChatRoom> => postJson(chatPath, data, token)
+): Promise<ChatRoom> => normalizeChatRoom(await postJson<ChatRoomLike>(chatPath, data, token))
 
-export const findOrCreateDirectRoom = (
+export const findOrCreateDirectRoom = async (
   token: string,
   data: CreateDirectChatRequest,
-): Promise<ChatRoom> => postJson(`${chatPath}/direct`, data, token)
+): Promise<ChatRoom> => normalizeChatRoom(await postJson<ChatRoomLike>(`${chatPath}/direct`, data, token))
 
-export const getPendingChatInvitations = (
+export const getPendingChatInvitations = async (
   token: string,
   page = 0,
   size = 10,
-): Promise<PageResponse<ChatRoomInvitation>> =>
-  getJson(`${chatPath}/invitations/pending?page=${page}&size=${size}`, token)
+): Promise<PageResponse<ChatRoomInvitation>> => {
+  const pageResult = await getJson<PageResponse<ChatRoomInvitation & { chatRoom?: ChatRoomLike }>>(
+    `${chatPath}/invitations/pending?page=${page}&size=${size}`,
+    token,
+  )
+  return {
+    ...pageResult,
+    content: pageResult.content.map(normalizeInvitation),
+  }
+}
 
 export const inviteToChatRoom = (
   token: string,
@@ -41,15 +68,17 @@ export const inviteToChatRoom = (
 ): Promise<ChatRoomInvitation> =>
   postJson(`${chatPath}/${chatRoomId}/invitations/${targetUserId}`, {}, token)
 
-export const acceptChatInvitation = (
+export const acceptChatInvitation = async (
   token: string,
   invitationId: number,
-): Promise<ChatRoom> => postJson(`${chatPath}/invitations/${invitationId}/accept`, {}, token)
+): Promise<ChatRoom> =>
+  normalizeChatRoom(await postJson<ChatRoomLike>(`${chatPath}/invitations/${invitationId}/accept`, {}, token))
 
-export const rejectChatInvitation = (
+export const rejectChatInvitation = async (
   token: string,
   invitationId: number,
-): Promise<ChatRoomInvitation> => postJson(`${chatPath}/invitations/${invitationId}/reject`, {}, token)
+): Promise<ChatRoomInvitation> =>
+  normalizeInvitation(await postJson(`${chatPath}/invitations/${invitationId}/reject`, {}, token))
 
 export const kickChatRoomMember = (
   token: string,
@@ -57,27 +86,34 @@ export const kickChatRoomMember = (
   targetUserId: number,
 ): Promise<void> => postJson(`${chatPath}/${chatRoomId}/members/${targetUserId}/kick`, {}, token)
 
-export const updateChatRoomSettings = (
+export const updateChatRoomSettings = async (
   token: string,
   chatRoomId: number,
   data: UpdateChatRoomSettingsRequest,
-): Promise<ChatRoom> => putJson(`${chatPath}/${chatRoomId}/settings`, data, token)
+): Promise<ChatRoom> =>
+  normalizeChatRoom(await putJson<ChatRoomLike>(`${chatPath}/${chatRoomId}/settings`, data, token))
 
-export const updateChatRoomCapacity = (
+export const updateChatRoomCapacity = async (
   token: string,
   chatRoomId: number,
   maxMembers: number,
-): Promise<ChatRoom> => putJson(`${chatPath}/${chatRoomId}/capacity`, { maxMembers }, token)
+): Promise<ChatRoom> =>
+  normalizeChatRoom(await putJson<ChatRoomLike>(`${chatPath}/${chatRoomId}/capacity`, { maxMembers }, token))
 
-export const getChatRooms = (
+export const getChatRooms = async (
   token: string,
   page = 0,
   size = 20,
 ): Promise<PageResponse<ChatRoom>> =>
-  getJson(`${chatPath}?page=${page}&size=${size}&sort=createdAt,desc`, token)
+  normalizeChatRoomPage(
+    await getJson<PageResponse<ChatRoomLike>>(
+      `${chatPath}?page=${page}&size=${size}&sort=createdAt,desc`,
+      token,
+    ),
+  )
 
-export const getChatRoom = (token: string, chatRoomId: number): Promise<ChatRoom> =>
-  getJson(`${chatPath}/${chatRoomId}`, token)
+export const getChatRoom = async (token: string, chatRoomId: number): Promise<ChatRoom> =>
+  normalizeChatRoom(await getJson<ChatRoomLike>(`${chatPath}/${chatRoomId}`, token))
 
 export const getChatRoomMembers = (
   token: string,
@@ -98,12 +134,13 @@ export const leaveChatRoom = (
   chatRoomId: number,
 ): Promise<void> => deleteJson(`${chatPath}/${chatRoomId}/members/me`, token)
 
-export const markChatRoomRead = (
+export const markChatRoomRead = async (
   token: string,
   chatRoomId: number,
-): Promise<ChatRoom> => postJson(`${chatPath}/${chatRoomId}/read`, {}, token)
+): Promise<ChatRoom> =>
+  normalizeChatRoom(await postJson<ChatRoomLike>(`${chatPath}/${chatRoomId}/read`, {}, token))
 
-export const discoverChatRooms = (
+export const discoverChatRooms = async (
   token: string,
   query = '',
   page = 0,
@@ -119,28 +156,34 @@ export const discoverChatRooms = (
     roomType,
     includePrivate: includePrivate.toString(),
   })
-  return getJson(`${chatPath}/discover?${params}`, token)
+  return normalizeChatRoomPage(
+    await getJson<PageResponse<ChatRoomLike>>(`${chatPath}/discover?${params}`, token),
+  )
 }
 
-export const getRecommendedChatRooms = (
+export const getRecommendedChatRooms = async (
   token: string,
   page = 0,
   size = 10,
 ): Promise<PageResponse<ChatRoom>> =>
-  getJson(
-    `${chatPath}/discover/recommended?page=${page}&size=${size}&sort=updatedAt,desc`,
-    token,
+  normalizeChatRoomPage(
+    await getJson<PageResponse<ChatRoomLike>>(
+      `${chatPath}/discover/recommended?page=${page}&size=${size}&sort=updatedAt,desc`,
+      token,
+    ),
   )
 
-export const searchChatRooms = (
+export const searchChatRooms = async (
   token: string,
   query: string,
   page = 0,
   size = 20,
 ): Promise<PageResponse<ChatRoom>> =>
-  getJson(
-    `${chatPath}/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`,
-    token,
+  normalizeChatRoomPage(
+    await getJson<PageResponse<ChatRoomLike>>(
+      `${chatPath}/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`,
+      token,
+    ),
   )
 
 export const getMessages = (
@@ -186,12 +229,17 @@ export const uploadChatAttachment = (
 export const fetchLinkPreview = (token: string, url: string): Promise<MessageMetadata> =>
   postJson(`${chatPath}/link-preview`, { url }, token)
 
-export const getAdminChatRooms = (
+export const getAdminChatRooms = async (
   token: string,
   page = 0,
   size = 30,
 ): Promise<PageResponse<ChatRoom>> =>
-  getJson(`${adminChatPath}?page=${page}&size=${size}&sort=updatedAt,desc`, token)
+  normalizeChatRoomPage(
+    await getJson<PageResponse<ChatRoomLike>>(
+      `${adminChatPath}?page=${page}&size=${size}&sort=updatedAt,desc`,
+      token,
+    ),
+  )
 
 export const getAdminChatRoomMembers = (
   token: string,

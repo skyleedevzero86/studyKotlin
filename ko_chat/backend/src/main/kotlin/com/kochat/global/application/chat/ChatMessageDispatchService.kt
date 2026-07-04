@@ -28,6 +28,10 @@ class ChatMessageDispatchService(
         }
     }
 
+    fun publishMessageUpdate(saved: SavedChatMessage) {
+        publishMessage(saved)
+    }
+
     private fun publishMessage(saved: SavedChatMessage) {
         webSocketSessionManager.sendMessageToLocalRoom(saved.roomId, saved.chatMessage)
         try {

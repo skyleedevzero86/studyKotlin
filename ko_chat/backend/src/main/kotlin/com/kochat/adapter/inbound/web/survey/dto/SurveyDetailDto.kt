@@ -21,4 +21,6 @@ data class SurveyDetailDto(
     val createdAt: LocalDateTime?,
     val canRespond: Boolean = false,
     val hasResponded: Boolean = false,
+    val hasAnswers: Boolean = false,
+    val waitingForStart: Boolean = false,
 )

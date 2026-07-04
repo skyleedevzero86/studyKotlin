@@ -19,6 +19,19 @@ class SurveyFeatureTest : FeatureTestSupport() {
     private lateinit var mockMvc: MockMvc
 
     @Test
+    @DisplayName("USER는 내 설문 목록 API에 접근할 수 있다")
+    fun userCanAccessMySurveys() {
+        registerActiveUser("my-survey-user", "pass1234!")
+        val token = bearerToken("my-survey-user", "ROLE_USER")
+
+        val result = mockMvc.get("/api/v1/surveys/my") {
+            header("Authorization", token)
+        }.andReturn()
+
+        assertEquals(200, result.response.status)
+    }
+
+    @Test
     @DisplayName("USER 권한은 관리자 설문 API에 접근할 수 없다")
     fun userCannotAccessAdminSurveys() {
         registerActiveUser("survey-user", "pass1234!")

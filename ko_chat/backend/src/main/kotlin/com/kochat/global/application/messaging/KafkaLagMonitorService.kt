@@ -8,12 +8,14 @@ import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec
 import org.apache.kafka.clients.consumer.OffsetAndMetadata
 import org.apache.kafka.common.TopicPartition
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Service
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.LocalDateTime
 import java.util.Properties
 
 @Service
+@ConditionalOnProperty(prefix = "app.kafka", name = ["enabled"], havingValue = "true")
 class KafkaLagMonitorService(
     private val kafkaProperties: KafkaProperties,
 ) {

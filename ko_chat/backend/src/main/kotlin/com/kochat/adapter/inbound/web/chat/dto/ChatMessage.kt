@@ -15,6 +15,7 @@ data class ChatMessage(
     val senderId: Long,
     val senderName: String,
     val sequenceNumber: Long,
+    val unreadMemberCount: Int? = null,
     override val chatRoomId: Long,
     override val timestamp: LocalDateTime = LocalDateTime.now(),
 ) : WebSocketMessage()

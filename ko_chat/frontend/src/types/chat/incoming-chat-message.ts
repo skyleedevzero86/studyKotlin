@@ -12,4 +12,5 @@ export interface IncomingChatMessage {
   sequenceNumber: number
   chatRoomId: number
   timestamp: string
+  unreadMemberCount?: number | null
 }

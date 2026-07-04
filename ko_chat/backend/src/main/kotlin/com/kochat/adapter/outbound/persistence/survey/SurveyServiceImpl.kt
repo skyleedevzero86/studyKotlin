@@ -1,5 +1,6 @@
 package com.kochat.adapter.outbound.persistence.survey
 
+import com.kochat.adapter.inbound.web.survey.dto.MySurveyItemDto
 import com.kochat.adapter.inbound.web.survey.dto.AssignRandomParticipantsRequest
 import com.kochat.adapter.inbound.web.survey.dto.CreateSurveyRequest
 import com.kochat.adapter.inbound.web.survey.dto.ParticipantAnswerDto
@@ -78,18 +79,48 @@ class SurveyServiceImpl(
     }
 
     override fun getSurvey(roomId: Long, surveyId: Long, userId: Long): SurveyDetailDto {
-        val survey = requireSurvey(roomId, surveyId)
+        val survey = ensureSurveyScheduleClosed(requireSurvey(roomId, surveyId))
         requireMemberOrAdmin(roomId, userId)
         return toDetail(survey, userId)
     }
 
     override fun getSurveyById(surveyId: Long, userId: Long): SurveyDetailDto {
-        val survey = surveyJpaRepository.findById(surveyId)
-            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
-        val isParticipant = surveyParticipantJpaRepository.existsBySurveyIdAndUserId(surveyId, userId)
-        val isAdmin = isAdminUser(userId)
-        require(isParticipant || isAdmin) { "해당 설문에 접근 권한이 없습니다." }
+        val survey = ensureSurveyScheduleClosed(
+            surveyJpaRepository.findById(surveyId)
+                .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") },
+        )
+        require(canAccessSurvey(survey, surveyId, userId)) { "해당 설문에 접근 권한이 없습니다." }
         return toDetail(survey, userId)
+    }
+
+    override fun listMySurveys(userId: Long): List<MySurveyItemDto> {
+        return surveyParticipantJpaRepository.findForMySurveysByUserId(userId)
+            .map { participant -> toMySurveyItem(participant, userId) }
+    }
+
+    private fun toMySurveyItem(
+        participant: SurveyParticipantJpaEntity,
+        userId: Long,
+    ): MySurveyItemDto {
+        val survey = ensureSurveyScheduleClosed(participant.survey!!)
+        val hasResponded = hasUserResponded(survey.id!!, userId)
+        val canRespondNow = survey.status == SurveyStatus.ACTIVE &&
+            isWithinSchedule(survey) &&
+            canRespond(survey, userId) &&
+            !hasResponded
+        return MySurveyItemDto(
+            surveyId = survey.id!!,
+            title = survey.title,
+            description = survey.description,
+            status = survey.status.name,
+            chatRoomId = survey.chatRoom?.id,
+            chatRoomName = survey.chatRoom?.name,
+            startAt = survey.startAt,
+            endAt = survey.endAt,
+            hasResponded = hasResponded,
+            canRespond = canRespondNow,
+            waitingForStart = isWaitingForStart(survey),
+        )
     }
 
     override fun createSurvey(roomId: Long, userId: Long, request: CreateSurveyRequest): SurveyDetailDto {
@@ -110,7 +141,11 @@ class SurveyServiceImpl(
         }
         val saved = surveyJpaRepository.save(survey)
         saveQuestions(saved, request.questions)
-        assignParticipants(saved, request.targetUserIds)
+        when (request.targetMode) {
+            TargetMode.SELECTED -> assignParticipants(saved, request.targetUserIds)
+            TargetMode.RANDOM -> assignRandomOnCreate(saved, request.randomTargetCount, request.targetUserIds, roomScoped = true)
+            else -> Unit
+        }
         return toDetail(saved, userId)
     }
 
@@ -131,10 +166,13 @@ class SurveyServiceImpl(
         survey.randomTargetCount = request.randomTargetCount
         survey.startAt = request.startAt
         survey.endAt = request.endAt
-        clearQuestions(surveyId)
-        saveQuestions(survey, request.questions)
+        replaceSurveyQuestions(survey, request.questions)
         surveyParticipantJpaRepository.deleteBySurveyId(surveyId)
-        assignParticipants(survey, request.targetUserIds)
+        when (request.targetMode) {
+            TargetMode.SELECTED -> assignParticipants(survey, request.targetUserIds)
+            TargetMode.RANDOM -> assignRandomOnCreate(survey, request.randomTargetCount, request.targetUserIds, roomScoped = true)
+            else -> Unit
+        }
         return toDetail(survey, userId)
     }
 
@@ -146,8 +184,8 @@ class SurveyServiceImpl(
         require(questions.isNotEmpty()) { "문항이 없는 설문은 게시할 수 없습니다." }
         if (survey.targetMode == TargetMode.RANDOM) {
             val count = survey.randomTargetCount ?: 0
-            require(count > 0) { "랜덤 대상자 수를 지정해 주세요." }
-            if (surveyParticipantJpaRepository.countBySurveyId(surveyId) == 0L) {
+            require(count >= 0) { "랜덤 대상자 수는 0 이상이어야 합니다." }
+            if (surveyParticipantJpaRepository.countBySurveyId(surveyId) == 0L && count > 0) {
                 assignRandomParticipants(survey, count)
             }
         } else if (survey.targetMode == TargetMode.ALL_MEMBERS) {
@@ -185,13 +223,34 @@ class SurveyServiceImpl(
         userId: Long,
         request: SubmitSurveyResponseRequest,
     ): SurveyDetailDto {
-        val survey = requireSurvey(roomId, surveyId)
-        require(survey.status == SurveyStatus.ACTIVE) { "진행 중인 설문만 응답할 수 있습니다." }
-        require(isWithinSchedule(survey)) { "설문 응답 기간이 아닙니다." }
         requireMember(roomId, userId)
-        require(canRespond(survey, userId)) { "설문 대상자가 아닙니다." }
-        val existing = surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
-        require(existing.isEmpty()) { "이미 응답한 설문입니다." }
+        val survey = ensureCanSubmitResponse(requireSurvey(roomId, surveyId), userId)
+        saveSurveyAnswers(survey, surveyId, userId, request)
+        return toDetail(survey, userId)
+    }
+
+    @Transactional
+    override fun submitResponseById(
+        surveyId: Long,
+        userId: Long,
+        request: SubmitSurveyResponseRequest,
+    ): SurveyDetailDto {
+        val survey = ensureCanSubmitResponse(
+            surveyJpaRepository.findById(surveyId)
+                .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") },
+            userId,
+        )
+        require(canAccessSurvey(survey, surveyId, userId)) { "해당 설문에 접근 권한이 없습니다." }
+        saveSurveyAnswers(survey, surveyId, userId, request)
+        return toDetail(survey, userId)
+    }
+
+    private fun saveSurveyAnswers(
+        survey: SurveyJpaEntity,
+        surveyId: Long,
+        userId: Long,
+        request: SubmitSurveyResponseRequest,
+    ) {
         val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
         val questionMap = questions.associateBy { it.id!! }
         val user = requireUser(userId)
@@ -254,75 +313,6 @@ class SurveyServiceImpl(
             participant.status = ParticipantStatus.COMPLETED
             participant.completedAt = LocalDateTime.now()
         }
-        return toDetail(survey, userId)
-    }
-
-    @Transactional
-    override fun submitResponseById(
-        surveyId: Long,
-        userId: Long,
-        request: SubmitSurveyResponseRequest,
-    ): SurveyDetailDto {
-        val survey = surveyJpaRepository.findById(surveyId)
-            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
-        require(survey.status == SurveyStatus.ACTIVE) { "진행 중인 설문만 응답할 수 있습니다." }
-        require(isWithinSchedule(survey)) { "설문 응답 기간이 아닙니다." }
-        require(canRespond(survey, userId)) { "설문 대상자가 아닙니다." }
-        val existing = surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
-        require(existing.isEmpty()) { "이미 응답한 설문입니다." }
-        val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
-        val questionMap = questions.associateBy { it.id!! }
-        val user = requireUser(userId)
-        request.answers.forEach { answer ->
-            val question = questionMap[answer.questionId]
-                ?: throw IllegalArgumentException("유효하지 않은 문항입니다.")
-            validateAnswer(question, answer)
-            when (question.questionType) {
-                QuestionType.TEXT -> {
-                    surveyAnswerJpaRepository.save(
-                        SurveyAnswerJpaEntity().apply {
-                            this.survey = survey
-                            this.question = question
-                            this.user = user
-                            textAnswer = answer.textAnswer?.trim()
-                        },
-                    )
-                }
-                QuestionType.SINGLE_CHOICE -> {
-                    val optionId = answer.optionIds.single()
-                    val option = surveyOptionJpaRepository.findById(optionId)
-                        .orElseThrow { IllegalArgumentException("유효하지 않은 보기입니다.") }
-                    surveyAnswerJpaRepository.save(
-                        SurveyAnswerJpaEntity().apply {
-                            this.survey = survey
-                            this.question = question
-                            this.option = option
-                            this.user = user
-                        },
-                    )
-                }
-                QuestionType.MULTIPLE_CHOICE -> {
-                    answer.optionIds.forEach { optionId ->
-                        val option = surveyOptionJpaRepository.findById(optionId)
-                            .orElseThrow { IllegalArgumentException("유효하지 않은 보기입니다.") }
-                        surveyAnswerJpaRepository.save(
-                            SurveyAnswerJpaEntity().apply {
-                                this.survey = survey
-                                this.question = question
-                                this.option = option
-                                this.user = user
-                            },
-                        )
-                    }
-                }
-            }
-        }
-        val participant = surveyParticipantJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
-        if (participant != null) {
-            participant.status = ParticipantStatus.COMPLETED
-            participant.completedAt = LocalDateTime.now()
-        }
-        return toDetail(survey, userId)
     }
 
     override fun getStatistics(roomId: Long, surveyId: Long, userId: Long): SurveyStatisticsDto {
@@ -385,8 +375,10 @@ class SurveyServiceImpl(
         }
         val saved = surveyJpaRepository.save(survey)
         saveQuestions(saved, request.questions)
-        if (request.targetMode == TargetMode.SELECTED) {
-            assignParticipants(saved, request.targetUserIds)
+        when (request.targetMode) {
+            TargetMode.SELECTED -> assignParticipants(saved, request.targetUserIds)
+            TargetMode.RANDOM -> assignRandomOnCreate(saved, request.randomTargetCount, request.targetUserIds, roomScoped = true)
+            else -> Unit
         }
         return toDetail(saved, adminUserId)
     }
@@ -411,10 +403,53 @@ class SurveyServiceImpl(
         }
         val saved = surveyJpaRepository.save(survey)
         saveQuestions(saved, request.questions)
-        if (request.targetMode == TargetMode.SELECTED && request.targetUserIds.isNotEmpty()) {
-            assignParticipantsDirect(saved, request.targetUserIds)
+        when (request.targetMode) {
+            TargetMode.SELECTED -> {
+                if (request.targetUserIds.isNotEmpty()) {
+                    assignParticipantsDirect(saved, request.targetUserIds)
+                }
+            }
+            TargetMode.RANDOM -> assignRandomOnCreate(saved, request.randomTargetCount, request.targetUserIds, roomScoped = false)
+            else -> Unit
         }
         return toDetail(saved, adminUserId)
+    }
+
+    override fun adminUpdateSurvey(
+        surveyId: Long,
+        adminUserId: Long,
+        request: UpdateSurveyRequest,
+    ): SurveyDetailDto {
+        requireAdmin(adminUserId)
+        val survey = surveyJpaRepository.findById(surveyId)
+            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
+        require(survey.status == SurveyStatus.DRAFT || survey.status == SurveyStatus.ACTIVE) {
+            "작성중 또는 진행중인 설문만 수정할 수 있습니다."
+        }
+        val hasAnswers = surveyAnswerJpaRepository.existsBySurveyId(surveyId)
+        if (hasAnswers) {
+            survey.title = request.title.trim()
+            survey.description = request.description?.trim()
+            survey.endAt = request.endAt
+            surveyJpaRepository.save(survey)
+            return toDetail(survey, adminUserId)
+        }
+        validateSurveyRequest(request)
+        survey.title = request.title.trim()
+        survey.description = request.description?.trim()
+        survey.targetMode = request.targetMode
+        survey.randomTargetCount = request.randomTargetCount
+        survey.startAt = request.startAt
+        survey.endAt = request.endAt
+        replaceSurveyQuestions(survey, request.questions)
+        surveyParticipantJpaRepository.deleteBySurveyId(surveyId)
+        when (request.targetMode) {
+            TargetMode.SELECTED -> assignParticipantsDirect(survey, request.targetUserIds)
+            TargetMode.RANDOM -> assignRandomOnCreate(survey, request.randomTargetCount, request.targetUserIds, roomScoped = false)
+            else -> Unit
+        }
+        surveyJpaRepository.save(survey)
+        return toDetail(survey, adminUserId)
     }
 
     override fun adminPublishSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto {
@@ -426,8 +461,16 @@ class SurveyServiceImpl(
             publishSurvey(roomId, surveyId, adminUserId)
         } else {
             require(survey.status == SurveyStatus.DRAFT) { "작성중 상태의 설문만 게시할 수 있습니다." }
+            val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
+            require(questions.isNotEmpty()) { "문항이 없는 설문은 게시할 수 없습니다." }
 
-            if (survey.targetMode == TargetMode.ALL_MEMBERS &&
+            if (survey.targetMode == TargetMode.RANDOM) {
+                val count = survey.randomTargetCount ?: 0
+                require(count >= 0) { "랜덤 대상자 수는 0 이상이어야 합니다." }
+                if (surveyParticipantJpaRepository.countBySurveyId(surveyId) == 0L && count > 0) {
+                    assignRandomParticipants(survey, count)
+                }
+            } else if (survey.targetMode == TargetMode.ALL_MEMBERS &&
                 surveyParticipantJpaRepository.countBySurveyId(surveyId) == 0L
             ) {
                 val allActiveUsers = userJpaRepository.findByStatusOrderByUsernameAsc(UserStatus.ACTIVE)
@@ -442,12 +485,30 @@ class SurveyServiceImpl(
                         )
                     }
                 }
+            } else if (survey.targetMode == TargetMode.SELECTED) {
+                require(surveyParticipantJpaRepository.countBySurveyId(surveyId) > 0L) {
+                    "설문 대상자를 지정해 주세요."
+                }
             }
 
             survey.status = SurveyStatus.ACTIVE
+            if (survey.startAt == null) {
+                survey.startAt = LocalDateTime.now()
+            }
             surveyJpaRepository.save(survey)
             toDetail(survey, adminUserId)
         }
+    }
+
+    override fun adminDeleteSurvey(surveyId: Long, adminUserId: Long) {
+        requireAdmin(adminUserId)
+        val survey = surveyJpaRepository.findById(surveyId)
+            .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
+        require(survey.status == SurveyStatus.DRAFT || !surveyAnswerJpaRepository.existsBySurveyId(surveyId)) {
+            "응답이 있는 설문은 삭제할 수 없습니다."
+        }
+        clearSurveyData(surveyId)
+        surveyJpaRepository.delete(survey)
     }
 
     override fun adminCloseSurvey(surveyId: Long, adminUserId: Long): SurveyDetailDto {
@@ -473,10 +534,11 @@ class SurveyServiceImpl(
         requireAdmin(adminUserId)
         val survey = surveyJpaRepository.findById(surveyId)
             .orElseThrow { IllegalArgumentException("설문을 찾을 수 없습니다.") }
-        require(request.count > 0) { "랜덤 대상자 수는 1 이상이어야 합니다." }
+        require(request.count >= 0) { "랜덤 대상자 수는 0 이상이어야 합니다." }
         survey.targetMode = TargetMode.RANDOM
         survey.randomTargetCount = request.count
-        assignRandomParticipants(survey, request.count)
+        replaceRandomParticipants(survey, request.count)
+        surveyJpaRepository.save(survey)
         return toDetail(survey, adminUserId)
     }
 
@@ -583,7 +645,7 @@ class SurveyServiceImpl(
         request.questions.forEach { validateQuestion(it) }
         validateSchedule(request.startAt, request.endAt)
         if (request.targetMode == TargetMode.RANDOM) {
-            require((request.randomTargetCount ?: 0) > 0) { "랜덤 대상자 수를 지정해 주세요." }
+            require((request.randomTargetCount ?: -1) >= 0) { "랜덤 대상자 수는 0 이상 입력해 주세요." }
         }
         if (request.targetMode == TargetMode.SELECTED) {
             require(request.targetUserIds.isNotEmpty()) { "대상자를 선택해 주세요." }
@@ -595,7 +657,7 @@ class SurveyServiceImpl(
         request.questions.forEach { validateQuestion(it) }
         validateSchedule(request.startAt, request.endAt)
         if (request.targetMode == TargetMode.RANDOM) {
-            require((request.randomTargetCount ?: 0) > 0) { "랜덤 대상자 수를 지정해 주세요." }
+            require((request.randomTargetCount ?: -1) >= 0) { "랜덤 대상자 수는 0 이상 입력해 주세요." }
         }
         if (request.targetMode == TargetMode.SELECTED) {
             require(request.targetUserIds.isNotEmpty()) { "대상자를 선택해 주세요." }
@@ -653,6 +715,13 @@ class SurveyServiceImpl(
         }
     }
 
+    private fun replaceSurveyQuestions(survey: SurveyJpaEntity, questions: List<SurveyQuestionRequest>) {
+        val surveyId = survey.id!!
+        surveyAnswerJpaRepository.deleteBySurveyId(surveyId)
+        clearQuestions(surveyId)
+        saveQuestions(survey, questions)
+    }
+
     private fun clearQuestions(surveyId: Long) {
         val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
         questions.forEach { question ->
@@ -668,7 +737,7 @@ class SurveyServiceImpl(
     }
 
     private fun assignParticipants(survey: SurveyJpaEntity, targetUserIds: List<Long>) {
-        if (survey.targetMode != TargetMode.SELECTED) return
+        if (targetUserIds.isEmpty()) return
         val roomId = survey.chatRoom?.id ?: return
         targetUserIds.distinct().forEach { targetUserId ->
             requireMember(roomId, targetUserId)
@@ -712,15 +781,46 @@ class SurveyServiceImpl(
         }
     }
 
+    private fun assignRandomOnCreate(
+        survey: SurveyJpaEntity,
+        randomTargetCount: Int?,
+        targetUserIds: List<Long>,
+        roomScoped: Boolean,
+    ) {
+        if (targetUserIds.isNotEmpty()) {
+            if (roomScoped) {
+                assignParticipants(survey, targetUserIds)
+            } else {
+                assignParticipantsDirect(survey, targetUserIds)
+            }
+            return
+        }
+        val count = randomTargetCount ?: 0
+        if (count > 0) {
+            assignRandomParticipants(survey, count)
+        }
+    }
+
+    private fun replaceRandomParticipants(survey: SurveyJpaEntity, count: Int) {
+        surveyParticipantJpaRepository.deleteBySurveyId(survey.id!!)
+        if (count <= 0) return
+        assignRandomParticipants(survey, count)
+    }
+
     private fun assignRandomParticipants(survey: SurveyJpaEntity, count: Int) {
-        val roomId = survey.chatRoom?.id ?: return
-        val members = chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId)
+        if (count <= 0) return
         val existingIds = surveyParticipantJpaRepository.findUserIdsBySurveyId(survey.id!!).toSet()
-        val candidates = members
-            .mapNotNull { it.user }
-            .filter { it.id !in existingIds }
-            .shuffled()
-            .take(count)
+        val candidates = when (val roomId = survey.chatRoom?.id) {
+            null -> userJpaRepository.findByStatusOrderByUsernameAsc(UserStatus.ACTIVE)
+                .filter { it.id != null && it.id !in existingIds }
+                .shuffled()
+                .take(count)
+            else -> chatRoomMemberJpaRepository.findByChatRoomIdAndIsActiveTrue(roomId)
+                .mapNotNull { it.user }
+                .filter { it.id !in existingIds }
+                .shuffled()
+                .take(count)
+        }
         require(candidates.isNotEmpty()) { "랜덤 배정할 대상자가 없습니다." }
         candidates.forEach { user ->
             surveyParticipantJpaRepository.save(
@@ -743,47 +843,58 @@ class SurveyServiceImpl(
             }
         }
 
+    private fun canAccessSurvey(survey: SurveyJpaEntity, surveyId: Long, userId: Long): Boolean {
+        if (isAdminUser(userId)) {
+            return true
+        }
+        if (surveyParticipantJpaRepository.existsBySurveyIdAndUserId(surveyId, userId)) {
+            return true
+        }
+        return canRespond(survey, userId)
+    }
+
     private fun toSummary(survey: SurveyJpaEntity, viewerUserId: Long?): SurveySummaryDto {
-        val surveyId = survey.id!!
+        val refreshed = ensureSurveyScheduleClosed(survey)
+        val surveyId = refreshed.id!!
         val questionCount = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId).size
         val participantCount = surveyParticipantJpaRepository.countBySurveyId(surveyId)
         val completedCount = surveyParticipantJpaRepository.countBySurveyIdAndStatus(
             surveyId,
             ParticipantStatus.COMPLETED,
         )
-        val hasResponded = viewerUserId?.let {
-            surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, it).isNotEmpty()
-        } ?: false
+        val hasResponded = viewerUserId?.let { hasUserResponded(surveyId, it) } ?: false
         val canRespondNow = viewerUserId?.let {
-            survey.status == SurveyStatus.ACTIVE &&
-                isWithinSchedule(survey) &&
-                canRespond(survey, it) &&
+            refreshed.status == SurveyStatus.ACTIVE &&
+                isWithinSchedule(refreshed) &&
+                canRespond(refreshed, it) &&
                 !hasResponded
         } ?: false
         return SurveySummaryDto(
             id = surveyId,
-            chatRoomId = survey.chatRoom?.id,
-            chatRoomName = survey.chatRoom?.name ?: "",
-            title = survey.title,
-            description = survey.description,
-            status = survey.status,
-            targetMode = survey.targetMode,
-            randomTargetCount = survey.randomTargetCount,
-            startAt = survey.startAt,
-            endAt = survey.endAt,
+            chatRoomId = refreshed.chatRoom?.id,
+            chatRoomName = refreshed.chatRoom?.name ?: "",
+            title = refreshed.title,
+            description = refreshed.description,
+            status = refreshed.status,
+            targetMode = refreshed.targetMode,
+            randomTargetCount = refreshed.randomTargetCount,
+            startAt = refreshed.startAt,
+            endAt = refreshed.endAt,
             questionCount = questionCount,
             participantCount = participantCount,
             completedCount = completedCount,
-            createdByUserId = survey.createdBy?.id!!,
-            createdByUsername = survey.createdBy?.username ?: "",
-            createdAt = survey.createdAt,
+            createdByUserId = refreshed.createdBy?.id!!,
+            createdByUsername = refreshed.createdBy?.username ?: "",
+            createdAt = refreshed.createdAt,
             canRespond = canRespondNow,
             hasResponded = hasResponded,
+            waitingForStart = isWaitingForStart(refreshed),
         )
     }
 
     private fun toDetail(survey: SurveyJpaEntity, viewerUserId: Long): SurveyDetailDto {
-        val surveyId = survey.id!!
+        val refreshed = ensureSurveyScheduleClosed(survey)
+        val surveyId = refreshed.id!!
         val questions = surveyQuestionJpaRepository.findBySurveyIdOrderByQuestionNoAsc(surveyId)
         val optionCounts = surveyAnswerJpaRepository.countByOptionForSurvey(surveyId)
             .associate { (it[0] as Long) to (it[1] as Long) }
@@ -806,38 +917,74 @@ class SurveyServiceImpl(
             )
         }
         val participants = surveyParticipantJpaRepository.findBySurveyIdOrderByAssignedAtAsc(surveyId)
-            .map { participant ->
+            .mapNotNull { participant ->
+                val user = participant.user ?: return@mapNotNull null
+                val userId = user.id ?: return@mapNotNull null
                 SurveyParticipantDto(
-                    userId = participant.user?.id!!,
-                    username = participant.user?.username ?: "",
-                    displayName = participant.user?.displayName,
+                    userId = userId,
+                    username = user.username ?: "",
+                    displayName = user.displayName,
                     status = participant.status,
                     assignedAt = participant.assignedAt,
                     completedAt = participant.completedAt,
                 )
             }
-        val hasResponded = surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, viewerUserId).isNotEmpty()
+        val hasResponded = hasUserResponded(surveyId, viewerUserId)
         return SurveyDetailDto(
             id = surveyId,
-            chatRoomId = survey.chatRoom?.id,
-            chatRoomName = survey.chatRoom?.name ?: "",
-            title = survey.title,
-            description = survey.description,
-            status = survey.status,
-            targetMode = survey.targetMode,
-            randomTargetCount = survey.randomTargetCount,
-            startAt = survey.startAt,
-            endAt = survey.endAt,
+            chatRoomId = refreshed.chatRoom?.id,
+            chatRoomName = refreshed.chatRoom?.name ?: "",
+            title = refreshed.title,
+            description = refreshed.description,
+            status = refreshed.status,
+            targetMode = refreshed.targetMode,
+            randomTargetCount = refreshed.randomTargetCount,
+            startAt = refreshed.startAt,
+            endAt = refreshed.endAt,
             questions = questionDtos,
             participants = participants,
-            createdByUserId = survey.createdBy?.id!!,
-            createdAt = survey.createdAt,
-            canRespond = survey.status == SurveyStatus.ACTIVE &&
-                isWithinSchedule(survey) &&
-                canRespond(survey, viewerUserId) &&
+            createdByUserId = refreshed.createdBy?.id!!,
+            createdAt = refreshed.createdAt,
+            canRespond = refreshed.status == SurveyStatus.ACTIVE &&
+                isWithinSchedule(refreshed) &&
+                canRespond(refreshed, viewerUserId) &&
                 !hasResponded,
             hasResponded = hasResponded,
+            hasAnswers = surveyAnswerJpaRepository.existsBySurveyId(surveyId),
+            waitingForStart = isWaitingForStart(refreshed),
         )
+    }
+
+    private fun ensureSurveyScheduleClosed(survey: SurveyJpaEntity): SurveyJpaEntity {
+        if (survey.status != SurveyStatus.ACTIVE) return survey
+        val endAt = survey.endAt ?: return survey
+        if (!LocalDateTime.now().isAfter(endAt)) return survey
+        survey.status = SurveyStatus.CLOSED
+        return surveyJpaRepository.save(survey)
+    }
+
+    private fun ensureCanSubmitResponse(survey: SurveyJpaEntity, userId: Long): SurveyJpaEntity {
+        val refreshed = ensureSurveyScheduleClosed(survey)
+        require(refreshed.status == SurveyStatus.ACTIVE) { "설문이 종료되어 응답할 수 없습니다." }
+        require(!isWaitingForStart(refreshed)) { "설문 시작 전입니다." }
+        require(isWithinSchedule(refreshed)) { "설문 응답 기간이 아닙니다." }
+        require(canRespond(refreshed, userId)) { "설문 대상자가 아닙니다." }
+        require(!hasUserResponded(refreshed.id!!, userId)) { "이미 응답한 설문입니다." }
+        return refreshed
+    }
+
+    private fun hasUserResponded(surveyId: Long, userId: Long): Boolean {
+        if (surveyAnswerJpaRepository.findBySurveyIdAndUserId(surveyId, userId).isNotEmpty()) {
+            return true
+        }
+        val participant = surveyParticipantJpaRepository.findBySurveyIdAndUserId(surveyId, userId)
+        return participant?.status == ParticipantStatus.COMPLETED
+    }
+
+    private fun isWaitingForStart(survey: SurveyJpaEntity): Boolean {
+        if (survey.status != SurveyStatus.ACTIVE) return false
+        val startAt = survey.startAt ?: return false
+        return LocalDateTime.now().isBefore(startAt)
     }
 
     private fun buildStatistics(survey: SurveyJpaEntity): SurveyStatisticsDto {
@@ -929,7 +1076,7 @@ class SurveyServiceImpl(
         file: MultipartFile,
     ): ParticipantUploadResultDto {
         require(!file.isEmpty) { "업로드할 파일을 선택해 주세요." }
-        val roomId = survey.chatRoom?.id ?: throw IllegalArgumentException("설문 채팅방이 없습니다.")
+        val roomId = survey.chatRoom?.id
         val surveyId = survey.id!!
         val formatter = DataFormatter()
         val rows = mutableListOf<ParticipantUploadRowResult>()
@@ -963,7 +1110,20 @@ class SurveyServiceImpl(
                     )
                     return@forEachIndexed
                 }
-                if (!chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, user.id!!)) {
+                if (user.status != UserStatus.ACTIVE) {
+                    rows.add(
+                        ParticipantUploadRowResult(
+                            row = index + 1,
+                            identifier = identifier,
+                            success = false,
+                            message = "활성 회원만 배정할 수 있습니다.",
+                        ),
+                    )
+                    return@forEachIndexed
+                }
+                if (roomId != null &&
+                    !chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, user.id!!)
+                ) {
                     rows.add(
                         ParticipantUploadRowResult(
                             row = index + 1,

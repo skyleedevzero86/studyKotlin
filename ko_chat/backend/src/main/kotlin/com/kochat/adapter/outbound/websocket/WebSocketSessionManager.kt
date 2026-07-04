@@ -1,6 +1,6 @@
 package com.kochat.adapter.outbound.websocket
 
-import com.kochat.adapter.inbound.web.chat.dto.ChatMessage
+import com.kochat.adapter.inbound.web.chat.dto.WebSocketMessage
 import com.kochat.adapter.outbound.persistence.chat.ChatRoomMemberJpaRepository
 import com.kochat.adapter.outbound.persistence.user.UserBlockJpaRepository
 import com.kochat.adapter.outbound.persistence.user.UserJpaRepository
@@ -80,7 +80,7 @@ class WebSocketSessionManager(
         logger.debug("사용자($userId)가 채팅방($roomId)에 참여했습니다. 서버: $serverId")
     }
 
-    fun sendMessageToLocalRoom(roomId: Long, message: ChatMessage, excludeUserId: Long? = null) {
+    fun sendMessageToLocalRoom(roomId: Long, message: com.kochat.adapter.inbound.web.chat.dto.ChatMessage, excludeUserId: Long? = null) {
         val json = objectMapper.writeValueAsString(message)
 
         userSession.forEach { (userId, sessions) ->
@@ -112,7 +112,33 @@ class WebSocketSessionManager(
         }
     }
 
-    private fun canReceiveMessage(viewerUserId: Long, message: ChatMessage): Boolean {
+    fun sendEventToRoom(roomId: Long, event: WebSocketMessage) {
+        val json = objectMapper.writeValueAsString(event)
+        userSession.forEach { (userId, sessions) ->
+            val isMember = chatRoomMemberJpaRepository.existsByChatRoomIdAndUserIdAndIsActiveTrue(roomId, userId)
+            if (!isMember) {
+                return@forEach
+            }
+            val closedSessions = mutableSetOf<WebSocketSession>()
+            sessions.forEach { session ->
+                if (session.isOpen) {
+                    try {
+                        session.sendMessage(TextMessage(json))
+                    } catch (e: Exception) {
+                        logger.error("로컬 WebSocket 세션으로 이벤트 전송에 실패했습니다", e)
+                        closedSessions.add(session)
+                    }
+                } else {
+                    closedSessions.add(session)
+                }
+            }
+            if (closedSessions.isNotEmpty()) {
+                sessions.removeAll(closedSessions)
+            }
+        }
+    }
+
+    private fun canReceiveMessage(viewerUserId: Long, message: com.kochat.adapter.inbound.web.chat.dto.ChatMessage): Boolean {
         if (viewerUserId == message.senderId) {
             return true
         }

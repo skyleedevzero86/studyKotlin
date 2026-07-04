@@ -3,6 +3,7 @@ package com.kochat.global.application.messaging.dto
 import java.time.LocalDateTime
 
 data class MessagingOperationsSnapshot(
+    val kafkaEnabled: Boolean,
     val outbox: OutboxStatusSnapshot,
     val processedEvents: ProcessedEventSnapshot,
     val dlq: DlqStatusSnapshot,

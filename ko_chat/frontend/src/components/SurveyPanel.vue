@@ -32,6 +32,11 @@ import type {
 } from '../types/survey'
 import { resolveApiError } from '../utils/resolveApiError'
 import { paginateArray } from '../utils/paginateArray'
+import {
+  canSubmitSurveyResponse,
+  getSurveyResponseBlockReason,
+  surveyResponseBlockMessage,
+} from '../utils/surveyResponseGuard'
 
 const props = defineProps<{
   token: string
@@ -82,7 +87,14 @@ const form = reactive({
 
 const editingSurveyId = ref<number | null>(null)
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string, startAt?: string | null, endAt?: string | null) => {
+  const now = Date.now()
+  if (status === 'ACTIVE' && startAt && new Date(startAt).getTime() > now) {
+    return '시작 대기'
+  }
+  if (status === 'ACTIVE' && endAt && new Date(endAt).getTime() < now) {
+    return '종료'
+  }
   switch (status) {
     case 'DRAFT': return '작성중'
     case 'ACTIVE': return '진행중'
@@ -171,8 +183,43 @@ const buildRequest = (): CreateSurveyRequest => ({
     questionType: q.questionType,
     options: q.questionType === 'TEXT' ? [] : q.options.filter((o) => o.optionText.trim()),
   })),
-  targetUserIds: form.targetMode === 'SELECTED' ? form.targetUserIds : [],
+  targetUserIds:
+    form.targetMode === 'SELECTED' || form.targetMode === 'RANDOM'
+      ? form.targetUserIds
+      : [],
 })
+
+const shufflePickIds = (ids: number[], count: number): number[] => {
+  const pool = [...ids]
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  return pool.slice(0, Math.min(count, pool.length))
+}
+
+const loadAllMemberIds = async (): Promise<number[]> => {
+  const page = await getChatRoomMembers(props.token, props.roomId, 0, 500)
+  return page.content.map((member) => member.user.id)
+}
+
+const randomSelectMembers = async () => {
+  const requested = Number(form.randomTargetCount)
+  if (!Number.isFinite(requested) || requested < 0) {
+    emit('error', '랜덤 대상자 수는 0 이상 입력해 주세요.')
+    return
+  }
+  if (requested === 0) {
+    form.targetUserIds = []
+    return
+  }
+  try {
+    const memberIds = await loadAllMemberIds()
+    form.targetUserIds = shufflePickIds(memberIds, requested)
+  } catch (error) {
+    emit('error', resolveApiError(error, '멤버 목록을 불러오지 못했습니다.'))
+  }
+}
 
 const loadSurveys = async () => {
   isLoading.value = true
@@ -302,6 +349,19 @@ const openRespond = async (surveyId: number) => {
   isLoading.value = true
   try {
     const detail = await getSurvey(props.token, props.roomId, surveyId)
+    if (!canSubmitSurveyResponse(detail)) {
+      const reason = getSurveyResponseBlockReason(detail)
+      emit(
+        'error',
+        reason
+          ? surveyResponseBlockMessage(reason, {
+              startAt: detail.startAt,
+              endAt: detail.endAt,
+            })
+          : '설문에 응답할 수 없습니다.',
+      )
+      return
+    }
     selectedSurvey.value = detail
     detail.questions.forEach((q) => {
       responseAnswers[q.id] = { optionIds: [], textAnswer: '' }
@@ -315,6 +375,7 @@ const openRespond = async (surveyId: number) => {
 }
 
 const toggleOption = (questionId: number, optionId: number, questionType: QuestionType) => {
+  if (!selectedSurvey.value || !canSubmitSurveyResponse(selectedSurvey.value)) return
   const current = responseAnswers[questionId]
   if (!current) return
   if (questionType === 'SINGLE_CHOICE') {
@@ -331,6 +392,19 @@ const toggleOption = (questionId: number, optionId: number, questionType: Questi
 
 const submitResponse = async () => {
   if (!selectedSurvey.value) return
+  if (!canSubmitSurveyResponse(selectedSurvey.value)) {
+    const reason = getSurveyResponseBlockReason(selectedSurvey.value)
+    emit(
+      'error',
+      reason
+        ? surveyResponseBlockMessage(reason, {
+            startAt: selectedSurvey.value.startAt,
+            endAt: selectedSurvey.value.endAt,
+          })
+        : '설문에 응답할 수 없습니다.',
+    )
+    return
+  }
   isSaving.value = true
   try {
     const answers = selectedSurvey.value.questions.map((q) => ({
@@ -517,7 +591,9 @@ onMounted(() => {
       <article v-for="survey in surveys" :key="survey.id" class="survey-card">
         <div class="survey-card-head">
           <strong>{{ survey.title }}</strong>
-          <span class="survey-badge" :data-status="survey.status">{{ statusLabel(survey.status) }}</span>
+          <span class="survey-badge" :data-status="survey.status">
+            {{ statusLabel(survey.status, survey.startAt, survey.endAt) }}
+          </span>
         </div>
         <p v-if="survey.description" class="survey-desc">{{ survey.description }}</p>
         <div class="survey-meta">
@@ -533,7 +609,11 @@ onMounted(() => {
           >
             응답하기
           </button>
+          <span v-else-if="survey.waitingForStart" class="survey-responded">시작 대기</span>
           <span v-else-if="survey.hasResponded" class="survey-responded">응답 완료</span>
+          <span v-else-if="survey.status === 'CLOSED' || survey.status === 'ACTIVE'" class="survey-responded">
+            종료
+          </span>
           <button v-if="canManage" type="button" @click="openStats(survey.id)">통계</button>
           <button
             v-if="canManage && (survey.status === 'DRAFT' || survey.status === 'ACTIVE')"
@@ -611,10 +691,14 @@ onMounted(() => {
           <option value="RANDOM">랜덤 배정</option>
         </select>
       </label>
-      <label v-if="form.targetMode === 'RANDOM'">
+      <label v-if="form.targetMode === 'RANDOM'" class="survey-random-row">
         랜덤 인원
-        <input v-model.number="form.randomTargetCount" type="number" min="1" />
+        <input v-model.number="form.randomTargetCount" type="number" min="0" />
+        <button type="button" @click="randomSelectMembers">랜덤 배정</button>
       </label>
+      <p v-if="form.targetMode === 'RANDOM'" class="survey-random-summary">
+        배정됨: {{ form.targetUserIds.length }}명
+      </p>
       <div v-if="form.targetMode === 'SELECTED'" class="survey-target-list">
         <p>대상 멤버 선택</p>
         <label v-for="member in members" :key="member.user.id" class="survey-target-item">
@@ -676,6 +760,17 @@ onMounted(() => {
     <section v-else-if="activeTab === 'respond' && selectedSurvey" class="survey-section">
       <h4>{{ selectedSurvey.title }}</h4>
       <p v-if="selectedSurvey.description" class="survey-desc">{{ selectedSurvey.description }}</p>
+
+      <p v-if="selectedSurvey && getSurveyResponseBlockReason(selectedSurvey)" class="survey-responded">
+        {{
+          surveyResponseBlockMessage(getSurveyResponseBlockReason(selectedSurvey)!, {
+            startAt: selectedSurvey.startAt,
+            endAt: selectedSurvey.endAt,
+          })
+        }}
+      </p>
+
+      <template v-else-if="selectedSurvey && canSubmitSurveyResponse(selectedSurvey)">
       <div v-for="question in selectedSurvey.questions" :key="question.id" class="survey-respond-block">
         <p class="survey-question-title">
           {{ question.questionNo }}. {{ question.questionText }}
@@ -686,6 +781,8 @@ onMounted(() => {
             v-model="responseAnswers[question.id].textAnswer"
             rows="3"
             placeholder="답변을 입력하세요"
+            :disabled="!canSubmitSurveyResponse(selectedSurvey)"
+            :readonly="!canSubmitSurveyResponse(selectedSurvey)"
           />
         </div>
         <div v-else class="survey-option-list">
@@ -698,6 +795,7 @@ onMounted(() => {
               :type="question.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'"
               :name="`q-${question.id}`"
               :checked="responseAnswers[question.id]?.optionIds.includes(option.id)"
+              :disabled="!canSubmitSurveyResponse(selectedSurvey)"
               @change="toggleOption(question.id, option.id, question.questionType)"
             />
             {{ option.optionText }}
@@ -705,11 +803,17 @@ onMounted(() => {
         </div>
       </div>
       <div class="survey-form-actions">
-        <button type="button" class="button-primary" :disabled="isSaving" @click="submitResponse">
+        <button
+          type="button"
+          class="button-primary"
+          :disabled="isSaving || !canSubmitSurveyResponse(selectedSurvey)"
+          @click="submitResponse"
+        >
           {{ isSaving ? '제출 중...' : '제출' }}
         </button>
         <button type="button" @click="activeTab = 'list'">취소</button>
       </div>
+      </template>
     </section>
 
     <section v-else-if="activeTab === 'stats' && statistics" class="survey-section">

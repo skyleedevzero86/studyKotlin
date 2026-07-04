@@ -7,4 +7,6 @@ export interface SurveyDetail extends SurveySummary {
   participants: SurveyParticipant[]
   canRespond: boolean
   hasResponded: boolean
+  hasAnswers?: boolean
+  waitingForStart?: boolean
 }

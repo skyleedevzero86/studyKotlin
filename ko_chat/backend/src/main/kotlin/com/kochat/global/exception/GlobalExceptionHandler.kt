@@ -8,6 +8,7 @@ import com.kochat.domain.user.exception.PasswordChangeLockedException
 import com.kochat.domain.user.exception.PasswordChangeRequiredException
 import com.kochat.domain.user.exception.UserNotFoundException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -139,6 +140,15 @@ class GlobalExceptionHandler {
             ApiErrorResponse(
                 error = ErrorCode.NOT_FOUND.defaultMessage,
                 code = ErrorCode.NOT_FOUND.name,
+            ),
+        )
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(ex: DataIntegrityViolationException): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                error = "연관된 응답 또는 참여 데이터 때문에 설문을 수정할 수 없습니다.",
+                code = ErrorCode.INVALID_USER_STATUS.name,
             ),
         )
 

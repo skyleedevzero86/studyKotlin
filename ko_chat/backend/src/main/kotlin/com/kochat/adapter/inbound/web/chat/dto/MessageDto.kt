@@ -15,4 +15,5 @@ data class MessageDto(
     val createdAt: LocalDateTime,
     val editedAt: LocalDateTime?,
     val sequenceNumber: Long = 0,
+    val unreadMemberCount: Int? = null,
 )

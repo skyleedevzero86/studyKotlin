@@ -6,6 +6,8 @@ import {
   adminAssignRandomParticipants,
   adminCloseSurvey,
   adminCreateSurvey,
+  adminDeleteSurvey,
+  adminUpdateSurvey,
   adminExportSurveyStatisticsExcel,
   adminExportSurveyStatisticsPdf,
   adminGetSurveyDetail,
@@ -41,6 +43,7 @@ const { accessToken, isAdmin, getValidAccessToken } = useAuth()
 const surveyPagination = usePagination(20)
 const roomFilterPagination = usePagination(20)
 const participantStatsPagination = usePagination(10)
+const userSelectPagination = usePagination(20)
 
 const surveys = ref<SurveySummary[]>([])
 const rooms = ref<ChatRoom[]>([])
@@ -60,7 +63,9 @@ const activeTab = ref<'list' | 'create' | 'stats' | 'detail'>('list')
 const statsTab = ref<StatisticsTab>('by-question')
 const selectedSurveyId = ref<number | null>(null)
 const surveyDetail = ref<SurveyDetail | null>(null)
-const randomCount = ref(5)
+const editingSurveyId = ref<number | null>(null)
+const editingLimited = ref(false)
+const randomCountInputs = ref<Record<number, number>>({})
 
 const filter = reactive({
   status: '' as '' | 'DRAFT' | 'ACTIVE' | 'CLOSED',
@@ -87,7 +92,14 @@ const form = reactive({
   ],
 })
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string, startAt?: string | null, endAt?: string | null) => {
+  const now = Date.now()
+  if (status === 'ACTIVE' && startAt && new Date(startAt).getTime() > now) {
+    return '시작 대기'
+  }
+  if (status === 'ACTIVE' && endAt && new Date(endAt).getTime() < now) {
+    return '종료'
+  }
   switch (status) {
     case 'DRAFT': return '작성중'
     case 'ACTIVE': return '진행중'
@@ -124,6 +136,14 @@ const pagedRoomStats = computed(() => {
   )
 })
 
+const pagedSelectableUsers = computed(() =>
+  paginateArray(
+    selectableUsers.value,
+    userSelectPagination.page.value,
+    userSelectPagination.size.value,
+  ),
+)
+
 watch(
   () => statistics.value?.byParticipant.length ?? 0,
   (count) => {
@@ -146,9 +166,92 @@ watch(
   },
 )
 
+watch(
+  () => selectableUsers.value.length,
+  (count) => {
+    userSelectPagination.totalElements.value = count
+    userSelectPagination.totalPages.value = Math.max(
+      1,
+      Math.ceil(count / userSelectPagination.size.value),
+    )
+    if (userSelectPagination.page.value > 0 && userSelectPagination.page.value >= userSelectPagination.totalPages.value) {
+      userSelectPagination.page.value = Math.max(0, userSelectPagination.totalPages.value - 1)
+    }
+  },
+  { immediate: true },
+)
+
 const toIsoDateTime = (value: string): string | null => {
   if (!value.trim()) return null
   return value.length === 16 ? `${value}:00` : value
+}
+
+const toDateTimeLocal = (value: string | null | undefined): string => {
+  if (!value) return ''
+  return value.slice(0, 16)
+}
+
+const canEditSurveyStatus = (status: string) => status === 'DRAFT' || status === 'ACTIVE'
+
+const resetForm = () => {
+  editingSurveyId.value = null
+  editingLimited.value = false
+  form.title = ''
+  form.description = ''
+  form.targetMode = 'SELECTED'
+  form.randomTargetCount = 5
+  form.startAt = ''
+  form.endAt = ''
+  form.questions = [
+    {
+      questionText: '',
+      questionType: 'SINGLE_CHOICE',
+      options: [{ optionText: '' }, { optionText: '' }],
+    },
+  ]
+  selectedUserIds.value = new Set()
+  userSelectPagination.resetPage()
+}
+
+const openCreateTab = () => {
+  resetForm()
+  activeTab.value = 'create'
+}
+
+const openEditSurvey = async (surveyId: number) => {
+  const token = getValidAccessToken()
+  if (!token) return
+  isLoading.value = true
+  errorMessage.value = null
+  try {
+    const detail = await adminGetSurveyDetail(token, surveyId)
+    if (!canEditSurveyStatus(detail.status)) {
+      errorMessage.value = '작성중 또는 진행중인 설문만 수정할 수 있습니다.'
+      return
+    }
+    editingSurveyId.value = surveyId
+    editingLimited.value = detail.hasAnswers === true
+    form.title = detail.title
+    form.description = detail.description ?? ''
+    form.targetMode = detail.targetMode
+    form.randomTargetCount = detail.randomTargetCount ?? 5
+    form.startAt = toDateTimeLocal(detail.startAt)
+    form.endAt = toDateTimeLocal(detail.endAt)
+    selectedUserIds.value = new Set(detail.participants?.map((p) => p.userId) ?? [])
+    form.questions = detail.questions.map((q) => ({
+      questionText: q.questionText,
+      questionType: q.questionType,
+      options:
+        q.options.length > 0
+          ? q.options.map((o) => ({ optionText: o.optionText }))
+          : [{ optionText: '' }, { optionText: '' }],
+    }))
+    activeTab.value = 'create'
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '설문을 불러오지 못했습니다.')
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const loadSurveys = async () => {
@@ -195,16 +298,36 @@ const loadSelectableUsers = async () => {
   if (!token) return
   try {
     selectableUsers.value = await adminListSelectableUsers(token)
-    randomSelectUsers()
   } catch (error) {
     errorMessage.value = resolveApiError(error, '회원 목록을 불러오지 못했습니다.')
   }
 }
 
 const randomSelectUsers = () => {
-  const count = Math.min(form.randomTargetCount, selectableUsers.value.length)
-  const shuffled = [...selectableUsers.value].sort(() => Math.random() - 0.5)
-  selectedUserIds.value = new Set(shuffled.slice(0, count).map((u) => u.id))
+  const requested = Number(form.randomTargetCount)
+  if (!Number.isFinite(requested) || requested < 0) {
+    errorMessage.value = '랜덤 대상자 수는 0 이상 입력해 주세요.'
+    return
+  }
+  errorMessage.value = null
+  if (requested === 0) {
+    selectedUserIds.value = new Set()
+    return
+  }
+  const pool = [...selectableUsers.value]
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  const count = Math.min(requested, pool.length)
+  selectedUserIds.value = new Set(pool.slice(0, count).map((u) => u.id))
+}
+
+const getRandomCountInput = (surveyId: number, fallback: number | null | undefined) =>
+  randomCountInputs.value[surveyId] ?? fallback ?? 0
+
+const setRandomCountInput = (surveyId: number, count: number) => {
+  randomCountInputs.value = { ...randomCountInputs.value, [surveyId]: count }
 }
 
 const toggleUser = (userId: number) => {
@@ -230,7 +353,10 @@ const buildRequest = (): CreateSurveyRequest => ({
   description: form.description.trim() || null,
   targetMode: form.targetMode,
   randomTargetCount: form.targetMode === 'RANDOM' ? form.randomTargetCount : null,
-  targetUserIds: form.targetMode === 'SELECTED' ? [...selectedUserIds.value] : undefined,
+  targetUserIds:
+    form.targetMode === 'SELECTED' || form.targetMode === 'RANDOM'
+      ? [...selectedUserIds.value]
+      : [],
   startAt: toIsoDateTime(form.startAt),
   endAt: toIsoDateTime(form.endAt),
   questions: form.questions.map((q) => ({
@@ -243,29 +369,72 @@ const buildRequest = (): CreateSurveyRequest => ({
 const createSurvey = async () => {
   const token = getValidAccessToken()
   if (!token) return
-  if (form.targetMode === 'SELECTED' && selectedUserIds.value.size === 0) {
+  if (!editingLimited.value && form.targetMode === 'SELECTED' && selectedUserIds.value.size === 0) {
     errorMessage.value = '대상자를 1명 이상 선택해 주세요.'
     return
+  }
+  if (!editingLimited.value && form.targetMode === 'RANDOM') {
+    const count = Number(form.randomTargetCount)
+    if (!Number.isFinite(count) || count < 0) {
+      errorMessage.value = '랜덤 대상자 수는 0 이상 입력해 주세요.'
+      return
+    }
   }
   isSaving.value = true
   errorMessage.value = null
   try {
-    const detail = await adminCreateSurvey(token, buildRequest())
-    await adminPublishSurvey(token, detail.id)
+    const request = buildRequest()
+    if (editingSurveyId.value) {
+      await adminUpdateSurvey(token, editingSurveyId.value, request)
+      activeTab.value = 'list'
+      resetForm()
+      await loadSurveys()
+      return
+    }
+    const detail = await adminCreateSurvey(token, request)
+    try {
+      await adminPublishSurvey(token, detail.id)
+    } catch (publishError) {
+      errorMessage.value = resolveApiError(
+        publishError,
+        '설문은 생성됐지만 게시에 실패했습니다. 목록에서 게시 버튼으로 다시 시도해 주세요.',
+      )
+      activeTab.value = 'list'
+      resetForm()
+      await loadSurveys()
+      return
+    }
     activeTab.value = 'list'
+    resetForm()
     await loadSurveys()
   } catch (error) {
-    errorMessage.value = resolveApiError(error, '설문 생성에 실패했습니다.')
+    errorMessage.value = resolveApiError(error, '설문 저장에 실패했습니다.')
   } finally {
     isSaving.value = false
   }
 }
 
-const assignRandom = async (surveyId: number) => {
+const handleAdminPublish = async (surveyId: number) => {
   const token = getValidAccessToken()
   if (!token) return
   try {
-    await adminAssignRandomParticipants(token, surveyId, { count: randomCount.value })
+    await adminPublishSurvey(token, surveyId)
+    await loadSurveys()
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '설문 게시에 실패했습니다.')
+  }
+}
+
+const assignRandom = async (surveyId: number, count: number) => {
+  const token = getValidAccessToken()
+  if (!token) return
+  if (!Number.isFinite(count) || count < 0) {
+    errorMessage.value = '랜덤 대상자 수는 0 이상 입력해 주세요.'
+    return
+  }
+  errorMessage.value = null
+  try {
+    await adminAssignRandomParticipants(token, surveyId, { count })
     await loadSurveys()
   } catch (error) {
     errorMessage.value = resolveApiError(error, '랜덤 배정에 실패했습니다.')
@@ -353,11 +522,29 @@ const handleUploadParticipants = async (file: File) => {
 const handleAdminClose = async (surveyId: number) => {
   const token = getValidAccessToken()
   if (!token) return
+  if (!confirm('진행 중인 설문을 종료할까요?')) return
   try {
     await adminCloseSurvey(token, surveyId)
     await loadSurveys()
   } catch (error) {
     errorMessage.value = resolveApiError(error, '설문 종료에 실패했습니다.')
+  }
+}
+
+const handleAdminDelete = async (surveyId: number) => {
+  const token = getValidAccessToken()
+  if (!token) return
+  if (!confirm('설문을 삭제할까요?')) return
+  try {
+    await adminDeleteSurvey(token, surveyId)
+    if (selectedSurveyId.value === surveyId) {
+      selectedSurveyId.value = null
+      surveyDetail.value = null
+      activeTab.value = 'list'
+    }
+    await loadSurveys()
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '설문 삭제에 실패했습니다.')
   }
 }
 
@@ -378,6 +565,26 @@ const addQuestion = () => {
     questionType: 'SINGLE_CHOICE',
     options: [{ optionText: '' }, { optionText: '' }],
   })
+}
+
+const removeQuestion = (index: number) => {
+  if (form.questions.length <= 1) {
+    errorMessage.value = '문항은 최소 1개 이상 필요합니다.'
+    return
+  }
+  form.questions.splice(index, 1)
+}
+
+const addOption = (questionIndex: number) => {
+  form.questions[questionIndex].options.push({ optionText: '' })
+}
+
+const removeOption = (questionIndex: number, optionIndex: number) => {
+  if (form.questions[questionIndex].options.length <= 2) {
+    errorMessage.value = '객관식 보기는 최소 2개 이상 필요합니다.'
+    return
+  }
+  form.questions[questionIndex].options.splice(optionIndex, 1)
 }
 
 onMounted(async () => {
@@ -404,8 +611,8 @@ watch(() => surveyPagination.page.value, () => {
       <button type="button" :class="{ active: activeTab === 'list' }" @click="activeTab = 'list'">
         설문 목록
       </button>
-      <button type="button" :class="{ active: activeTab === 'create' }" @click="activeTab = 'create'">
-        설문 생성
+      <button type="button" :class="{ active: activeTab === 'create' }" @click="openCreateTab">
+        {{ editingSurveyId ? '설문 수정' : '설문 생성' }}
       </button>
       <button
         v-if="statistics"
@@ -414,14 +621,6 @@ watch(() => surveyPagination.page.value, () => {
         @click="activeTab = 'stats'"
       >
         통계
-      </button>
-      <button
-        v-if="surveyDetail"
-        type="button"
-        :class="{ active: activeTab === 'detail' }"
-        @click="activeTab = 'detail'"
-      >
-        상세
       </button>
     </nav>
 
@@ -471,22 +670,49 @@ watch(() => surveyPagination.page.value, () => {
               <span v-if="survey.chatRoomId" class="badge badge--room">{{ survey.chatRoomName }}</span>
               <span v-else class="badge badge--event">이벤트</span>
             </td>
-            <td>{{ statusLabel(survey.status) }}</td>
+            <td>{{ statusLabel(survey.status, survey.startAt, survey.endAt) }}</td>
             <td>{{ survey.participantCount }}</td>
             <td>{{ survey.completedCount }}</td>
             <td class="admin-actions">
               <button type="button" @click="loadStatistics(survey.id)">통계</button>
               <button type="button" @click="openUploadModal(survey.id)">대상자 업로드</button>
               <template v-if="survey.targetMode === 'RANDOM'">
-                <input v-model.number="randomCount" type="number" min="1" class="random-input" />
-                <button type="button" @click="assignRandom(survey.id)">랜덤배정</button>
+                <input
+                  :value="getRandomCountInput(survey.id, survey.randomTargetCount)"
+                  type="number"
+                  min="0"
+                  class="random-input"
+                  @input="setRandomCountInput(survey.id, Number(($event.target as HTMLInputElement).value))"
+                />
+                <button
+                  type="button"
+                  @click="assignRandom(survey.id, getRandomCountInput(survey.id, survey.randomTargetCount))"
+                >
+                  랜덤배정
+                </button>
               </template>
+              <button
+                v-if="survey.status === 'DRAFT'"
+                type="button"
+                class="primary"
+                @click="handleAdminPublish(survey.id)"
+              >
+                게시
+              </button>
               <button
                 v-if="survey.status === 'ACTIVE'"
                 type="button"
                 @click="handleAdminClose(survey.id)"
               >
                 종료
+              </button>
+              <button
+                v-if="survey.status === 'DRAFT' || survey.completedCount === 0"
+                type="button"
+                class="danger"
+                @click="handleAdminDelete(survey.id)"
+              >
+                삭제
               </button>
             </td>
           </tr>
@@ -508,6 +734,9 @@ watch(() => surveyPagination.page.value, () => {
     </section>
 
     <section v-else-if="activeTab === 'create'" class="admin-section admin-form">
+      <p v-if="editingLimited" class="hint">
+        이미 응답이 있는 설문은 제목, 안내 문구, 종료 일시만 수정할 수 있습니다.
+      </p>
       <label>
         설문 제목
         <input v-model="form.title" type="text" required />
@@ -518,33 +747,56 @@ watch(() => surveyPagination.page.value, () => {
       </label>
       <label>
         시작 일시
-        <input v-model="form.startAt" type="datetime-local" />
+        <input v-model="form.startAt" type="datetime-local" :disabled="editingLimited" />
       </label>
       <label>
         종료 일시
         <input v-model="form.endAt" type="datetime-local" />
       </label>
+      <template v-if="!editingLimited">
       <label>
         대상자 모드
         <select v-model="form.targetMode">
           <option value="SELECTED">대상자 선택</option>
           <option value="ALL_MEMBERS">전체 회원</option>
+          <option value="RANDOM">랜덤 배정</option>
         </select>
       </label>
+
+      <div v-if="form.targetMode === 'RANDOM'" class="user-select-panel">
+        <div class="user-select-header">
+          <label>
+            랜덤 대상자 수
+            <input v-model.number="form.randomTargetCount" type="number" min="0" />
+          </label>
+          <button type="button" class="primary" @click="randomSelectUsers">랜덤 배정</button>
+        </div>
+        <p class="user-select-count">배정됨: {{ selectedUserIds.size }}명 / {{ selectableUsers.length }}명</p>
+        <div v-if="selectedUserIds.size > 0" class="user-select-list">
+          <div
+            v-for="user in selectableUsers.filter((u) => selectedUserIds.has(u.id))"
+            :key="user.id"
+            class="user-select-item selected"
+          >
+            <span class="user-select-name">{{ user.displayName || user.username }}</span>
+            <span v-if="user.displayName" class="user-select-username">({{ user.username }})</span>
+          </div>
+        </div>
+      </div>
 
       <div v-if="form.targetMode === 'SELECTED'" class="user-select-panel">
         <div class="user-select-header">
           <span class="user-select-count">선택됨: {{ selectedUserIds.size }}명 / {{ selectableUsers.length }}명</span>
           <div class="user-select-actions">
-            <input v-model.number="form.randomTargetCount" type="number" min="1" class="random-input" />
-            <button type="button" @click="randomSelectUsers">랜덤 배정</button>
+            <input v-model.number="form.randomTargetCount" type="number" min="0" class="random-input" />
+            <button type="button" class="primary" @click="randomSelectUsers">랜덤 배정</button>
             <button type="button" class="secondary" @click="selectAllUsers">전체 선택</button>
             <button type="button" class="secondary" @click="deselectAllUsers">전체 해제</button>
           </div>
         </div>
         <div class="user-select-list">
           <label
-            v-for="user in selectableUsers"
+            v-for="user in pagedSelectableUsers"
             :key="user.id"
             class="user-select-item"
             :class="{ selected: selectedUserIds.has(user.id) }"
@@ -558,12 +810,27 @@ watch(() => surveyPagination.page.value, () => {
             <span v-if="user.displayName" class="user-select-username">({{ user.username }})</span>
           </label>
         </div>
+        <PaginationBar
+          v-if="selectableUsers.length > userSelectPagination.size.value"
+          :page="userSelectPagination.page.value"
+          :total-pages="userSelectPagination.totalPages.value"
+          :total-elements="userSelectPagination.totalElements.value"
+          :has-prev="userSelectPagination.hasPrev.value"
+          :has-next="userSelectPagination.hasNext.value"
+          :page-label="userSelectPagination.pageLabel.value"
+          @prev="userSelectPagination.goPrev()"
+          @next="userSelectPagination.goNext()"
+        />
       </div>
 
       <div v-for="(question, qi) in form.questions" :key="qi" class="question-block">
+        <div class="question-block-head">
+          <strong>문항 {{ qi + 1 }}</strong>
+          <button type="button" class="danger" @click="removeQuestion(qi)">문항 삭제</button>
+        </div>
         <label>
-          문항 {{ qi + 1 }}
-          <input v-model="question.questionText" type="text" />
+          문항 내용
+          <input v-model="question.questionText" type="text" maxlength="500" required />
         </label>
         <label>
           유형
@@ -573,17 +840,31 @@ watch(() => surveyPagination.page.value, () => {
             <option value="TEXT">주관식</option>
           </select>
         </label>
-        <div v-if="question.questionType !== 'TEXT'">
-          <div v-for="(option, oi) in question.options" :key="oi">
-            <input v-model="option.optionText" type="text" placeholder="보기" />
+        <div v-if="question.questionType !== 'TEXT'" class="survey-options">
+          <div v-for="(option, oi) in question.options" :key="oi" class="survey-option-row">
+            <input v-model="option.optionText" type="text" placeholder="보기" maxlength="300" />
+            <button type="button" class="secondary" @click="removeOption(qi, oi)">−</button>
           </div>
+          <button type="button" class="secondary" @click="addOption(qi)">+ 보기 추가</button>
         </div>
       </div>
 
+      <button type="button" @click="addQuestion">+ 문항 추가</button>
+      </template>
+
       <div class="admin-form-actions">
-        <button type="button" @click="addQuestion">+ 문항</button>
         <button type="button" class="primary" :disabled="isSaving" @click="createSurvey">
-          {{ isSaving ? '생성 중...' : '생성 및 게시' }}
+          {{
+            isSaving
+              ? '저장 중...'
+              : editingSurveyId
+                ? '수정 저장'
+                : '생성 및 게시'
+          }}
+        </button>
+        <button type="button" class="secondary" @click="openCreateTab">초기화</button>
+        <button v-if="editingSurveyId" type="button" class="secondary" @click="activeTab = 'list'">
+          취소
         </button>
       </div>
     </section>
@@ -680,11 +961,20 @@ watch(() => surveyPagination.page.value, () => {
     <section v-else-if="activeTab === 'detail' && surveyDetail" class="admin-section">
       <div class="survey-detail-header">
         <h2>{{ surveyDetail.title }}</h2>
-        <button type="button" class="secondary" @click="activeTab = 'list'">목록으로</button>
+        <div class="survey-detail-actions">
+          <button
+            v-if="canEditSurveyStatus(surveyDetail.status)"
+            type="button"
+            @click="openEditSurvey(surveyDetail.id)"
+          >
+            수정
+          </button>
+          <button type="button" class="secondary" @click="activeTab = 'list'">목록으로</button>
+        </div>
       </div>
       <p v-if="surveyDetail.description" class="survey-detail-desc">{{ surveyDetail.description }}</p>
       <p class="survey-detail-meta">
-        상태: <strong>{{ statusLabel(surveyDetail.status) }}</strong>
+        상태: <strong>{{ statusLabel(surveyDetail.status, surveyDetail.startAt, surveyDetail.endAt) }}</strong>
         · 참여자: {{ surveyDetail.participants?.length ?? 0 }}명
       </p>
 

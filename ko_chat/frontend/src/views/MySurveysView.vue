@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   fetchMySurveys,
@@ -8,10 +8,23 @@ import {
 } from '../api/surveyApi'
 import type { MySurveyItem } from '../api/surveyApi'
 import type { SurveyDetail, SubmitSurveyResponseRequest } from '../types/survey'
+import PaginationBar from '../components/PaginationBar.vue'
 import { useAuth } from '../composables/useAuth'
+import { usePagination } from '../composables/usePagination'
+import { useSurveyNotification } from '../composables/useSurveyNotification'
+import { resolveApiError } from '../utils/resolveApiError'
+import { paginateArray } from '../utils/paginateArray'
+import {
+  canSubmitSurveyResponse,
+  getSurveyResponseBlockReason,
+  surveyResponseBlockMessage,
+} from '../utils/surveyResponseGuard'
 
 const router = useRouter()
-const { accessToken } = useAuth()
+const { getValidAccessToken } = useAuth()
+const { refreshPendingSurveyNotifications } = useSurveyNotification()
+const pendingPagination = usePagination(6)
+const completedPagination = usePagination(6)
 const surveys = ref<MySurveyItem[]>([])
 const loading = ref(false)
 const selectedSurvey = ref<SurveyDetail | null>(null)
@@ -20,33 +33,116 @@ const answers = ref<Record<number, { optionIds: number[]; textAnswer: string }>>
 const successMessage = ref('')
 const errorMessage = ref('')
 
-const pendingSurveys = computed(() => surveys.value.filter((s) => !s.hasResponded))
+const pendingSurveys = computed(() =>
+  surveys.value.filter((s) => !s.hasResponded && s.status !== 'CLOSED'),
+)
 const completedSurveys = computed(() => surveys.value.filter((s) => s.hasResponded))
 
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return ''
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+const selectedSurveyBlockReason = computed(() =>
+  selectedSurvey.value ? getSurveyResponseBlockReason(selectedSurvey.value) : null,
+)
+
+const canSubmitSelectedSurvey = computed(() =>
+  selectedSurvey.value ? canSubmitSurveyResponse(selectedSurvey.value) : false,
+)
+
+const selectedSurveyBlockMessage = computed(() => {
+  if (!selectedSurvey.value || !selectedSurveyBlockReason.value) return ''
+  return surveyResponseBlockMessage(selectedSurveyBlockReason.value, {
+    startAt: selectedSurvey.value.startAt,
+    endAt: selectedSurvey.value.endAt,
+  })
+})
+
+const surveyBadgeLabel = (survey: MySurveyItem) => {
+  if (survey.waitingForStart) return '시작 대기'
+  if (survey.canRespond) return '참여 가능'
+  if (survey.status === 'CLOSED') return '종료'
+  return '대기'
+}
+
+const pagedPendingSurveys = computed(() =>
+  paginateArray(
+    pendingSurveys.value,
+    pendingPagination.page.value,
+    pendingPagination.size.value,
+  ),
+)
+
+const pagedCompletedSurveys = computed(() =>
+  paginateArray(
+    completedSurveys.value,
+    completedPagination.page.value,
+    completedPagination.size.value,
+  ),
+)
+
+watch(
+  () => pendingSurveys.value.length,
+  (count) => {
+    pendingPagination.totalElements.value = count
+    pendingPagination.totalPages.value = Math.max(
+      1,
+      Math.ceil(count / pendingPagination.size.value),
+    )
+    if (pendingPagination.page.value >= pendingPagination.totalPages.value) {
+      pendingPagination.page.value = Math.max(0, pendingPagination.totalPages.value - 1)
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => completedSurveys.value.length,
+  (count) => {
+    completedPagination.totalElements.value = count
+    completedPagination.totalPages.value = Math.max(
+      1,
+      Math.ceil(count / completedPagination.size.value),
+    )
+    if (completedPagination.page.value >= completedPagination.totalPages.value) {
+      completedPagination.page.value = Math.max(0, completedPagination.totalPages.value - 1)
+    }
+  },
+  { immediate: true },
+)
+
 const loadSurveys = async () => {
-  if (!accessToken.value) return
+  const token = getValidAccessToken()
+  if (!token) {
+    errorMessage.value = '로그인이 필요합니다'
+    return
+  }
   loading.value = true
+  errorMessage.value = ''
   try {
-    surveys.value = await fetchMySurveys(accessToken.value)
+    surveys.value = await fetchMySurveys(token)
+    await refreshPendingSurveyNotifications()
   } catch (e) {
-    errorMessage.value = '설문 목록을 불러올 수 없습니다'
+    errorMessage.value = resolveApiError(e, '설문 목록을 불러올 수 없습니다')
   } finally {
     loading.value = false
   }
 }
 
 const openSurvey = async (surveyId: number) => {
-  if (!accessToken.value) return
+  const token = getValidAccessToken()
+  if (!token) return
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    selectedSurvey.value = await getMySurveyDetail(accessToken.value, surveyId)
+    selectedSurvey.value = await getMySurveyDetail(token, surveyId)
     answers.value = {}
     selectedSurvey.value.questions.forEach((q) => {
       answers.value[q.id] = { optionIds: [], textAnswer: '' }
     })
   } catch (e) {
-    errorMessage.value = '설문 상세를 불러올 수 없습니다'
+    errorMessage.value = resolveApiError(e, '설문 상세를 불러올 수 없습니다')
   }
 }
 
@@ -55,7 +151,18 @@ const closeSurveyDetail = () => {
 }
 
 const handleSubmit = async () => {
-  if (!accessToken.value || !selectedSurvey.value) return
+  const token = getValidAccessToken()
+  if (!token || !selectedSurvey.value) return
+  if (!canSubmitSurveyResponse(selectedSurvey.value)) {
+    const reason = getSurveyResponseBlockReason(selectedSurvey.value)
+    errorMessage.value = reason
+      ? surveyResponseBlockMessage(reason, {
+          startAt: selectedSurvey.value.startAt,
+          endAt: selectedSurvey.value.endAt,
+        })
+      : '설문에 응답할 수 없습니다.'
+    return
+  }
   submitting.value = true
   errorMessage.value = ''
   try {
@@ -66,7 +173,7 @@ const handleSubmit = async () => {
         textAnswer: answers.value[q.id]?.textAnswer || null,
       })),
     }
-    await submitMySurveyResponse(accessToken.value, selectedSurvey.value.id, request)
+    await submitMySurveyResponse(token, selectedSurvey.value.id, request)
     successMessage.value = '설문 응답이 제출되었습니다!'
     selectedSurvey.value = null
     await loadSurveys()
@@ -78,6 +185,7 @@ const handleSubmit = async () => {
 }
 
 const toggleOption = (questionId: number, optionId: number, isSingle: boolean) => {
+  if (!canSubmitSelectedSurvey.value) return
   const a = answers.value[questionId]
   if (!a) return
   if (isSingle) {
@@ -113,11 +221,11 @@ onMounted(loadSurveys)
         <button type="button" class="secondary" @click="closeSurveyDetail">목록으로</button>
       </div>
 
-      <div v-if="selectedSurvey.hasResponded" class="already-responded">
-        이미 응답을 완료한 설문입니다.
+      <div v-if="selectedSurveyBlockReason" class="already-responded">
+        {{ selectedSurveyBlockMessage }}
       </div>
 
-      <form v-else @submit.prevent="handleSubmit">
+      <form v-else-if="canSubmitSelectedSurvey" @submit.prevent="handleSubmit">
         <div
           v-for="question in selectedSurvey.questions"
           :key="question.id"
@@ -133,6 +241,8 @@ onMounted(loadSurveys)
               v-model="answers[question.id].textAnswer"
               placeholder="답변을 입력하세요"
               rows="3"
+              :disabled="!canSubmitSelectedSurvey"
+              :readonly="!canSubmitSelectedSurvey"
             />
           </div>
 
@@ -147,12 +257,14 @@ onMounted(loadSurveys)
                 type="radio"
                 :name="`q-${question.id}`"
                 :checked="answers[question.id]?.optionIds.includes(opt.id)"
+                :disabled="!canSubmitSelectedSurvey"
                 @change="toggleOption(question.id, opt.id, true)"
               />
               <input
                 v-else
                 type="checkbox"
                 :checked="answers[question.id]?.optionIds.includes(opt.id)"
+                :disabled="!canSubmitSelectedSurvey"
                 @change="toggleOption(question.id, opt.id, false)"
               />
               <span>{{ opt.optionText }}</span>
@@ -160,7 +272,7 @@ onMounted(loadSurveys)
           </div>
         </div>
 
-        <button type="submit" class="submit-btn" :disabled="submitting">
+        <button type="submit" class="submit-btn" :disabled="submitting || !canSubmitSelectedSurvey">
           {{ submitting ? '제출 중...' : '응답 제출' }}
         </button>
       </form>
@@ -168,27 +280,50 @@ onMounted(loadSurveys)
 
     <div v-else class="survey-list-container">
       <section v-if="pendingSurveys.length > 0" class="survey-section">
-        <h2>참여 대기 설문</h2>
+        <h2>참여 대기 설문 ({{ pendingSurveys.length }}건)</h2>
         <div class="survey-cards">
           <div
-            v-for="s in pendingSurveys"
+            v-for="s in pagedPendingSurveys"
             :key="s.surveyId"
             class="survey-card pending"
             @click="openSurvey(s.surveyId)"
           >
-            <span class="badge badge--pending">대기</span>
+            <span
+              class="badge"
+              :class="{
+                'badge--pending': s.waitingForStart || (!s.canRespond && s.status !== 'CLOSED'),
+                'badge--open': s.canRespond,
+              }"
+            >
+              {{ surveyBadgeLabel(s) }}
+            </span>
             <h3>{{ s.title }}</h3>
             <p v-if="s.description">{{ s.description }}</p>
+            <p v-if="s.waitingForStart && s.startAt" class="survey-schedule">
+              시작: {{ formatDateTime(s.startAt) }}
+            </p>
+            <p v-else-if="s.endAt" class="survey-schedule">종료: {{ formatDateTime(s.endAt) }}</p>
             <p v-if="s.chatRoomName" class="survey-room">{{ s.chatRoomName }}</p>
           </div>
         </div>
+        <PaginationBar
+          v-if="pendingSurveys.length > 0"
+          :page="pendingPagination.page.value"
+          :total-pages="pendingPagination.totalPages.value"
+          :total-elements="pendingPagination.totalElements.value"
+          :has-prev="pendingPagination.hasPrev.value"
+          :has-next="pendingPagination.hasNext.value"
+          :page-label="pendingPagination.pageLabel.value"
+          @prev="pendingPagination.goPrev()"
+          @next="pendingPagination.goNext()"
+        />
       </section>
 
       <section v-if="completedSurveys.length > 0" class="survey-section">
-        <h2>완료한 설문</h2>
+        <h2>완료한 설문 ({{ completedSurveys.length }}건)</h2>
         <div class="survey-cards">
           <div
-            v-for="s in completedSurveys"
+            v-for="s in pagedCompletedSurveys"
             :key="s.surveyId"
             class="survey-card completed"
             @click="openSurvey(s.surveyId)"
@@ -198,6 +333,17 @@ onMounted(loadSurveys)
             <p v-if="s.description">{{ s.description }}</p>
           </div>
         </div>
+        <PaginationBar
+          v-if="completedSurveys.length > 0"
+          :page="completedPagination.page.value"
+          :total-pages="completedPagination.totalPages.value"
+          :total-elements="completedPagination.totalElements.value"
+          :has-prev="completedPagination.hasPrev.value"
+          :has-next="completedPagination.hasNext.value"
+          :page-label="completedPagination.pageLabel.value"
+          @prev="completedPagination.goPrev()"
+          @next="completedPagination.goNext()"
+        />
       </section>
 
       <p v-if="!loading && surveys.length === 0" class="empty-state">

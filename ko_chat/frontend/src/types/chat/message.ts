@@ -14,4 +14,5 @@ export interface Message {
   createdAt: string
   editedAt?: string | null
   sequenceNumber: number
+  unreadMemberCount?: number | null
 }

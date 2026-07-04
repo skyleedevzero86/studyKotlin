@@ -1,17 +1,37 @@
 package com.kochat.adapter.outbound.persistence.survey
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface SurveyAnswerJpaRepository : JpaRepository<SurveyAnswerJpaEntity, Long> {
-    fun findBySurveyId(surveyId: Long): List<SurveyAnswerJpaEntity>
+    @Query("SELECT a FROM SurveyAnswerJpaEntity a WHERE a.survey.id = :surveyId")
+    fun findBySurveyId(@Param("surveyId") surveyId: Long): List<SurveyAnswerJpaEntity>
 
-    fun findBySurveyIdAndUserId(surveyId: Long, userId: Long): List<SurveyAnswerJpaEntity>
+    @Query(
+        """
+        SELECT a FROM SurveyAnswerJpaEntity a
+        WHERE a.survey.id = :surveyId AND a.user.id = :userId
+        """,
+    )
+    fun findBySurveyIdAndUserId(
+        @Param("surveyId") surveyId: Long,
+        @Param("userId") userId: Long,
+    ): List<SurveyAnswerJpaEntity>
 
-    fun existsBySurveyId(surveyId: Long): Boolean
+    @Query(
+        """
+        SELECT COUNT(a) > 0
+        FROM SurveyAnswerJpaEntity a
+        WHERE a.survey.id = :surveyId
+        """,
+    )
+    fun existsBySurveyId(@Param("surveyId") surveyId: Long): Boolean
 
-    fun deleteBySurveyId(surveyId: Long)
+    @Modifying
+    @Query("DELETE FROM SurveyAnswerJpaEntity a WHERE a.survey.id = :surveyId")
+    fun deleteBySurveyId(@Param("surveyId") surveyId: Long)
 
     @Query(
         """

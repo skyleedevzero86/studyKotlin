@@ -1,5 +1,6 @@
 package com.kochat.adapter.inbound.web.chat.dto
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.kochat.domain.chat.model.ChatMediaMode
 import com.kochat.domain.chat.model.ChatRoomType
 import java.time.LocalDateTime
@@ -10,6 +11,7 @@ data class ChatRoomDto(
     val description: String?,
     val type: ChatRoomType,
     val imageUrl: String?,
+    @get:JsonProperty("isActive")
     val isActive: Boolean,
     val maxMembers: Int,
     val memberCount: Int,

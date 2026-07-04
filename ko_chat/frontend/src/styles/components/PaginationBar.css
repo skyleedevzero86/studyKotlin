@@ -41,5 +41,6 @@
 .pagination-info {
   font-size: 0.85rem;
   color: #6b7280;
+  -webkit-user-select: none;
   user-select: none;
 }

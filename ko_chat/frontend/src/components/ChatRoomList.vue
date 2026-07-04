@@ -187,6 +187,15 @@ const upsertRoom = (room: ChatRoom) => {
   }
 }
 
+const removeRoom = (roomId: number) => {
+  const beforeCount = chatRooms.value.length
+  chatRooms.value = chatRooms.value.filter((room) => room.id !== roomId)
+  roomSearchResults.value = roomSearchResults.value.filter((room) => room.id !== roomId)
+  if (chatRooms.value.length < beforeCount) {
+    pagination.totalElements.value = Math.max(0, pagination.totalElements.value - 1)
+  }
+}
+
 const handleOpenChatSelect = (room: ChatRoom) => {
   upsertRoom(room)
   emit('select', room)
@@ -293,7 +302,7 @@ onMounted(() => {
   void loadChatRooms()
 })
 
-defineExpose({ loadChatRooms, totalUnreadCount })
+defineExpose({ loadChatRooms, totalUnreadCount, removeRoom })
 </script>
 
 <template>

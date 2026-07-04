@@ -44,7 +44,6 @@ class JwtAuthenticationFilter(
             val claims = jwtTokenProvider.getClaims(accessToken)
 
             val username = claims.subject
-            val role = claims.get("role", String::class.java)
             val tokenType = claims.get("tokenType", String::class.java)
 
             if (tokenType != ACCESS_TOKEN_TYPE) {
@@ -63,7 +62,8 @@ class JwtAuthenticationFilter(
                 return
             }
 
-            val authorities = listOf(SimpleGrantedAuthority(role))
+            val authority = "ROLE_${user.role.name}"
+            val authorities = listOf(SimpleGrantedAuthority(authority))
             val auth: Authentication = UsernamePasswordAuthenticationToken(username, null, authorities)
             SecurityContextHolder.getContext().authentication = auth
 

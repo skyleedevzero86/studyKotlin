@@ -22,6 +22,7 @@ const errorMessage = ref<string | null>(null)
 const actionMessage = ref<string | null>(null)
 
 const lagRows = computed(() => snapshot.value?.consumerLag ?? [])
+const kafkaEnabled = computed(() => snapshot.value?.kafkaEnabled ?? false)
 const pagedLagRows = computed(() =>
   paginateArray(lagRows.value, lagPagination.page.value, lagPagination.size.value),
 )
@@ -50,12 +51,8 @@ const loadSnapshot = async () => {
   try {
     snapshot.value = await getMessagingOperations(accessToken.value)
     syncLagPagination()
-  } catch (error: any) {
-    if (error?.status === 404) {
-      errorMessage.value = 'Kafka가 비활성화되어 있거나 백엔드가 실행 중이지 않습니다. docker compose up -d 후 백엔드를 재시작해 주세요.'
-    } else {
-      errorMessage.value = resolveApiError(error, '메시징 운영 정보를 불러오지 못했습니다.')
-    }
+  } catch (error) {
+    errorMessage.value = resolveApiError(error, '메시징 운영 정보를 불러오지 못했습니다.')
   } finally {
     isLoading.value = false
   }
@@ -118,12 +115,19 @@ const handleLogout = async () => {
 
       <div class="messaging-toolbar">
         <button type="button" :disabled="isLoading" @click="loadSnapshot">새로고침</button>
-        <button type="button" :disabled="isActing || isLoading" @click="handleRequeueFailed">
+        <button
+          type="button"
+          :disabled="isActing || isLoading || !kafkaEnabled"
+          @click="handleRequeueFailed"
+        >
           FAILED Outbox 재큐잉
         </button>
       </div>
 
       <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+      <p v-if="snapshot && !kafkaEnabled" class="hint messaging-disabled-notice" role="status">
+        Kafka 메시징이 비활성화되어 있습니다. Outbox·DLQ·Lag 모니터링은 Kafka 활성화 후 이용할 수 있습니다.
+      </p>
       <p v-if="actionMessage" class="hint">{{ actionMessage }}</p>
       <p v-if="isLoading" class="hint">불러오는 중...</p>
 
@@ -156,14 +160,15 @@ const handleLogout = async () => {
             </ul>
           </article>
 
-          <article class="metric-card" :class="{ unhealthy: !snapshot.lagHealthy }">
+          <article class="metric-card" :class="{ unhealthy: kafkaEnabled && !snapshot.lagHealthy }">
             <h2>Kafka Lag</h2>
-            <p>{{ snapshot.lagHealthy ? '정상' : '지연 경고' }}</p>
+            <p v-if="!kafkaEnabled">비활성화</p>
+            <p v-else>{{ snapshot.lagHealthy ? '정상' : '지연 경고' }}</p>
             <p class="hint">확인: {{ snapshot.checkedAt }}</p>
           </article>
         </section>
 
-        <section v-if="snapshot.consumerLag.length" class="table-wrap">
+        <section v-if="kafkaEnabled && snapshot.consumerLag.length" class="table-wrap">
           <h2>Consumer Lag 상세</h2>
           <table>
             <thead>

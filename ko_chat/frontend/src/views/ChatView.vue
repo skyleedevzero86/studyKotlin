@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   acceptChatInvitation,
   checkHealth,
+  getChatRoom,
   getPendingChatInvitations,
   rejectChatInvitation,
 } from '../api/chatApi'
@@ -18,8 +19,6 @@ import ChatWindow from '../components/ChatWindow.vue'
 import FriendListPanel from '../components/FriendListPanel.vue'
 import MorePanel from '../components/MorePanel.vue'
 import PaginationBar from '../components/PaginationBar.vue'
-import SurveyNotificationPopup from '../components/SurveyNotificationPopup.vue'
-import type { SurveyNotification } from '../components/SurveyNotificationPopup.vue'
 import { useAuth } from '../composables/useAuth'
 import { usePagination } from '../composables/usePagination'
 import type { ChatNotification, ChatRoom, ChatRoomInvitation } from '../types/chat'
@@ -27,11 +26,15 @@ import type { UserFriendRequestResponse, UserProfileResponse } from '../types/us
 
 type MainNav = 'friends' | 'chats' | 'more'
 
+const SELECTED_ROOM_STORAGE_KEY = 'kochat:selectedRoomId'
+const CHAT_PANEL_OPEN_STORAGE_KEY = 'kochat:chatPanelOpen'
+
 const router = useRouter()
-const { accessToken, logout, isAdmin } = useAuth()
+const { accessToken, logout, isAdmin, getValidAccessToken } = useAuth()
 
 const profile = ref<UserProfileResponse | null>(null)
 const selectedChatRoom = ref<ChatRoom | null>(null)
+const chatPanelCollapsed = ref(false)
 const notifications = ref<ChatNotification[]>([])
 const serverStatus = ref<'checking' | 'online' | 'offline'>('checking')
 const roomListRefreshKey = ref(0)
@@ -39,51 +42,11 @@ const friendRequests = ref<UserFriendRequestResponse[]>([])
 const chatInvitations = ref<ChatRoomInvitation[]>([])
 const invitationPagination = usePagination(5)
 const pendingActionId = ref<string | null>(null)
-const mainNav = ref<MainNav>('chats')
+const mainNav = ref<MainNav>('friends')
 const chatUnreadCount = ref(0)
 const friendListRef = ref<InstanceType<typeof FriendListPanel> | null>(null)
-const surveyNotification = ref<SurveyNotification | null>(null)
+const chatRoomListRef = ref<InstanceType<typeof ChatRoomList> | null>(null)
 let pendingPollTimer: ReturnType<typeof setInterval> | undefined
-let notificationWs: WebSocket | null = null
-
-let notificationWsReconnectTimer: ReturnType<typeof setTimeout> | undefined
-let notificationWsIntentionalClose = false
-
-const connectNotificationWs = () => {
-  if (!accessToken.value) return
-  if (notificationWs && notificationWs.readyState === WebSocket.OPEN) return
-  notificationWsIntentionalClose = false
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/chat?token=${encodeURIComponent(accessToken.value)}`
-  notificationWs = new WebSocket(wsUrl)
-  notificationWs.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      if (data.type === 'SURVEY_NOTIFICATION') {
-        surveyNotification.value = {
-          surveyId: data.surveyId,
-          title: data.title,
-          description: data.description ?? null,
-        }
-      }
-    } catch { /* ignore parse errors */ }
-  }
-  notificationWs.onclose = () => {
-    notificationWs = null
-    if (!notificationWsIntentionalClose) {
-      notificationWsReconnectTimer = setTimeout(connectNotificationWs, 3000)
-    }
-  }
-}
-
-const disconnectNotificationWs = () => {
-  notificationWsIntentionalClose = true
-  clearTimeout(notificationWsReconnectTimer)
-  if (notificationWs) {
-    notificationWs.close(1000)
-    notificationWs = null
-  }
-}
 
 const pendingActionCount = computed(
   () => friendRequests.value.length + invitationPagination.totalElements.value,
@@ -111,9 +74,35 @@ const handleNotice = (message: string) => {
   addNotification('system', '알림', message)
 }
 
+const persistChatSelection = (room: ChatRoom | null, panelOpen: boolean) => {
+  if (room) {
+    sessionStorage.setItem(SELECTED_ROOM_STORAGE_KEY, String(room.id))
+    sessionStorage.setItem(CHAT_PANEL_OPEN_STORAGE_KEY, panelOpen ? 'true' : 'false')
+    return
+  }
+  sessionStorage.removeItem(SELECTED_ROOM_STORAGE_KEY)
+  sessionStorage.removeItem(CHAT_PANEL_OPEN_STORAGE_KEY)
+}
+
 const handleChatRoomSelect = (room: ChatRoom) => {
   selectedChatRoom.value = room
+  chatPanelCollapsed.value = false
+  persistChatSelection(room, true)
   mainNav.value = 'chats'
+}
+
+const handleCloseChatPanel = () => {
+  chatPanelCollapsed.value = true
+  if (selectedChatRoom.value) {
+    persistChatSelection(selectedChatRoom.value, false)
+  }
+}
+
+const resumeChatPanel = () => {
+  chatPanelCollapsed.value = false
+  if (selectedChatRoom.value) {
+    persistChatSelection(selectedChatRoom.value, true)
+  }
 }
 
 const handleRoomRead = (room: ChatRoom) => {
@@ -130,10 +119,44 @@ const handleRoomUpdated = (room: ChatRoom) => {
   roomListRefreshKey.value += 1
 }
 
-const handleLeftRoom = () => {
+const handleLeftRoom = (roomId: number) => {
   selectedChatRoom.value = null
-  roomListRefreshKey.value += 1
+  chatPanelCollapsed.value = false
+  persistChatSelection(null, true)
+  chatRoomListRef.value?.removeRoom(roomId)
+  void chatRoomListRef.value?.loadChatRooms()
 }
+
+const restoreSelectedChatRoom = async () => {
+  if (!accessToken.value || selectedChatRoom.value) {
+    return
+  }
+
+  const storedRoomId = sessionStorage.getItem(SELECTED_ROOM_STORAGE_KEY)
+  if (!storedRoomId) {
+    return
+  }
+
+  const roomId = Number(storedRoomId)
+  if (!Number.isFinite(roomId)) {
+    sessionStorage.removeItem(SELECTED_ROOM_STORAGE_KEY)
+    return
+  }
+
+  try {
+    selectedChatRoom.value = await getChatRoom(accessToken.value, roomId)
+    chatPanelCollapsed.value = sessionStorage.getItem(CHAT_PANEL_OPEN_STORAGE_KEY) === 'false'
+  } catch {
+    sessionStorage.removeItem(SELECTED_ROOM_STORAGE_KEY)
+    sessionStorage.removeItem(CHAT_PANEL_OPEN_STORAGE_KEY)
+  }
+}
+
+watch(mainNav, (nav) => {
+  if (nav === 'chats') {
+    void restoreSelectedChatRoom()
+  }
+})
 
 const handleRelationshipChanged = () => {
   roomListRefreshKey.value += 1
@@ -142,9 +165,7 @@ const handleRelationshipChanged = () => {
 }
 
 const handleLogout = async () => {
-  if (pendingPollTimer) {
-    clearInterval(pendingPollTimer)
-  }
+  stopPendingPoll()
   logout()
   await router.push({ name: 'login' })
 }
@@ -177,10 +198,6 @@ const goMySurveys = async () => {
   await router.push({ name: 'my-surveys' })
 }
 
-const dismissSurveyNotification = () => {
-  surveyNotification.value = null
-}
-
 const checkServerHealth = async () => {
   try {
     await checkHealth()
@@ -207,16 +224,26 @@ const stopPendingPoll = () => {
   }
 }
 
+const redirectToLoginIfSessionExpired = async () => {
+  stopPendingPoll()
+  logout()
+  await router.push({ name: 'login', query: { reason: 'session-expired' } })
+}
+
 const loadPendingActions = async () => {
-  if (!accessToken.value || serverStatus.value !== 'online') {
+  const token = getValidAccessToken()
+  if (!token || serverStatus.value !== 'online') {
+    if (!token && accessToken.value) {
+      await redirectToLoginIfSessionExpired()
+    }
     return
   }
 
   try {
     const [incomingFriendRequests, pendingChatInvitations] = await Promise.all([
-      fetchIncomingFriendRequests(accessToken.value),
+      fetchIncomingFriendRequests(token),
       getPendingChatInvitations(
-        accessToken.value,
+        token,
         invitationPagination.page.value,
         invitationPagination.size.value,
       ),
@@ -226,8 +253,7 @@ const loadPendingActions = async () => {
     invitationPagination.applyPageResponse(pendingChatInvitations)
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      stopPendingPoll()
-      return
+      await redirectToLoginIfSessionExpired()
     }
   }
 }
@@ -270,6 +296,8 @@ const handleAcceptChatInvitation = async (invitation: ChatRoomInvitation) => {
     const room = await acceptChatInvitation(accessToken.value, invitation.id)
     chatInvitations.value = chatInvitations.value.filter((i) => i.id !== invitation.id)
     selectedChatRoom.value = room
+    chatPanelCollapsed.value = false
+    persistChatSelection(room, true)
     mainNav.value = 'chats'
     roomListRefreshKey.value += 1
     handleNotice(`${roomLabel(room)} 초대를 수락했습니다`)
@@ -299,26 +327,29 @@ const handleRejectChatInvitation = async (invitation: ChatRoomInvitation) => {
 onMounted(async () => {
   await checkServerHealth()
 
-  if (!accessToken.value) {
+  const token = getValidAccessToken()
+  if (!token) {
     await router.push({ name: 'login' })
     return
   }
 
   try {
-    profile.value = await getJson<UserProfileResponse>('/api/v1/user/me', accessToken.value)
-    connectNotificationWs()
+    profile.value = await getJson<UserProfileResponse>('/api/v1/user/me', token)
     await loadPendingActions()
     pendingPollTimer = setInterval(() => {
       void loadPendingActions()
     }, 15000)
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      await redirectToLoginIfSessionExpired()
+      return
+    }
     handleError('프로필 정보를 불러올 수 없습니다')
   }
 })
 
 onBeforeUnmount(() => {
   stopPendingPoll()
-  disconnectNotificationWs()
 })
 </script>
 
@@ -461,6 +492,7 @@ onBeforeUnmount(() => {
           @relationship-changed="handleRelationshipChanged"
         />
         <ChatRoomList
+          ref="chatRoomListRef"
           v-else-if="mainNav === 'chats'"
           :token="accessToken"
           :current-user-id="profile.id"
@@ -488,7 +520,7 @@ onBeforeUnmount(() => {
 
       <main class="sleekydz86-main-panel">
         <ChatWindow
-          v-if="selectedChatRoom"
+          v-if="mainNav === 'chats' && selectedChatRoom && !chatPanelCollapsed"
           :token="accessToken"
           :chat-room="selectedChatRoom"
           :current-user-id="profile.id"
@@ -498,20 +530,34 @@ onBeforeUnmount(() => {
           @read="handleRoomRead"
           @room-updated="handleRoomUpdated"
           @left="handleLeftRoom"
-          @close="selectedChatRoom = null"
+          @close="handleCloseChatPanel"
           @relationship-changed="handleRelationshipChanged"
         />
 
-        <section v-else class="chat-welcome sleekydz86-welcome">
+        <section
+          v-else-if="mainNav === 'chats' && selectedChatRoom && chatPanelCollapsed"
+          class="chat-panel-paused sleekydz86-welcome"
+        >
           <div class="sleekydz86-welcome-icon">💬</div>
-          <h2>채팅을 시작해보세요</h2>
-          <p>왼쪽에서 대화를 선택하거나 새 채팅방을 만들어보세요.</p>
+          <h2>{{ roomLabel(selectedChatRoom) }}</h2>
+          <p>채팅 창을 닫은 상태입니다. 대화를 이어가려면 아래 버튼을 누르세요.</p>
+          <button type="button" class="chat-panel-resume-btn" @click="resumeChatPanel">
+            대화 계속하기
+          </button>
+        </section>
+
+        <section v-else class="chat-welcome sleekydz86-welcome">
+          <div class="sleekydz86-welcome-icon">{{ mainNav === 'friends' ? '👤' : '💬' }}</div>
+          <h2>{{ mainNav === 'friends' ? '친구와 대화를 시작해보세요' : '채팅을 시작해보세요' }}</h2>
+          <p>
+            {{
+              mainNav === 'friends'
+                ? '왼쪽 친구 목록에서 대화할 친구를 선택하세요.'
+                : '왼쪽에서 대화를 선택하거나 새 채팅방을 만들어보세요.'
+            }}
+          </p>
         </section>
       </main>
     </div>
-    <SurveyNotificationPopup
-      :notification="surveyNotification"
-      @dismiss="dismissSurveyNotification"
-    />
   </div>
 </template>

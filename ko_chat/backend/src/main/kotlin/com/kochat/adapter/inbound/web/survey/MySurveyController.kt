@@ -1,9 +1,8 @@
 package com.kochat.adapter.inbound.web.survey
 
+import com.kochat.adapter.inbound.web.survey.dto.MySurveyItemDto
 import com.kochat.adapter.inbound.web.survey.dto.SubmitSurveyResponseRequest
 import com.kochat.adapter.inbound.web.survey.dto.SurveyDetailDto
-import com.kochat.adapter.outbound.persistence.survey.SurveyParticipantJpaRepository
-import com.kochat.domain.survey.model.ParticipantStatus
 import com.kochat.domain.survey.service.SurveyService
 import com.kochat.global.application.chat.ChatUserResolver
 import com.kochat.global.config.OpenApiConfig
@@ -24,39 +23,15 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/surveys/my")
 class MySurveyController(
-    private val surveyParticipantJpaRepository: SurveyParticipantJpaRepository,
     private val surveyService: SurveyService,
     private val chatUserResolver: ChatUserResolver,
 ) {
-    data class MySurveyItem(
-        val surveyId: Long,
-        val title: String,
-        val description: String?,
-        val status: String,
-        val chatRoomId: Long?,
-        val chatRoomName: String?,
-        val hasResponded: Boolean,
-    )
-
     @Operation(summary = "나에게 배정된 활성 설문 목록")
     @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     @GetMapping
-    fun mySurveys(authentication: Authentication): ResponseEntity<List<MySurveyItem>> {
+    fun mySurveys(authentication: Authentication): ResponseEntity<List<MySurveyItemDto>> {
         val userId = chatUserResolver.resolveUserId(authentication.name)
-        val participants = surveyParticipantJpaRepository.findActiveByUserId(userId)
-        val items = participants.map { p ->
-            val survey = p.survey!!
-            MySurveyItem(
-                surveyId = survey.id!!,
-                title = survey.title,
-                description = survey.description,
-                status = survey.status.name,
-                chatRoomId = survey.chatRoom?.id,
-                chatRoomName = survey.chatRoom?.name,
-                hasResponded = p.status == ParticipantStatus.COMPLETED,
-            )
-        }
-        return ResponseEntity.ok(items)
+        return ResponseEntity.ok(surveyService.listMySurveys(userId))
     }
 
     @Operation(summary = "설문 상세 조회 (참여자용)")
