@@ -5,16 +5,19 @@ export function createWebMediaPublisher(apiUrl: string, streamUrl: string) {
   }
 
   const publish = async (stream: MediaStream, appId: string, feedId: string) => {
-    pc.addTransceiver('audio', { direction: 'sendonly' })
-    pc.addTransceiver('video', { direction: 'sendonly' })
-
     const audioTrack = stream.getAudioTracks()[0]
-    if (audioTrack) {
-      pc.addTrack(audioTrack)
-    }
     const videoTrack = stream.getVideoTracks()[0]
+
+    if (audioTrack) {
+      pc.addTrack(audioTrack, stream)
+    } else {
+      pc.addTransceiver('audio', { direction: 'sendonly' })
+    }
+
     if (videoTrack) {
-      pc.addTrack(videoTrack)
+      pc.addTrack(videoTrack, stream)
+    } else {
+      pc.addTransceiver('video', { direction: 'sendonly' })
     }
 
     const offer = await pc.createOffer()
@@ -62,15 +65,8 @@ export function createWebMediaPublisher(apiUrl: string, streamUrl: string) {
     return session
   }
 
-  const findSender = (kind: 'audio' | 'video') => {
-    const byTrack = pc.getSenders().find((sender) => sender.track?.kind === kind)
-    if (byTrack) {
-      return byTrack
-    }
-    const transceivers = pc.getTransceivers()
-    const index = kind === 'audio' ? 0 : 1
-    return transceivers[index]?.sender
-  }
+  const findSender = (kind: 'audio' | 'video') =>
+    pc.getSenders().find((sender) => sender.track?.kind === kind)
 
   const replaceTrack = async (kind: 'audio' | 'video', track: MediaStreamTrack | null) => {
     const sender = findSender(kind)

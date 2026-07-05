@@ -228,6 +228,18 @@ const loadMembers = async () => {
   }
 }
 
+const refreshRoomMeta = async () => {
+  try {
+    const freshRoom = await getChatRoom(props.token, props.chatRoom.id)
+    emit('roomUpdated', freshRoom)
+    if (showMemberOverlay.value || showMembers.value) {
+      await loadMembers()
+    }
+  } catch {
+    // ignore
+  }
+}
+
 const loadInviteCandidates = async () => {
   if (!canManageRoom.value) {
     inviteResults.value = []
@@ -356,9 +368,13 @@ const handleIncomingMessage = (payload: IncomingWebSocketMessage) => {
   void scrollToBottom()
   void markRead()
 
-  if (newMessage.type === 'SYSTEM' && newMessage.content?.includes('종료되었습니다')) {
-    roomClosed.value = true
-    emit('roomUpdated', { ...props.chatRoom, isActive: false })
+  if (newMessage.type === 'SYSTEM') {
+    if (newMessage.content?.includes('종료되었습니다')) {
+      roomClosed.value = true
+      emit('roomUpdated', { ...props.chatRoom, isActive: false })
+    } else if (newMessage.content?.includes('나가셨습니다')) {
+      void refreshRoomMeta()
+    }
   }
 }
 
@@ -1304,14 +1320,14 @@ onBeforeUnmount(() => {
     <div v-if="showRoomClosedModal" class="sleekydz86-room-closed-overlay">
       <div class="sleekydz86-room-closed-dialog" role="alertdialog" aria-modal="true">
         <h3>채팅방 종료</h3>
-        <p>방장이 나가 이 채팅방이 종료되었습니다.</p>
+        <p>방장이 나가 채팅방이 종료되었습니다. 아래 버튼을 누르면 목록에서 삭제됩니다.</p>
         <button
           type="button"
           class="sleekydz86-room-closed-dialog-btn"
           :disabled="leaveLoading"
           @click="confirmForcedLeave"
         >
-          {{ leaveLoading ? '처리 중...' : '확인' }}
+          {{ leaveLoading ? '처리 중...' : '채팅방 나가기' }}
         </button>
       </div>
     </div>

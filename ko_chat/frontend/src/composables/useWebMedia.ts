@@ -26,6 +26,10 @@ const normalizeApiUrl = (url: string) => {
   return url
 }
 
+const waitMs = (ms: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, ms)
+})
+
 export const useWebMedia = (options: UseWebMediaOptions) => {
   const isJoined = ref(false)
   const isPublishing = ref(false)
@@ -87,7 +91,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
   }
 
   const subscribeToPeer = async (peerUserId: string) => {
-    if (!client || peerSubscribers.has(peerUserId) || peerUserId === mediaUserId) {
+    if (!client || peerUserId === mediaUserId) {
       return
     }
 
@@ -101,10 +105,32 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     }
   }
 
+  const resubscribeToPeer = async (peerUserId: string) => {
+    if (!client || peerUserId === mediaUserId) {
+      return
+    }
+
+    const peer = otherUsers.value.find((item) => item.userId === peerUserId)
+    if (!peer?.published) {
+      cleanupSubscriber(peerUserId)
+      return
+    }
+
+    cleanupSubscriber(peerUserId)
+    await waitMs(400)
+    await subscribeToPeer(peerUserId)
+  }
+
+  const notifyStreamRepublished = async () => {
+    if (client?.connected && isPublishing.value) {
+      await client.sendMessage({}, 'StreamRepublishedReport', false)
+    }
+  }
+
   const syncSubscriptions = async () => {
     for (const peer of otherUsers.value) {
       if (peer.published) {
-        await subscribeToPeer(peer.userId)
+        await resubscribeToPeer(peer.userId)
       } else {
         cleanupSubscriber(peer.userId)
       }
@@ -124,7 +150,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
         ? otherUsers.value.map((item) => (item.userId === user.userId ? user : item))
         : [...otherUsers.value, user]
       if (user.published) {
-        await subscribeToPeer(user.userId)
+        await resubscribeToPeer(user.userId)
       }
       return
     }
@@ -136,9 +162,17 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
         item.userId === userId ? { ...item, published } : item,
       )
       if (published) {
-        await subscribeToPeer(userId)
+        await resubscribeToPeer(userId)
       } else {
         cleanupSubscriber(userId)
+      }
+      return
+    }
+
+    if (type === 'UserStreamRepublishedEvent') {
+      const userId = String(message.userId)
+      if (userId !== mediaUserId) {
+        await resubscribeToPeer(userId)
       }
       return
     }
@@ -430,6 +464,7 @@ export const useWebMedia = (options: UseWebMediaOptions) => {
     publishStream.addTrack(videoTrack)
     publisher = createWebMediaPublisher(apiUrl, streamUrl)
     await publisher.publish(publishStream, String(options.chatRoomId), mediaUserId)
+    await notifyStreamRepublished()
   }
 
   const startScreenShare = async () => {

@@ -361,7 +361,7 @@ defineExpose({ loadChatRooms, totalUnreadCount, removeRoom })
         :key="room.id"
         type="button"
         class="sleekydz86-chat-room-item"
-        :class="{ selected: selectedChatRoomId === room.id }"
+        :class="{ selected: selectedChatRoomId === room.id, terminated: !room.isActive }"
         @click="emit('select', room)"
       >
         <span class="sleekydz86-chat-room-avatar" :style="{ backgroundColor: avatarColor(room) }">
@@ -371,6 +371,7 @@ defineExpose({ loadChatRooms, totalUnreadCount, removeRoom })
           <div class="sleekydz86-chat-room-top">
             <span v-if="!room.isPrivate && room.type !== 'DIRECT'" class="sleekydz86-room-globe">🌐</span>
             <strong class="sleekydz86-chat-room-name">{{ roomDisplayName(room) }}</strong>
+            <span v-if="!room.isActive" class="sleekydz86-room-terminated-badge">종료</span>
             <span v-if="room.type !== 'DIRECT'" class="sleekydz86-chat-room-count">{{ room.memberCount }}</span>
           </div>
           <p class="sleekydz86-chat-room-preview">{{ lastMessagePreview(room) }}</p>

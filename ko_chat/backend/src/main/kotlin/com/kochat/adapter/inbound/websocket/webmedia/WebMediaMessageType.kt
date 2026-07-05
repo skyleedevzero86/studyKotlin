@@ -8,5 +8,7 @@ enum class WebMediaMessageType {
     UserLeftEvent,
     UserStateChangedEvent,
     UserPublishedChangeReport,
+    StreamRepublishedReport,
+    UserStreamRepublishedEvent,
     UserKickedEvent,
 }

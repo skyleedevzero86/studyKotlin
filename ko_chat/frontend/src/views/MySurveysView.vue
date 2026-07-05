@@ -33,10 +33,15 @@ const answers = ref<Record<number, { optionIds: number[]; textAnswer: string }>>
 const successMessage = ref('')
 const errorMessage = ref('')
 
-const pendingSurveys = computed(() =>
-  surveys.value.filter((s) => !s.hasResponded && s.status !== 'CLOSED'),
-)
+const pendingSurveys = computed(() => surveys.value.filter((s) => !s.hasResponded))
 const completedSurveys = computed(() => surveys.value.filter((s) => s.hasResponded))
+
+const isSurveyCardDisabled = (survey: MySurveyItem) => survey.status === 'CLOSED'
+
+const handleSurveyCardClick = (survey: MySurveyItem) => {
+  if (isSurveyCardDisabled(survey)) return
+  void openSurvey(survey.surveyId)
+}
 
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return ''
@@ -280,19 +285,21 @@ onMounted(loadSurveys)
 
     <div v-else class="survey-list-container">
       <section v-if="pendingSurveys.length > 0" class="survey-section">
-        <h2>참여 대기 설문 ({{ pendingSurveys.length }}건)</h2>
+        <h2>배정된 설문 ({{ pendingSurveys.length }}건)</h2>
         <div class="survey-cards">
           <div
             v-for="s in pagedPendingSurveys"
             :key="s.surveyId"
             class="survey-card pending"
-            @click="openSurvey(s.surveyId)"
+            :class="{ 'survey-card--disabled': isSurveyCardDisabled(s) }"
+            @click="handleSurveyCardClick(s)"
           >
             <span
               class="badge"
               :class="{
                 'badge--pending': s.waitingForStart || (!s.canRespond && s.status !== 'CLOSED'),
                 'badge--open': s.canRespond,
+                'badge--closed': s.status === 'CLOSED',
               }"
             >
               {{ surveyBadgeLabel(s) }}

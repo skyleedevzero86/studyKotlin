@@ -10,8 +10,8 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         """
         SELECT DISTINCT cr FROM ChatRoomJpaEntity cr
         JOIN ChatRoomMemberJpaEntity crm ON cr.id = crm.chatRoom.id
-        WHERE crm.user.id = :userId AND crm.isActive = true AND cr.isActive = true
-        ORDER BY cr.updatedAt DESC
+        WHERE crm.user.id = :userId AND crm.isActive = true
+        ORDER BY cr.isActive DESC, cr.updatedAt DESC
         """,
     )
     fun findUserChatRooms(userId: Long, pageable: Pageable): Page<ChatRoomJpaEntity>
@@ -20,7 +20,7 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
         """
         SELECT DISTINCT cr FROM ChatRoomJpaEntity cr
         JOIN ChatRoomMemberJpaEntity crm ON cr.id = crm.chatRoom.id
-        WHERE crm.user.id = :userId AND crm.isActive = true AND cr.isActive = true
+        WHERE crm.user.id = :userId AND crm.isActive = true
           AND (
             LOWER(cr.name) LIKE LOWER(CONCAT('%', :query, '%'))
             OR LOWER(cr.description) LIKE LOWER(CONCAT('%', :query, '%'))
@@ -41,7 +41,7 @@ interface ChatRoomJpaRepository : JpaRepository<ChatRoomJpaEntity, Long> {
                 )
             )
           )
-        ORDER BY cr.updatedAt DESC
+        ORDER BY cr.isActive DESC, cr.updatedAt DESC
         """,
     )
     fun searchUserChatRooms(userId: Long, query: String, pageable: Pageable): Page<ChatRoomJpaEntity>

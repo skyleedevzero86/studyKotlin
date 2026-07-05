@@ -118,6 +118,22 @@
   color: #166534;
 }
 
+.badge--closed {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.survey-card--disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+  background: #f8fafc;
+}
+
+.survey-card--disabled:hover {
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
 .survey-schedule {
   margin: 6px 0 0;
   font-size: 0.8rem;

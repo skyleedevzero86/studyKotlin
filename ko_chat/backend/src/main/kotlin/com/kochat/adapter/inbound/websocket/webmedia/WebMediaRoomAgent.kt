@@ -73,6 +73,10 @@ class WebMediaRoomAgent(
                     val message = objectMapper.readValue(messageStr, WebMediaUserPublishedChangeReportMessage::class.java)
                     handleUserPublishedChangeReport(session, koUserId, message, messageId)
                 }
+                WebMediaMessageType.StreamRepublishedReport -> {
+                    objectMapper.readValue(messageStr, WebMediaStreamRepublishedReportMessage::class.java)
+                    handleStreamRepublishedReport(session, koUserId)
+                }
                 else -> sendError(session, messageId, WebMediaErrorCode.BadRequest, "잘못된 요청입니다")
             }
         }
@@ -208,6 +212,20 @@ class WebMediaRoomAgent(
             published = message.published,
         )
         broadcastEvent(WebMediaMessageType.UserStateChangedEvent, event, excludeSessionId = session.id)
+    }
+
+    private fun handleStreamRepublishedReport(
+        session: WebSocketSession,
+        koUserId: Long,
+    ) {
+        val participant = participants[session.id] ?: return
+        val chatRoomId = roomId.toLongOrNull() ?: return
+        if (!canParticipate(chatRoomId, koUserId) || !participant.published) {
+            return
+        }
+
+        val event = WebMediaUserStreamRepublishedEventMessage(userId = participant.userId)
+        broadcastEvent(WebMediaMessageType.UserStreamRepublishedEvent, event, excludeSessionId = session.id)
     }
 
     private fun broadcastEvent(

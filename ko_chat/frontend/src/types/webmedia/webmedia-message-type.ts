@@ -6,4 +6,6 @@ export type WebMediaMessageType =
   | 'UserLeftEvent'
   | 'UserStateChangedEvent'
   | 'UserPublishedChangeReport'
+  | 'StreamRepublishedReport'
+  | 'UserStreamRepublishedEvent'
   | 'UserKickedEvent'

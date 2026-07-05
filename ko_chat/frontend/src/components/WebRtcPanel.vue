@@ -114,20 +114,39 @@ const handleJoinWithVideo = async () => {
   await startPublish(true)
 }
 
-watch(localStream, (stream) => {
-  if (localVideoRef.value) {
-    localVideoRef.value.srcObject = stream
+const attachStreamToVideo = (element: HTMLVideoElement | null, stream: MediaStream | null | undefined) => {
+  if (!element || !stream) {
+    return
   }
+  if (element.srcObject !== stream) {
+    element.srcObject = stream
+  }
+  void element.play().catch(() => {})
+}
+
+watch(localStream, (stream) => {
+  attachStreamToVideo(localVideoRef.value, stream)
+}, { flush: 'post' })
+
+watch(localVideoRef, (element) => {
+  attachStreamToVideo(element, localStream.value)
 })
 
 watch(
   peerStreams,
   (streams) => {
     Object.entries(streams).forEach(([userId, stream]) => {
-      const element = peerVideoRefs.value[userId]
-      if (element) {
-        element.srcObject = stream
-      }
+      attachStreamToVideo(peerVideoRefs.value[userId] ?? null, stream)
+    })
+  },
+  { deep: true, flush: 'post' },
+)
+
+watch(
+  peerVideoRefs,
+  (refs) => {
+    Object.entries(refs).forEach(([userId, element]) => {
+      attachStreamToVideo(element, peerStreams.value[userId])
     })
   },
   { deep: true },

@@ -12,6 +12,29 @@ export function createWebMediaSubscriber(apiUrl: string, streamUrl: string) {
     }
   }
 
+  const waitForRemoteTrack = (timeoutMs = 8000) =>
+    new Promise<void>((resolve, reject) => {
+      if (stream.getVideoTracks().length > 0 || stream.getAudioTracks().length > 0) {
+        resolve()
+        return
+      }
+
+      const timer = window.setTimeout(() => {
+        pc.removeEventListener('track', onTrack)
+        reject(new Error('원격 미디어 트랙 수신 시간 초과'))
+      }, timeoutMs)
+
+      const onTrack = () => {
+        if (stream.getVideoTracks().length > 0 || stream.getAudioTracks().length > 0) {
+          window.clearTimeout(timer)
+          pc.removeEventListener('track', onTrack)
+          resolve()
+        }
+      }
+
+      pc.addEventListener('track', onTrack)
+    })
+
   const subscribe = async (appId: string, feedId: string) => {
     pc.addTransceiver('audio', { direction: 'recvonly' })
     pc.addTransceiver('video', { direction: 'recvonly' })
@@ -58,6 +81,7 @@ export function createWebMediaSubscriber(apiUrl: string, streamUrl: string) {
     }
 
     await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: session.sdp }))
+    await waitForRemoteTrack()
     return session
   }
 

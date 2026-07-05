@@ -508,6 +508,9 @@ class ChatServiceImpl(
 
             val ownerName = user.displayName ?: user.username ?: "방장"
             saveSystemMessage(chatRoom, user, "$ownerName 님이 방을 나가 채팅방이 종료되었습니다.")
+        } else {
+            val memberName = user.displayName ?: user.username ?: "사용자"
+            saveSystemMessage(chatRoom, user, "$memberName 님이 나가셨습니다.")
         }
     }
 
@@ -800,6 +803,10 @@ class ChatServiceImpl(
 
         val senderMember = chatRoomMemberJpaRepository.findByChatRoomIdAndUserIdAndIsActiveTrue(request.chatRoomId, senderId)
             .orElseThrow { IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.") }
+
+        if (!chatRoom.isActive) {
+            throw IllegalStateException("종료된 채팅방에는 메시지를 보낼 수 없습니다")
+        }
 
         var messageType = request.type
         var content = request.content
