@@ -1,6 +1,7 @@
 <img width="1231" height="689" alt="image" src="https://github.com/user-attachments/assets/e123df7d-54f8-4e70-96ab-92f2e713e0dd" />
 
 <br/>
+
 # Ko_Chat — Kotlin/Spring 기반 채팅·화상 대화 프로젝트
 
 Ko_Chat은 Kotlin + Spring Boot 백엔드와 Vue 3 프론트엔드로 만든 채팅 서비스입니다. <br/>
