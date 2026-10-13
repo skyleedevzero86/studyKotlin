@@ -1,0 +1,36 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: dense-vector
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/dense_vector?characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+    username: finsight
+    password: root123
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: method
+  paths-to-match: /api/**
+
+study:
+  vector:
+    elasticsearch-url: http://127.0.0.1:9200
+    index-name: dense-vector-passages
+    dims: 64
+    similarity: cosine
+    index-type: hnsw
+    m: 16
+    ef-construction: 100
+    num-candidates: 100
