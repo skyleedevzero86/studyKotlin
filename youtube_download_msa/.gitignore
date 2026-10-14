@@ -1,0 +1,7 @@
+.gradle/
+build/
+out/
+.kotlin/
+bin/
+frontend/node_modules/
+frontend/.next/

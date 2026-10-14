@@ -1,0 +1,47 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: youtube-download-msa-download
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/youtube_download_msa?characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+    username: finsight
+    password: root123
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 9379
+      password: "123456"
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    consumer:
+      group-id: youtube-download-msa-dlq
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: record
+
+study:
+  dims: 64
+  cdc:
+    connect-url: http://127.0.0.1:8083
+    database-host: host.docker.internal
+    database-port: 3306
+    database-user: root
+    database-password: root123
+    server-id: 85721
+    connector: youtube-download-msa
+    topic-prefix: youtubemsa
+    database: youtube_download_msa
+    dead-letter-topic: youtubemsa.download.events.DLT

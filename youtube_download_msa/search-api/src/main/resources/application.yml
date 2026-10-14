@@ -1,0 +1,41 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: youtube-download-msa-search
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    consumer:
+      group-id: youtube-download-msa-search
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      max-poll-records: 1
+      properties:
+        max.poll.interval.ms: 900000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: record
+
+study:
+  download-api: http://127.0.0.1:8091
+  elasticsearch:
+    url: http://127.0.0.1:9201
+    index: youtube-downloads-msa
+    dims: 64
+    similarity: cosine
+    index-type: bbq_hnsw
+    m: 16
+    ef-construction: 100
+    num-candidates: 100
+  minio:
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: youtube-download-msa
+  cdc:
+    topic: youtubemsa.download.events
