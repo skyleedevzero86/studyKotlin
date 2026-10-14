@@ -9,3 +9,11 @@ study:
   gateway:
     download-api: http://127.0.0.1:8091
     search-api: http://127.0.0.1:8093
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: method

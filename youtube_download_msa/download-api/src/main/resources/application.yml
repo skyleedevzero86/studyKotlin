@@ -45,3 +45,14 @@ study:
     topic-prefix: youtubemsa
     database: youtube_download_msa
     dead-letter-topic: youtubemsa.download.events.DLT
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: method
+  paths-to-match:
+    - /api/**
+    - /internal/**

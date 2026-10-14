@@ -55,6 +55,18 @@ pnpm dev
 
 화면은 `http://127.0.0.1:3001` 이다.
 
+## Swagger
+
+| 서비스       | 주소                                      |
+| ------------ | ----------------------------------------- |
+| gateway      | `http://127.0.0.1:8090/swagger-ui.html`   |
+| download-api | `http://127.0.0.1:8091/swagger-ui.html`   |
+| search-api   | `http://127.0.0.1:8093/swagger-ui.html`   |
+
+게이트웨이 문서는 화면이 호출하는 `/api/downloads`만 보여 준다. <br/>
+download-api 문서에는 붙여 넣기와 `/internal` 원장·수신함이 있다. <br/>
+media-worker는 HTTP API가 없어 Swagger를 두지 않는다.
+
 ## 요청이 가는 곳
 
 | 요청                                                | 서비스                                           |

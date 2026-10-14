@@ -39,3 +39,12 @@ study:
     bucket: youtube-download-msa
   cdc:
     topic: youtubemsa.download.events
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: method
+  paths-to-match: /api/**

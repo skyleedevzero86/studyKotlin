@@ -33,6 +33,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.4")
     implementation("co.elastic.clients:elasticsearch-java:8.15.3")
     implementation("io.minio:minio:8.5.17")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
     runtimeOnly("com.mysql:mysql-connector-j")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

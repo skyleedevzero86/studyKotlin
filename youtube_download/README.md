@@ -35,7 +35,8 @@ cd youtube_download
 .\gradlew.bat bootRun
 ```
 
-API는 `http://127.0.0.1:8080` 이다.
+API는 `http://127.0.0.1:8080` 이다. <br/>
+Swagger UI는 `http://127.0.0.1:8080/swagger-ui.html` 이다.
 
 ```text
 cd youtube_download/frontend
