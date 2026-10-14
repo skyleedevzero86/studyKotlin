@@ -7,10 +7,6 @@ import org.springframework.http.HttpStatus
 
 enum class Reaction { LIKE, DISLIKE, VIEW }
 
-fun interface DownloadReactions {
-    fun react(id: Long, reaction: Reaction): DownloadSnapshot
-}
-
 fun reacted(snapshot: DownloadSnapshot, reaction: Reaction): DownloadSnapshot {
     if (snapshot.status != DownloadStatus.SAVED) {
         throw DownloadException(

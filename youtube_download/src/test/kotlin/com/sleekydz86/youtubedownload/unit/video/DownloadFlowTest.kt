@@ -7,6 +7,7 @@ import com.sleekydz86.youtubedownload.global.cdc.fulfillDownload
 import com.sleekydz86.youtubedownload.global.cdc.projectDownload
 import com.sleekydz86.youtubedownload.global.error.DownloadException
 import com.sleekydz86.youtubedownload.global.minio.mediaType
+import com.sleekydz86.youtubedownload.support.FailingVideoFiles
 import com.sleekydz86.youtubedownload.support.HoldingLock
 import com.sleekydz86.youtubedownload.support.MemoryClaims
 import com.sleekydz86.youtubedownload.support.MemoryLinks
@@ -152,10 +153,4 @@ class DownloadFlowTest {
         bucket = null,
         objectKey = null,
     )
-}
-
-private class FailingVideoFiles : com.sleekydz86.youtubedownload.video.save.VideoFilePort {
-    override fun save(video: SharedVideo, directory: Path): com.sleekydz86.youtubedownload.video.SavedVideo {
-        throw DownloadException("영상 저장에 실패했습니다.")
-    }
 }

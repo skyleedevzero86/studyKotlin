@@ -1,7 +1,9 @@
 "use client";
 
-import { formatWhen, statusLabel, type ReactionKind, type SimilarItem } from "@/lib/downloads";
-import { ReactionBar } from "@/components/SavedSearchForm";
+import { ReactionBar } from "@/components/ReactionBar";
+import { formatWhen, statusLabel } from "@/lib/downloads";
+import type { ReactionKind } from "@/lib/reactionKind";
+import type { SimilarItem } from "@/lib/similarItem";
 
 type SimilarListProps = {
   items: SimilarItem[];

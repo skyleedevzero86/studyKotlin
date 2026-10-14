@@ -1,11 +1,9 @@
 package com.sleekydz86.youtubedownload.feature
 
+import com.sleekydz86.youtubedownload.support.FixedTextSearch
 import com.sleekydz86.youtubedownload.support.MemoryLinks
 import com.sleekydz86.youtubedownload.video.DownloadStatus
-import com.sleekydz86.youtubedownload.video.read.DownloadTextSearch
 import com.sleekydz86.youtubedownload.video.read.IndexedDownload
-import com.sleekydz86.youtubedownload.video.read.IndexedPage
-import com.sleekydz86.youtubedownload.video.read.PageQuery
 import com.sleekydz86.youtubedownload.video.read.searchSavedDownloads
 import org.junit.jupiter.api.DisplayName
 import kotlin.test.Test
@@ -48,16 +46,4 @@ class SavedSearchFeatureTest {
         errorMessage = null,
         updatedAt = "2026-10-14T08:00:00Z",
     )
-}
-
-private class FixedTextSearch(private val rows: List<IndexedDownload>) : DownloadTextSearch {
-    val texts = mutableListOf<String>()
-
-    override fun searchSaved(text: String, query: PageQuery): IndexedPage {
-        texts += text
-        val matched = rows.filter { row ->
-            row.status == DownloadStatus.SAVED && (row.title?.contains(text) == true || row.videoId.contains(text))
-        }
-        return IndexedPage(query.page, query.size, matched.size.toLong(), matched)
-    }
 }

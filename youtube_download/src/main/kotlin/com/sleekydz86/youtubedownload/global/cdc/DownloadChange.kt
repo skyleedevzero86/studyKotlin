@@ -24,12 +24,3 @@ fun downloadChange(message: String): DownloadChange? {
     if (id <= 0 || status == null) return null
     return DownloadChange(id, status)
 }
-
-enum class ChangeStep { FULFILL, PROJECT }
-
-fun interface DownloadLock {
-    fun hold(id: Long, action: () -> Unit)
-}
-
-fun changeStep(status: DownloadStatus): ChangeStep =
-    if (status == DownloadStatus.REQUESTED) ChangeStep.FULFILL else ChangeStep.PROJECT

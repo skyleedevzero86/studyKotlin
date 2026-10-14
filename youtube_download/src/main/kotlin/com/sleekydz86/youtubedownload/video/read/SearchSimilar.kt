@@ -8,27 +8,6 @@ import com.sleekydz86.youtubedownload.global.embedding.downloadText
 import com.sleekydz86.youtubedownload.video.DownloadSnapshot
 import com.sleekydz86.youtubedownload.video.DownloadStatus
 
-data class VectorHit(val id: Long, val esScore: Double)
-
-fun interface DownloadVectorSearch {
-    fun nearest(vector: FloatArray, k: Int): List<VectorHit>
-}
-
-data class SimilarQuery(val query: String = "", val k: Int? = null)
-
-data class SimilarDownload(
-    val item: ListedDownload,
-    val esScore: Double,
-    val cosine: Double,
-)
-
-data class SimilarPage(
-    val dims: Int,
-    val similarity: String,
-    val k: Int,
-    val items: List<SimilarDownload>,
-)
-
 fun searchSimilar(
     embedder: HashingEmbedder,
     nearest: DownloadVectorSearch,

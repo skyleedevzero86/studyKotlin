@@ -1,43 +1,6 @@
-export type DownloadTicket = {
-  id: number;
-  videoId: string;
-  status: string;
-};
-
-export type ListedDownload = {
-  id: number;
-  videoId: string;
-  title: string | null;
-  status: string;
-  fileName: string | null;
-  sizeBytes: number | null;
-  errorMessage: string | null;
-  updatedAt: string;
-  fileUrl: string | null;
-  likeCount: number;
-  dislikeCount: number;
-  viewCount: number;
-};
-
-export type ListedPage = {
-  page: number;
-  size: number;
-  total: number;
-  items: ListedDownload[];
-};
-
-export type SimilarItem = {
-  item: ListedDownload;
-  esScore: number;
-  cosine: number;
-};
-
-export type SimilarPage = {
-  dims: number;
-  similarity: string;
-  k: number;
-  items: SimilarItem[];
-};
+import type { ListedDownload } from "@/lib/listedDownload";
+import type { ListedPage } from "@/lib/listedPage";
+import type { SimilarPage } from "@/lib/similarPage";
 
 export function statusLabel(status: string): string {
   if (status === "REQUESTED") return "요청";
@@ -56,8 +19,6 @@ export function formatWhen(value: string): string {
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString("ko-KR");
 }
-
-export type ReactionKind = "likes" | "dislikes" | "views";
 
 export function replaceListed(page: ListedPage | null, next: ListedDownload): ListedPage | null {
   if (!page) return page;

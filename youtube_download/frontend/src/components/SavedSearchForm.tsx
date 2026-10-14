@@ -1,7 +1,5 @@
 "use client";
 
-import type { ReactionKind } from "@/lib/downloads";
-
 type SavedSearchFormProps = {
   onSubmit: (query: string) => void;
   busy: boolean;
@@ -23,31 +21,5 @@ export function SavedSearchForm({ onSubmit, busy }: SavedSearchFormProps) {
         검색
       </button>
     </form>
-  );
-}
-
-type ReactionBarProps = {
-  id: number;
-  status: string;
-  likeCount: number;
-  dislikeCount: number;
-  viewCount: number;
-  onReact: (id: number, kind: ReactionKind) => void;
-};
-
-export function ReactionBar({ id, status, likeCount, dislikeCount, viewCount, onReact }: ReactionBarProps) {
-  if (status !== "SAVED") return null;
-  return (
-    <div className="reactions">
-      <button type="button" onClick={() => onReact(id, "likes")}>
-        좋아요 {likeCount}
-      </button>
-      <button type="button" onClick={() => onReact(id, "dislikes")}>
-        싫어요 {dislikeCount}
-      </button>
-      <button type="button" onClick={() => onReact(id, "views")}>
-        조회 {viewCount}
-      </button>
-    </div>
   );
 }

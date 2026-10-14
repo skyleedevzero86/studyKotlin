@@ -1,7 +1,9 @@
 "use client";
 
-import { formatWhen, statusLabel, type ListedDownload, type ReactionKind } from "@/lib/downloads";
-import { ReactionBar } from "@/components/SavedSearchForm";
+import { ReactionBar } from "@/components/ReactionBar";
+import { formatWhen, statusLabel } from "@/lib/downloads";
+import type { ListedDownload } from "@/lib/listedDownload";
+import type { ReactionKind } from "@/lib/reactionKind";
 
 type DownloadListProps = {
   items: ListedDownload[];

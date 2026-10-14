@@ -10,11 +10,13 @@ import com.sleekydz86.youtubedownload.global.embedding.SearchLimits
 import com.sleekydz86.youtubedownload.global.embedding.VectorCodec
 import com.sleekydz86.youtubedownload.global.embedding.downloadText
 import com.sleekydz86.youtubedownload.global.error.DownloadException
+import com.sleekydz86.youtubedownload.support.FixedHits
 import com.sleekydz86.youtubedownload.support.MemoryLinks
+import com.sleekydz86.youtubedownload.support.MissingLookup
+import com.sleekydz86.youtubedownload.support.SnapshotLookup
 import com.sleekydz86.youtubedownload.video.DownloadSnapshot
 import com.sleekydz86.youtubedownload.video.DownloadStatus
 import com.sleekydz86.youtubedownload.video.VideoId
-import com.sleekydz86.youtubedownload.video.read.DownloadVectorSearch
 import com.sleekydz86.youtubedownload.video.read.SimilarQuery
 import com.sleekydz86.youtubedownload.video.read.VectorHit
 import com.sleekydz86.youtubedownload.video.read.searchSimilar
@@ -128,16 +130,4 @@ class VectorFeaturesTest {
         updatedAt = Instant.parse("2026-10-14T08:00:00Z"),
         embeddingJson = embedding,
     )
-}
-
-private class FixedHits(private val hits: List<VectorHit>) : DownloadVectorSearch {
-    override fun nearest(vector: FloatArray, k: Int): List<VectorHit> = hits.take(k)
-}
-
-private class SnapshotLookup(private val snapshot: DownloadSnapshot) {
-    fun find(id: Long): DownloadSnapshot? = snapshot.takeIf { it.id == id }
-}
-
-private class MissingLookup {
-    fun find(id: Long): DownloadSnapshot? = null
 }

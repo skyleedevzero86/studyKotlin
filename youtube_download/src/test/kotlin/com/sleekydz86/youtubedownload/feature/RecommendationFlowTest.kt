@@ -1,26 +1,18 @@
 package com.sleekydz86.youtubedownload.feature
 
-import com.sleekydz86.youtubedownload.global.embedding.CosineSimilarity
 import com.sleekydz86.youtubedownload.global.embedding.HashingEmbedder
 import com.sleekydz86.youtubedownload.global.embedding.VectorCodec
+import com.sleekydz86.youtubedownload.support.CosineNearest
+import com.sleekydz86.youtubedownload.support.MemoryCatalog
 import com.sleekydz86.youtubedownload.support.MemoryLinks
+import com.sleekydz86.youtubedownload.support.TitleSearch
 import com.sleekydz86.youtubedownload.video.DownloadSnapshot
 import com.sleekydz86.youtubedownload.video.DownloadStatus
 import com.sleekydz86.youtubedownload.video.VideoId
-import com.sleekydz86.youtubedownload.video.read.DownloadTextSearch
-import com.sleekydz86.youtubedownload.video.read.DownloadVectorSearch
-import com.sleekydz86.youtubedownload.video.read.IndexedDownload
-import com.sleekydz86.youtubedownload.video.read.IndexedPage
-import com.sleekydz86.youtubedownload.video.read.PageQuery
-import com.sleekydz86.youtubedownload.video.read.SavedCatalog
-import com.sleekydz86.youtubedownload.video.read.VectorHit
 import com.sleekydz86.youtubedownload.video.read.recommendDownloads
 import com.sleekydz86.youtubedownload.video.read.recommendLimit
 import com.sleekydz86.youtubedownload.video.read.searchSavedDownloads
-import com.sleekydz86.youtubedownload.video.read.storedVector
-import com.sleekydz86.youtubedownload.video.react.DownloadReactions
 import com.sleekydz86.youtubedownload.video.react.Reaction
-import com.sleekydz86.youtubedownload.video.react.reacted
 import org.junit.jupiter.api.DisplayName
 import java.time.Instant
 import kotlin.test.Test
@@ -83,52 +75,5 @@ class RecommendationFlowTest {
             embeddingJson = VectorCodec.encode(vector),
             likeCount = likes,
         )
-    }
-}
-
-private class MemoryCatalog(rows: List<DownloadSnapshot>) : SavedCatalog, DownloadReactions {
-    var rows: List<DownloadSnapshot> = rows
-
-    override fun saved(): List<DownloadSnapshot> = rows.filter { it.status == DownloadStatus.SAVED }
-
-    fun find(id: Long): DownloadSnapshot? = rows.find { it.id == id }
-
-    override fun react(id: Long, reaction: Reaction): DownloadSnapshot {
-        val current = find(id) ?: error("없음")
-        val next = reacted(current, reaction)
-        rows = rows.map { if (it.id == id) next else it }
-        return next
-    }
-}
-
-private class CosineNearest(
-    private val rows: List<DownloadSnapshot>,
-    private val embedder: HashingEmbedder,
-) : DownloadVectorSearch {
-    override fun nearest(vector: FloatArray, k: Int): List<VectorHit> =
-        rows.map { row -> VectorHit(row.id, CosineSimilarity.score(vector, storedVector(row, embedder))) }
-            .sortedByDescending { it.esScore }
-            .take(k)
-}
-
-private class TitleSearch(private val rows: List<DownloadSnapshot>) : DownloadTextSearch {
-    override fun searchSaved(text: String, query: PageQuery): IndexedPage {
-        val matched = rows.filter { it.status == DownloadStatus.SAVED && it.title?.contains(text) == true }
-        val items = matched.map { row ->
-            IndexedDownload(
-                id = row.id,
-                videoId = row.videoId.value,
-                title = row.title,
-                status = row.status,
-                bucket = row.bucket,
-                objectKey = row.objectKey,
-                fileName = row.fileName,
-                sizeBytes = row.sizeBytes,
-                errorMessage = row.errorMessage,
-                updatedAt = row.updatedAt.toString(),
-                likeCount = row.likeCount,
-            )
-        }
-        return IndexedPage(query.page, query.size, items.size.toLong(), items)
     }
 }

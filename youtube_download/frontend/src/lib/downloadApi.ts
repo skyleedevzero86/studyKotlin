@@ -1,4 +1,8 @@
-import type { DownloadTicket, ListedDownload, ListedPage, ReactionKind, SimilarPage } from "@/lib/downloads";
+import type { DownloadTicket } from "@/lib/downloadTicket";
+import type { ListedDownload } from "@/lib/listedDownload";
+import type { ListedPage } from "@/lib/listedPage";
+import type { ReactionKind } from "@/lib/reactionKind";
+import type { SimilarPage } from "@/lib/similarPage";
 
 type ErrorBody = { message?: string };
 

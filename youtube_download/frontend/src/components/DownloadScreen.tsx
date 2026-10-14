@@ -15,15 +15,11 @@ import {
   searchSaved,
   searchSimilar,
 } from "@/lib/downloadApi";
-import {
-  isPending,
-  replaceListed,
-  replaceSimilar,
-  type ListedDownload,
-  type ListedPage,
-  type ReactionKind,
-  type SimilarPage,
-} from "@/lib/downloads";
+import { isPending, replaceListed, replaceSimilar } from "@/lib/downloads";
+import type { ListedDownload } from "@/lib/listedDownload";
+import type { ListedPage } from "@/lib/listedPage";
+import type { ReactionKind } from "@/lib/reactionKind";
+import type { SimilarPage } from "@/lib/similarPage";
 
 const pageSize = 10;
 
