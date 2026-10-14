@@ -3,3 +3,7 @@ build/
 out/
 .kotlin/
 *.yml
+bin/
+gradle/
+gradlew
+gradlew.bat

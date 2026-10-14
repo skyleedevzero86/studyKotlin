@@ -10,3 +10,4 @@
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [dense_vector](dense_vector/README.md)   | Elasticsearch 8.15용. `hnsw`로 코사인 kNN을 본다.                                                                  |
 | [dense_vector2](dense_vector2/README.md) | 최신 코틀린(2.4) 프로젝트. 8.15와 분리한 Elasticsearch 9.5에서 `bbq_hnsw`, `bbq_disk`, `vectordb_document`를 본다. |
+| [youtube_download](youtube_download/README.md) | 공유 주소를 MySQL에 남기고, CDC로 Elasticsearch 9 `bbq_hnsw` 목록과 MinIO 파일을 맞춘다. |
