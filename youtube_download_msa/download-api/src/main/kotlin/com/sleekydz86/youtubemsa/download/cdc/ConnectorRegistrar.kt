@@ -73,6 +73,7 @@ class ConnectorRegistrar(
               "snapshot.locking.mode": "none",
               "decimal.handling.mode": "string",
               "tombstones.on.delete": "false",
+              "skipped.operations": "d,t",
               "transforms": "outbox",
               "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
               "transforms.outbox.table.field.event.id": "id",
