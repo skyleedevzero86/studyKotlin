@@ -54,10 +54,3 @@ class VectorIndexStartupTest {
         return StartupCollaborators(admin, loader, seed, startup)
     }
 }
-
-private class StartupCollaborators(
-    val admin: RecordingIndexAdmin,
-    val loader: SamplePassageLoader,
-    val seed: PassageSeedService,
-    val startup: VectorIndexStartup
-)

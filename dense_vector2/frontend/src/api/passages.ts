@@ -1,43 +1,7 @@
-export type PassageSummary = {
-  id: number
-  title: string
-  body: string
-  dims: number
-  createdAt: string | null
-}
-
-export type PassagePage = {
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
-  items: PassageSummary[]
-}
-
-export type PassageDetail = PassageSummary & {
-  embedding: number[]
-}
-
-export type SearchHit = {
-  id: number
-  title: string
-  body: string
-  esScore: number
-  cosine: number
-}
-
-export type SearchResult = {
-  dims: number
-  similarity: string
-  k: number
-  hits: SearchHit[]
-}
-
-export class ApiRequestError extends Error {
-  constructor(message: string) {
-    super(message)
-  }
-}
+import { ApiRequestError } from './apiRequestError'
+import type { PassageDetail } from './passageDetail'
+import type { PassagePage } from './passagePage'
+import type { SearchResult } from './searchResult'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {

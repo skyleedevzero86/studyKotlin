@@ -60,5 +60,3 @@ class PassageSeedService(
         return saved.size
     }
 }
-
-private data class PreparedPassage(val title: String, val body: String, val vector: FloatArray)

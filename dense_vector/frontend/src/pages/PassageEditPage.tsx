@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getPassage, updatePassage, type PassageDetail } from '../api/passages'
+import { getPassage, updatePassage } from '../api/passages'
+import type { PassageDetail } from '../api/passageDetail'
 import { PassageForm } from '../components/PassageForm'
 
 export function PassageEditPage() {

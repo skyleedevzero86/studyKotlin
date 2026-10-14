@@ -1,11 +1,7 @@
 package com.sleekydz86.densevector2.support
 
-import com.sleekydz86.densevector2.global.elasticsearch.IndexDescription
 import com.sleekydz86.densevector2.global.elasticsearch.IndexedPassage
-import com.sleekydz86.densevector2.global.elasticsearch.PassageVectorReader
 import com.sleekydz86.densevector2.global.elasticsearch.PassageVectorWriter
-import com.sleekydz86.densevector2.global.elasticsearch.VectorHit
-import com.sleekydz86.densevector2.global.elasticsearch.VectorIndexAdmin
 import com.sleekydz86.densevector2.global.error.VectorStudyException
 
 class RecordingVectorWriter : PassageVectorWriter {
@@ -28,28 +24,4 @@ class RecordingVectorWriter : PassageVectorWriter {
         deleted += id
         upserts.removeIf { it.id == id }
     }
-}
-
-class RecordingVectorReader : PassageVectorReader {
-    var hits: List<VectorHit> = emptyList()
-
-    override fun search(query: FloatArray, k: Int): List<VectorHit> = hits.take(k)
-}
-
-class RecordingIndexAdmin : VectorIndexAdmin {
-    var ensured = false
-
-    override fun ensureIndex() {
-        ensured = true
-    }
-
-    override fun describe(): IndexDescription = IndexDescription(
-        index = "test-passages",
-        dims = 64,
-        similarity = "cosine",
-        indexType = "hnsw",
-        m = 16,
-        efConstruction = 100,
-        clusterVersion = "9.5.0"
-    )
 }

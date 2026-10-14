@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deletePassage, getPassage, type PassageDetail } from '../api/passages'
+import type { PassageDetail } from '../api/passageDetail'
+import { deletePassage, getPassage } from '../api/passages'
 import { EmbeddingView } from '../components/EmbeddingView'
 
 export function PassageDetailPage() {

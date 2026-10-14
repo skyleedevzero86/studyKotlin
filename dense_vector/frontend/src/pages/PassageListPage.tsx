@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listPassages, searchPassages, type PassagePage, type SearchResult } from '../api/passages'
+import { listPassages, searchPassages } from '../api/passages'
+import type { PassagePage } from '../api/passagePage'
+import type { SearchResult } from '../api/searchResult'
 
 export function PassageListPage() {
   const [page, setPage] = useState(0)
