@@ -1,6 +1,11 @@
 package com.sleekydz86.youtubemsa.shared
 
 import org.junit.jupiter.api.DisplayName
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -80,6 +85,28 @@ class SagaDeliveryTest {
     }
 
     @Test
+    @DisplayName("완료 기록 전에 두 확인이 통과하면 같은 이벤트의 일이 두 번 실행된다")
+    fun bothChecksPassBeforeMark() {
+        val inbox = OpenRaceInbox()
+        val runs = AtomicInteger()
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val first = pool.submit<Boolean> {
+                acceptDelivery(inbox, "media", "event-1") { runs.incrementAndGet() }
+            }
+            val second = pool.submit<Boolean> {
+                acceptDelivery(inbox, "media", "event-1") { runs.incrementAndGet() }
+            }
+            assertTrue(first.get(3, TimeUnit.SECONDS))
+            assertTrue(second.get(3, TimeUnit.SECONDS))
+        } finally {
+            pool.shutdownNow()
+        }
+        assertEquals(2, runs.get())
+        assertTrue(inbox.alreadyDone("media", "event-1"))
+    }
+
+    @Test
     @DisplayName("다섯 번째 실패부터 DLQ로 보내고 대기 시간은 두 배씩 늘어난다")
     fun retriesThenDeadLetter() {
         // given
@@ -112,6 +139,21 @@ class SagaDeliveryTest {
         assertEquals(DownloadEventType.DOWNLOAD_REQUESTED, event?.eventType)
         assertEquals(4L, event?.downloadId)
         assertNull(downloadEvent("""{"eventType":"UNKNOWN"}"""))
+    }
+}
+
+private class OpenRaceInbox : DeliveryInbox {
+    private val arrived = CountDownLatch(2)
+    private val done = ConcurrentHashMap.newKeySet<String>()
+
+    override fun alreadyDone(consumer: String, eventId: String): Boolean {
+        arrived.countDown()
+        if (!arrived.await(3, TimeUnit.SECONDS)) error("두 확인이 모이기 전에 대기 시간이 끝났습니다.")
+        return "$consumer:$eventId" in done
+    }
+
+    override fun markDone(consumer: String, eventId: String) {
+        done.add("$consumer:$eventId")
     }
 }
 

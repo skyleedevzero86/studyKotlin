@@ -1,10 +1,12 @@
 package com.sleekydz86.youtubemsa.media
 
 import com.sleekydz86.youtubemsa.shared.ClaimedView
+import com.sleekydz86.youtubemsa.shared.DeliveryInbox
 import com.sleekydz86.youtubemsa.shared.MarkSavedBody
 import com.sleekydz86.youtubemsa.shared.SharedVideo
 import com.sleekydz86.youtubemsa.shared.StudyException
 import com.sleekydz86.youtubemsa.shared.VideoId
+import com.sleekydz86.youtubemsa.shared.acceptDelivery
 import org.junit.jupiter.api.DisplayName
 import java.nio.file.Files
 import java.nio.file.Path
@@ -62,6 +64,52 @@ class FulfillDownloadTest {
         assertEquals(1, remote.removed)
         assertTrue(ledger.compensated.orEmpty().contains("원장"))
         assertEquals(null, ledger.failed)
+    }
+
+    @Test
+    @DisplayName("claim이 null이면 파일을 받지 않고 수신함은 완료로 남는다")
+    fun nullClaimMarksInboxDone() {
+        val inbox = MarkingInbox()
+        val files = CountingVideoFile()
+        val handled = acceptDelivery(inbox, "media", "event-1") {
+            fulfillDownload(4, "event-1", RecordingLedger(null), files, UnusedRemoteStore(), Path.of("unused"))
+        }
+        assertTrue(handled)
+        assertEquals(0, files.saves)
+        assertTrue(inbox.alreadyDone("media", "event-1"))
+    }
+
+    @Test
+    @DisplayName("같은 claim이 다시 오면 파일 저장을 한 번 더 한다")
+    fun resumedClaimSavesAgain() {
+        val ledger = RecordingLedger(ClaimedView(4, "rjvqtbs9Q_g", "https://www.youtube.com/watch?v=rjvqtbs9Q_g"))
+        val files = CountingVideoFile()
+        val root = Files.createTempDirectory("msa-resume")
+        fulfillDownload(4, "event-1", ledger, files, FixedRemoteStore(), root)
+        fulfillDownload(4, "event-1", ledger, files, FixedRemoteStore(), root)
+        assertEquals(2, files.saves)
+    }
+}
+
+private class CountingVideoFile : VideoFiles {
+    var saves = 0
+
+    override fun save(video: SharedVideo, directory: Path): Path {
+        saves += 1
+        Files.createDirectories(directory)
+        val file = directory.resolve("등대 [rjvqtbs9Q_g].mp4")
+        Files.writeString(file, "video")
+        return file
+    }
+}
+
+private class MarkingInbox : DeliveryInbox {
+    private val seen = mutableSetOf<String>()
+
+    override fun alreadyDone(consumer: String, eventId: String): Boolean = "$consumer:$eventId" in seen
+
+    override fun markDone(consumer: String, eventId: String) {
+        seen += "$consumer:$eventId"
     }
 }
 

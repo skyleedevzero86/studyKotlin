@@ -74,10 +74,12 @@ class SharedContractTest {
         }
 
         // when
+        var requestedK = 0
         val page = recommendDownloads(
             anchorId = null,
             saved = rows,
             nearest = { vector, k ->
+                requestedK = k
                 rows.map { row -> VectorHit(row.id, CosineSimilarity.score(vector, storedVector(row, embedder))) }
                     .sortedByDescending { it.esScore }
                     .take(k)
@@ -90,6 +92,7 @@ class SharedContractTest {
         )
 
         // then
+        assertEquals(20, requestedK)
         assertEquals(recommendLimit, page.items.size)
         assertTrue(page.items.none { it.item.id == 1L || it.item.status == DownloadStatus.FAILED.name })
         assertEquals(page.items.map { it.cosine }.sortedDescending(), page.items.map { it.cosine })
