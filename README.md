@@ -14,3 +14,4 @@
 | [youtube_download_msa](youtube_download_msa/README.md) | 같은 흐름을 게이트웨이, 다운로드 원장, 미디어 워커, 검색 서비스로 나눈다.                                          |
 | [officeDoc](officeDoc/README.md)                       | Vue 화면에서 문서를 편집하고, 검사 결과는 PostgreSQL, 본문은 MinIO, 다운로드 토큰은 Redis에 둔다.                  |
 | [multi_tenant](multi_tenant/README.md)                 | 행·스키마·DB 분리로 테넌트 조회를 비교한다. API `18080`.                                                           |
+| [cdc_migration](cdc_migration/README.md)               | 카프카를 통한 마이그레이션. 엑셀 일괄 이관을 프로시저로 검증·적재하고, Kafka로 변경분을 반영한다. API `8085`.      |
