@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.attachment.infrastructure.AttachmentMapper">
+
+    <sql id="metaColumns">
+        attachment_id, sub_no, request_id, origin_inst_code, origin_file_id, origin_regno, origin_seq, file_name, content_type,
+        byte_size, sha256, bucket, object_key, status, last_error, created_at, updated_at
+    </sql>
+
+    <sql id="transferColumns">
+        transfer_id, source, batch_id, cdc_run_id, inst_code, legacy_file_id, legacy_regno, seq, file_name, content_type,
+        source_bucket, source_object_key, status, attachment_id, attempts, last_error, created_at, completed_at
+    </sql>
+
+    <select id="findByRequestId" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.AttachmentRow">
+        SELECT <include refid="metaColumns"/> FROM attachment WHERE request_id = #{requestId}
+    </select>
+
+    <select id="findById" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.AttachmentRow">
+        SELECT <include refid="metaColumns"/> FROM attachment WHERE attachment_id = #{id}
+    </select>
+
+    <select id="listBySubNo" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.AttachmentRow">
+        SELECT <include refid="metaColumns"/> FROM attachment WHERE sub_no = #{subNo} ORDER BY origin_seq NULLS LAST, attachment_id
+    </select>
+
+    <select id="loadContent" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.AttachmentContentRow">
+        SELECT file_content FROM attachment_content WHERE attachment_id = #{id}
+    </select>
+
+    <insert id="createBatch" useGeneratedKeys="true" keyProperty="batchId" keyColumn="batch_id">
+        INSERT INTO file_transfer_batch (total) VALUES (#{total})
+    </insert>
+
+    <select id="findTransfer" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.FileTransferRow">
+        SELECT <include refid="transferColumns"/> FROM file_transfer WHERE transfer_id = #{id}
+    </select>
+
+    <select id="findTransfersByBatch" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.FileTransferRow">
+        SELECT <include refid="transferColumns"/> FROM file_transfer WHERE batch_id = #{batchId} ORDER BY transfer_id
+    </select>
+
+    <select id="findRetryableTransfers" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.FileTransferRow">
+        SELECT <include refid="transferColumns"/>
+          FROM file_transfer
+         WHERE (status = 'PENDING')
+            OR (status = 'UNMAPPED' AND attempts &lt; 50 AND updated_at &lt; now() - INTERVAL '5 seconds')
+            OR (status = 'FAILED' AND attempts &lt; 5 AND updated_at &lt; now() - INTERVAL '10 seconds')
+         ORDER BY transfer_id
+         LIMIT #{limit}
+    </select>
+
+    <select id="listTransfers" resultType="com.sleekydz86.cdcmigration.attachment.infrastructure.FileTransferRow">
+        SELECT <include refid="transferColumns"/>
+          FROM file_transfer
+        <where>
+            <if test="status != null">status = #{status}</if>
+        </where>
+         ORDER BY transfer_id DESC
+         LIMIT #{limit}
+    </select>
+</mapper>

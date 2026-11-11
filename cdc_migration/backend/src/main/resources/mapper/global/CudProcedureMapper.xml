@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.global.procedure.CudProcedureMapper">
+
+    <update id="userCud" statementType="CALLABLE">
+        {call sp_user_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{userId, mode=IN, jdbcType=VARCHAR},
+            #{instCode, mode=IN, jdbcType=VARCHAR},
+            #{userName, mode=IN, jdbcType=VARCHAR},
+            #{email, mode=IN, jdbcType=VARCHAR},
+            #{deptName, mode=IN, jdbcType=VARCHAR},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="projectCud" statementType="CALLABLE">
+        {call sp_project_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{projectNo, mode=IN, jdbcType=VARCHAR},
+            #{instCode, mode=IN, jdbcType=VARCHAR},
+            #{title, mode=IN, jdbcType=VARCHAR},
+            #{piUserId, mode=IN, jdbcType=VARCHAR},
+            #{startDate, mode=IN, jdbcType=DATE},
+            #{endDate, mode=IN, jdbcType=DATE},
+            #{virtual, mode=IN, jdbcType=BOOLEAN},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="submissionCud" statementType="CALLABLE">
+        {call sp_submission_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{subNo, mode=IN, jdbcType=BIGINT},
+            #{instCode, mode=IN, jdbcType=VARCHAR},
+            #{regnoold, mode=IN, jdbcType=VARCHAR},
+            #{projectNo, mode=IN, jdbcType=VARCHAR},
+            #{applicantUserId, mode=IN, jdbcType=VARCHAR},
+            #{title, mode=IN, jdbcType=VARCHAR},
+            #{status, mode=IN, jdbcType=VARCHAR},
+            #{submittedAt, mode=IN, jdbcType=TIMESTAMP_WITH_TIMEZONE},
+            #{updatedAt, mode=IN, jdbcType=TIMESTAMP_WITH_TIMEZONE},
+            #{source, mode=IN, jdbcType=VARCHAR},
+            #{migrationRunId, mode=IN, jdbcType=BIGINT},
+            #{version, mode=IN, jdbcType=INTEGER},
+            #{outSubNo, mode=INOUT, jdbcType=BIGINT},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="reviewCud" statementType="CALLABLE">
+        {call sp_review_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{instCode, mode=IN, jdbcType=VARCHAR},
+            #{legacyReviewId, mode=IN, jdbcType=VARCHAR},
+            #{subNo, mode=IN, jdbcType=BIGINT},
+            #{reviewerUserId, mode=IN, jdbcType=VARCHAR},
+            #{result, mode=IN, jdbcType=VARCHAR},
+            #{opinion, mode=IN, jdbcType=VARCHAR},
+            #{reviewedAt, mode=IN, jdbcType=TIMESTAMP_WITH_TIMEZONE},
+            #{source, mode=IN, jdbcType=VARCHAR},
+            #{migrationRunId, mode=IN, jdbcType=BIGINT},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="attachmentCud" statementType="CALLABLE">
+        {call sp_attachment_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{attachmentId, mode=IN, jdbcType=BIGINT},
+            #{subNo, mode=IN, jdbcType=BIGINT},
+            #{requestId, mode=IN, jdbcType=VARCHAR},
+            #{originInstCode, mode=IN, jdbcType=VARCHAR},
+            #{originFileId, mode=IN, jdbcType=VARCHAR},
+            #{originRegno, mode=IN, jdbcType=VARCHAR},
+            #{originSeq, mode=IN, jdbcType=INTEGER},
+            #{fileName, mode=IN, jdbcType=VARCHAR},
+            #{contentType, mode=IN, jdbcType=VARCHAR},
+            #{byteSize, mode=IN, jdbcType=BIGINT},
+            #{sha256, mode=IN, jdbcType=VARCHAR},
+            #{bucket, mode=IN, jdbcType=VARCHAR},
+            #{objectKey, mode=IN, jdbcType=VARCHAR},
+            #{status, mode=IN, jdbcType=VARCHAR},
+            #{lastError, mode=IN, jdbcType=VARCHAR},
+            #{outAttachmentId, mode=INOUT, jdbcType=BIGINT},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="attachmentContent" statementType="CALLABLE">
+        {call sp_attachment_content_u(
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{attachmentId, mode=IN, jdbcType=BIGINT},
+            #{fileContent, mode=IN, jdbcType=BINARY},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+
+    <update id="fileTransferCud" statementType="CALLABLE">
+        {call sp_file_transfer_cud(
+            #{operation, mode=IN, jdbcType=VARCHAR},
+            #{worker, mode=IN, jdbcType=VARCHAR},
+            #{workip, mode=IN, jdbcType=VARCHAR},
+            #{transferId, mode=IN, jdbcType=BIGINT},
+            #{source, mode=IN, jdbcType=VARCHAR},
+            #{batchId, mode=IN, jdbcType=BIGINT},
+            #{cdcRunId, mode=IN, jdbcType=BIGINT},
+            #{instCode, mode=IN, jdbcType=VARCHAR},
+            #{legacyFileId, mode=IN, jdbcType=VARCHAR},
+            #{legacyRegno, mode=IN, jdbcType=VARCHAR},
+            #{seq, mode=IN, jdbcType=INTEGER},
+            #{fileName, mode=IN, jdbcType=VARCHAR},
+            #{contentType, mode=IN, jdbcType=VARCHAR},
+            #{sourceBucket, mode=IN, jdbcType=VARCHAR},
+            #{sourceObjectKey, mode=IN, jdbcType=VARCHAR},
+            #{status, mode=IN, jdbcType=VARCHAR},
+            #{attachmentId, mode=IN, jdbcType=BIGINT},
+            #{lastError, mode=IN, jdbcType=VARCHAR},
+            #{outTransferId, mode=INOUT, jdbcType=BIGINT},
+            #{outCreated, mode=INOUT, jdbcType=BOOLEAN},
+            #{rtnCod, mode=INOUT, jdbcType=VARCHAR},
+            #{errMsg, mode=INOUT, jdbcType=VARCHAR}
+        )}
+    </update>
+</mapper>

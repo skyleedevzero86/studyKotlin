@@ -1,0 +1,10 @@
+inst_code,user_id,user_name,email,dept_name
+H01,r2001,최심의,h01.r2001@example.org,심의 사무국
+H01,r2002,정심의,h01.r2002@example.org,심의 사무국
+H01,u1001,김하늘,h01.u1001@example.org,내분비내과
+H01,u1002,이바다,h01.u1002@example.org,마취통증의학과
+H01,u1003,박산들,h01.u1003@example.org,소아청소년과
+H01,u1009,"",h01.u1009@example.org,미상
+H02,r2001,윤심의,h02.r2001@example.org,심의 사무국
+H02,u1001,한구름,h02.u1001@example.org,신경과
+H02,u1002,오누리,h02.u1002@example.org,재활의학과

@@ -1,0 +1,71 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: cdc-migration
+  datasource:
+    url: ${TARGET_DB_URL:jdbc:postgresql://localhost:5442/target_db?escapeSyntaxCallMode=callIfNoReturn}
+    username: ${TARGET_DB_USER:app}
+    password: ${TARGET_DB_PASSWORD:app}
+  flyway:
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 100MB
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      group-id: cdc-migration
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        metadata.max.age.ms: 3000
+    listener:
+      ack-mode: manual_immediate
+      missing-topics-fatal: false
+  web:
+    locale: ko_KR
+    locale-resolver: fixed
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    local-cache-scope: statement
+    default-statement-timeout: 60
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+app:
+  cors:
+    - http://localhost:5175
+  attachment:
+    max-file-bytes: ${ATTACHMENT_MAX_BYTES:10485760}
+    bucket: target-attachments
+    worker-interval-ms: 3000
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9100}
+    region: us-east-1
+    access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  cdc:
+    enabled: true
+    topic-pattern: 'legacy_r\d+\..*'
+    connect-url: ${CONNECT_URL:http://localhost:8083}
+    poll-interval-ms: 2000
+    max-waiting-attempts: 30
+    legacy-db:
+      hostname: legacy-db
+      port: 5432
+      database: legacy_db
+      user: legacy
+      password: legacy

@@ -1,0 +1,7 @@
+inst_code,file_id,regno,seq,file_name,content_type,bucket,object_key
+H01,F-1001,1220,1,연구계획서.txt,text/plain,legacy-attachments,H01/1220/F-1001-plan.txt
+H01,F-1002,1220,2,동의서.txt,text/plain,legacy-attachments,H01/1220/F-1002-consent.txt
+H01,F-1003,1218,1,심의결과통지서.txt,text/plain,legacy-attachments,H01/1218/F-1003-notice.txt
+H01,F-1004,1224,1,미적재신청첨부.txt,text/plain,legacy-attachments,H01/1224/F-1004-draft.txt
+H01,F-1099,9999,1,신청없는파일.txt,text/plain,legacy-attachments,H01/9999/F-1099-orphan.txt
+H02,F-1001,1220,1,판독기준.txt,text/plain,legacy-attachments,H02/1220/F-1001-criteria.txt

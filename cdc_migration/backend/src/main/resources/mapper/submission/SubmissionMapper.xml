@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.submission.infrastructure.SubmissionMapper">
+
+    <sql id="columns">
+        sub_no, inst_code, regnoold, project_no, applicant_user_id, title, status, submitted_at, updated_at, deleted, version
+    </sql>
+
+    <select id="findByKey" resultType="com.sleekydz86.cdcmigration.submission.infrastructure.SubmissionRow">
+        SELECT <include refid="columns"/> FROM sub_mastinfo WHERE inst_code = #{instCode} AND regnoold = #{regnoold}
+    </select>
+
+    <select id="findBySubNo" resultType="com.sleekydz86.cdcmigration.submission.infrastructure.SubmissionRow">
+        SELECT <include refid="columns"/> FROM sub_mastinfo WHERE sub_no = #{subNo}
+    </select>
+
+    <select id="reviewExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM sub_review WHERE inst_code = #{instCode} AND legacy_review_id = #{legacyReviewId})
+    </select>
+
+    <select id="search" resultType="com.sleekydz86.cdcmigration.submission.infrastructure.SubmissionSummaryRow">
+        SELECT m.sub_no, m.inst_code, m.regnoold, m.title, m.status, m.project_no, u.user_name AS applicant_name,
+               m.source, m.deleted, m.updated_at,
+               (SELECT count(*) FROM sub_review r WHERE r.sub_no = m.sub_no) AS review_count,
+               (SELECT count(*) FROM attachment a WHERE a.sub_no = m.sub_no) AS attachment_count
+          FROM sub_mastinfo m
+          LEFT JOIN iuser u ON u.user_id = m.applicant_user_id
+        <where>
+            <if test="instCode != null">AND m.inst_code = #{instCode}</if>
+            <if test="status != null">AND m.status = #{status}</if>
+            <if test="keyword != null">AND (lower(m.title) LIKE #{keyword} OR m.regnoold LIKE #{keyword} OR CAST(m.sub_no AS TEXT) LIKE #{keyword})</if>
+        </where>
+         ORDER BY m.sub_no
+    </select>
+
+    <select id="findDetail" resultType="com.sleekydz86.cdcmigration.submission.infrastructure.SubmissionDetailRow">
+        SELECT m.sub_no, m.inst_code, m.regnoold, m.title, m.status, m.project_no, p.title AS project_title,
+               coalesce(p.is_virtual, false) AS virtual_project, m.applicant_user_id, u.user_name AS applicant_name,
+               m.submitted_at, m.updated_at, m.source, m.migration_run_id, m.deleted, m.version
+          FROM sub_mastinfo m
+          LEFT JOIN project p ON p.project_no = m.project_no
+          LEFT JOIN iuser u ON u.user_id = m.applicant_user_id
+         WHERE m.sub_no = #{subNo}
+    </select>
+
+    <select id="findReviews" resultType="com.sleekydz86.cdcmigration.submission.infrastructure.ReviewRow">
+        SELECT r.review_no, r.legacy_review_id, r.reviewer_user_id, u.user_name AS reviewer_name, r.result, r.opinion,
+               r.reviewed_at, r.source
+          FROM sub_review r
+          LEFT JOIN iuser u ON u.user_id = r.reviewer_user_id
+         WHERE r.sub_no = #{subNo}
+         ORDER BY r.reviewed_at NULLS LAST, r.review_no
+    </select>
+</mapper>

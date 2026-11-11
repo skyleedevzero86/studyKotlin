@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.MappingMapper">
+
+    <select id="ensureUser" resultType="string" flushCache="true" useCache="false">
+        SELECT fn_ensure_user_mapping(#{instCode}, #{legacyUserId}, #{runId})
+    </select>
+
+    <select id="findUserId" resultType="string">
+        SELECT m.user_id
+          FROM map_user m
+          JOIN iuser u ON u.user_id = m.user_id
+         WHERE m.inst_code = #{instCode} AND m.legacy_user_id = #{legacyUserId}
+    </select>
+
+    <select id="userExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM iuser WHERE user_id = #{userId})
+    </select>
+
+    <select id="ensureProject" resultType="string" flushCache="true" useCache="false">
+        SELECT fn_ensure_project_mapping(#{instCode}, #{legacyResearchNo}, #{runId})
+    </select>
+
+    <select id="findProjectNo" resultType="string">
+        SELECT m.project_no
+          FROM map_project m
+          JOIN project p ON p.project_no = m.project_no
+         WHERE m.inst_code = #{instCode} AND m.legacy_research_no = #{legacyResearchNo} AND NOT m.is_virtual
+    </select>
+
+    <select id="projectExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM project WHERE project_no = #{projectNo})
+    </select>
+
+    <select id="virtualRuleExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM mig_virtual_project_rule WHERE inst_code = #{instCode} AND legacy_regno = #{legacyRegno})
+    </select>
+
+    <insert id="ensureVirtualMapping">
+        INSERT INTO map_project (inst_code, legacy_research_no, project_no, is_virtual, migration_run_id)
+        VALUES (#{instCode}, '__VIRTUAL__', fn_virtual_project_no(#{instCode}), true, #{runId})
+        ON CONFLICT (inst_code, legacy_research_no) DO NOTHING
+    </insert>
+
+    <select id="virtualProjectNo" resultType="string">
+        SELECT fn_virtual_project_no(#{instCode})
+    </select>
+
+    <select id="mapCode" resultType="string">
+        SELECT fn_map_code(#{group}, #{instCode}, #{legacyCode})
+    </select>
+
+    <select id="toTimestamp" resultType="java.time.Instant">
+        SELECT fn_try_timestamp(#{value, jdbcType=VARCHAR})
+    </select>
+
+    <select id="toDate" resultType="java.time.LocalDate">
+        SELECT fn_try_date(#{value, jdbcType=VARCHAR})
+    </select>
+</mapper>

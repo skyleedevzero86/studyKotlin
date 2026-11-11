@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.MigrationMapper">
+
+    <sql id="runColumns">
+        id, mode, status, description, created_at, started_at, finished_at, attempt_count, error_message, error_count,
+        info_count, inserted_users, inserted_projects, inserted_applications, inserted_reviews
+    </sql>
+
+    <insert id="insertRun" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO migration_run (mode, status, description) VALUES (#{mode}, #{status}, #{description})
+    </insert>
+
+    <select id="findRun" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.MigrationRunRow">
+        SELECT <include refid="runColumns"/> FROM migration_run WHERE id = #{id}
+    </select>
+
+    <select id="findRuns" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.MigrationRunRow">
+        SELECT <include refid="runColumns"/> FROM migration_run ORDER BY id DESC
+    </select>
+
+    <update id="updateRun">
+        UPDATE migration_run
+           SET status = #{status}, started_at = #{startedAt}, finished_at = #{finishedAt}, attempt_count = #{attemptCount},
+               error_message = #{errorMessage}, error_count = #{errorCount}, info_count = #{infoCount},
+               inserted_users = #{insertedUsers}, inserted_projects = #{insertedProjects},
+               inserted_applications = #{insertedApplications}, inserted_reviews = #{insertedReviews}
+         WHERE id = #{id}
+    </update>
+
+    <select id="countRunning" resultType="int">
+        SELECT count(*) FROM migration_run WHERE status = 'RUNNING'
+    </select>
+
+    <insert id="insertStagedUsers">
+        INSERT INTO stg_user (migration_run_id, row_no, inst_code, legacy_user_id, user_name, email, dept_name) VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{runId}, #{r.rowNo}, #{r.values[0]}, #{r.values[1]}, #{r.values[2]}, #{r.values[3]}, #{r.values[4]})
+        </foreach>
+    </insert>
+
+    <insert id="insertStagedProjects">
+        INSERT INTO stg_project (migration_run_id, row_no, inst_code, legacy_research_no, title, pi_legacy_user_id, start_date, end_date) VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{runId}, #{r.rowNo}, #{r.values[0]}, #{r.values[1]}, #{r.values[2]}, #{r.values[3]}, #{r.values[4]}, #{r.values[5]})
+        </foreach>
+    </insert>
+
+    <insert id="insertStagedSubmissions">
+        INSERT INTO stg_submission (migration_run_id, row_no, inst_code, legacy_regno, legacy_research_no, applicant_legacy_user_id,
+                                    title, legacy_status_code, submitted_at, updated_at) VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{runId}, #{r.rowNo}, #{r.values[0]}, #{r.values[1]}, #{r.values[2]}, #{r.values[3]}, #{r.values[4]}, #{r.values[5]},
+             #{r.values[6]}, #{r.values[7]})
+        </foreach>
+    </insert>
+
+    <insert id="insertStagedReviews">
+        INSERT INTO stg_review (migration_run_id, row_no, inst_code, legacy_review_id, legacy_regno, reviewer_legacy_user_id,
+                                result_code, opinion, reviewed_at) VALUES
+        <foreach collection="rows" item="r" separator=",">
+            (#{runId}, #{r.rowNo}, #{r.values[0]}, #{r.values[1]}, #{r.values[2]}, #{r.values[3]}, #{r.values[4]}, #{r.values[5]},
+             #{r.values[6]})
+        </foreach>
+    </insert>
+
+    <select id="maxRowNo" resultType="int">
+        SELECT coalesce(max(row_no), 0) FROM ${tableName} WHERE migration_run_id = #{runId}
+    </select>
+
+    <select id="countStaged" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.StagedCountRow">
+        SELECT 'stg_user' AS table_name, count(*) AS cnt FROM stg_user WHERE migration_run_id = #{runId}
+        UNION ALL SELECT 'stg_project', count(*) FROM stg_project WHERE migration_run_id = #{runId}
+        UNION ALL SELECT 'stg_submission', count(*) FROM stg_submission WHERE migration_run_id = #{runId}
+        UNION ALL SELECT 'stg_review', count(*) FROM stg_review WHERE migration_run_id = #{runId}
+    </select>
+
+    <update id="callValidate" statementType="CALLABLE">
+        {call sp_validate_migration(
+            #{runId, mode=IN, jdbcType=BIGINT},
+            #{errorCount, mode=INOUT, jdbcType=INTEGER},
+            #{infoCount, mode=INOUT, jdbcType=INTEGER}
+        )}
+    </update>
+
+    <update id="callApply" statementType="CALLABLE">
+        {call sp_apply_migration(
+            #{runId, mode=IN, jdbcType=BIGINT},
+            #{users, mode=INOUT, jdbcType=INTEGER},
+            #{projects, mode=INOUT, jdbcType=INTEGER},
+            #{applications, mode=INOUT, jdbcType=INTEGER},
+            #{reviews, mode=INOUT, jdbcType=INTEGER}
+        )}
+    </update>
+
+    <select id="findIssues" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.IssueRow">
+        SELECT id, table_name, row_no, source_key, issue_type, severity, message
+          FROM migration_issue
+         WHERE migration_run_id = #{runId}
+        <if test="tableName != null">AND table_name = #{tableName}</if>
+        <if test="severity != null">AND severity = #{severity}</if>
+         ORDER BY CASE table_name WHEN 'stg_user' THEN 1 WHEN 'stg_project' THEN 2 WHEN 'stg_submission' THEN 3 ELSE 4 END, row_no, id
+    </select>
+
+    <select id="summarizeIssues" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.IssueSummaryRow">
+        SELECT issue_type, severity, count(*) AS cnt
+          FROM migration_issue
+         WHERE migration_run_id = #{runId}
+         GROUP BY issue_type, severity
+         ORDER BY severity, cnt DESC, issue_type
+    </select>
+
+    <select id="verifyTables" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.TableVerificationRow">
+        SELECT 'stg_user' AS table_name,
+               (SELECT count(*) FROM stg_user s WHERE s.migration_run_id = #{runId}) AS staged,
+               (SELECT count(DISTINCT i.row_no) FROM migration_issue i WHERE i.migration_run_id = #{runId} AND i.table_name = 'stg_user' AND i.severity = 'ERROR') AS excluded,
+               (SELECT count(DISTINCT (trim(s.inst_code), trim(s.legacy_user_id))) FROM stg_user s
+                 WHERE s.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_user', s.row_no)) AS expected,
+               (SELECT count(DISTINCT (trim(s.inst_code), trim(s.legacy_user_id))) FROM stg_user s
+                  JOIN map_user m ON m.inst_code = trim(s.inst_code) AND m.legacy_user_id = trim(s.legacy_user_id)
+                  JOIN iuser u ON u.user_id = m.user_id
+                 WHERE s.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_user', s.row_no)) AS loaded
+        UNION ALL
+        SELECT 'stg_project',
+               (SELECT count(*) FROM stg_project p WHERE p.migration_run_id = #{runId}),
+               (SELECT count(DISTINCT i.row_no) FROM migration_issue i WHERE i.migration_run_id = #{runId} AND i.table_name = 'stg_project' AND i.severity = 'ERROR'),
+               (SELECT count(DISTINCT (trim(p.inst_code), trim(p.legacy_research_no))) FROM stg_project p
+                 WHERE p.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_project', p.row_no)),
+               (SELECT count(DISTINCT (trim(p.inst_code), trim(p.legacy_research_no))) FROM stg_project p
+                  JOIN map_project m ON m.inst_code = trim(p.inst_code) AND m.legacy_research_no = trim(p.legacy_research_no)
+                  JOIN project t ON t.project_no = m.project_no
+                 WHERE p.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_project', p.row_no))
+        UNION ALL
+        SELECT 'stg_submission',
+               (SELECT count(*) FROM stg_submission a WHERE a.migration_run_id = #{runId}),
+               (SELECT count(DISTINCT i.row_no) FROM migration_issue i WHERE i.migration_run_id = #{runId} AND i.table_name = 'stg_submission' AND i.severity = 'ERROR'),
+               (SELECT count(DISTINCT (trim(a.inst_code), trim(a.legacy_regno))) FROM stg_submission a
+                 WHERE a.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_submission', a.row_no)),
+               (SELECT count(DISTINCT (trim(a.inst_code), trim(a.legacy_regno))) FROM stg_submission a
+                  JOIN sub_mastinfo m ON m.inst_code = trim(a.inst_code) AND m.regnoold = trim(a.legacy_regno)
+                 WHERE a.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_submission', a.row_no))
+        UNION ALL
+        SELECT 'stg_review',
+               (SELECT count(*) FROM stg_review r WHERE r.migration_run_id = #{runId}),
+               (SELECT count(DISTINCT i.row_no) FROM migration_issue i WHERE i.migration_run_id = #{runId} AND i.table_name = 'stg_review' AND i.severity = 'ERROR'),
+               (SELECT count(DISTINCT (trim(r.inst_code), trim(r.legacy_review_id))) FROM stg_review r
+                 WHERE r.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_review', r.row_no)),
+               (SELECT count(DISTINCT (trim(r.inst_code), trim(r.legacy_review_id))) FROM stg_review r
+                  JOIN sub_review v ON v.inst_code = trim(r.inst_code) AND v.legacy_review_id = trim(r.legacy_review_id)
+                 WHERE r.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_review', r.row_no))
+    </select>
+
+    <select id="verifyMissing" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.FindingRow">
+        SELECT 'stg_user' AS table_name, trim(s.inst_code) || '/' || trim(s.legacy_user_id) AS source_key, '검증을 통과했지만 새 시스템에 사용자가 없습니다.' AS reason
+          FROM stg_user s
+         WHERE s.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_user', s.row_no)
+           AND NOT EXISTS (SELECT 1 FROM map_user m JOIN iuser u ON u.user_id = m.user_id
+                            WHERE m.inst_code = trim(s.inst_code) AND m.legacy_user_id = trim(s.legacy_user_id))
+        UNION ALL
+        SELECT 'stg_project', trim(p.inst_code) || '/' || trim(p.legacy_research_no), '검증을 통과했지만 새 시스템에 과제가 없습니다.'
+          FROM stg_project p
+         WHERE p.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_project', p.row_no)
+           AND NOT EXISTS (SELECT 1 FROM map_project m JOIN project t ON t.project_no = m.project_no
+                            WHERE m.inst_code = trim(p.inst_code) AND m.legacy_research_no = trim(p.legacy_research_no))
+        UNION ALL
+        SELECT 'stg_submission', trim(a.inst_code) || '/' || trim(a.legacy_regno), '검증을 통과했지만 새 시스템에 신청이 없습니다.'
+          FROM stg_submission a
+         WHERE a.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_submission', a.row_no)
+           AND NOT EXISTS (SELECT 1 FROM sub_mastinfo m WHERE m.inst_code = trim(a.inst_code) AND m.regnoold = trim(a.legacy_regno))
+        UNION ALL
+        SELECT 'stg_review', trim(r.inst_code) || '/' || trim(r.legacy_review_id), '검증을 통과했지만 새 시스템에 심의 이력이 없습니다.'
+          FROM stg_review r
+         WHERE r.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_review', r.row_no)
+           AND NOT EXISTS (SELECT 1 FROM sub_review v WHERE v.inst_code = trim(r.inst_code) AND v.legacy_review_id = trim(r.legacy_review_id))
+    </select>
+
+    <select id="verifyDuplicates" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.FindingRow">
+        SELECT 'stg_submission' AS table_name, inst_code || '/' || regnoold AS source_key, count(*) || '건이 같은 원본 키로 존재합니다.' AS reason
+          FROM sub_mastinfo GROUP BY inst_code, regnoold HAVING count(*) > 1
+        UNION ALL
+        SELECT 'stg_review', inst_code || '/' || legacy_review_id, count(*) || '건이 같은 원본 키로 존재합니다.'
+          FROM sub_review GROUP BY inst_code, legacy_review_id HAVING count(*) > 1
+        UNION ALL
+        SELECT 'stg_user', string_agg(inst_code || '/' || legacy_user_id, ', '), '서로 다른 구 사용자가 새 사용자 ' || user_id || ' 하나에 연결됐습니다.'
+          FROM map_user GROUP BY user_id HAVING count(*) > 1
+    </select>
+
+    <select id="verifyWrongLinks" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.FindingRow">
+        SELECT 'stg_submission' AS table_name, trim(a.inst_code) || '/' || trim(a.legacy_regno) AS source_key,
+               '신청자 연결이 다릅니다: 기대 ' || mu.user_id || ', 실제 ' || m.applicant_user_id AS reason
+          FROM stg_submission a
+          JOIN sub_mastinfo m ON m.inst_code = trim(a.inst_code) AND m.regnoold = trim(a.legacy_regno)
+          JOIN map_user mu ON mu.inst_code = trim(a.inst_code) AND mu.legacy_user_id = trim(a.applicant_legacy_user_id)
+         WHERE a.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_submission', a.row_no)
+           AND m.applicant_user_id &lt;&gt; mu.user_id
+        UNION ALL
+        SELECT 'stg_submission', trim(a.inst_code) || '/' || trim(a.legacy_regno),
+               '과제 연결이 다릅니다: 기대 ' || mp.project_no || ', 실제 ' || m.project_no
+          FROM stg_submission a
+          JOIN sub_mastinfo m ON m.inst_code = trim(a.inst_code) AND m.regnoold = trim(a.legacy_regno)
+          JOIN map_project mp ON mp.inst_code = trim(a.inst_code)
+                             AND mp.legacy_research_no = coalesce(nullif(trim(a.legacy_research_no), ''), '__VIRTUAL__')
+         WHERE a.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_submission', a.row_no)
+           AND m.project_no &lt;&gt; mp.project_no
+        UNION ALL
+        SELECT 'stg_review', trim(r.inst_code) || '/' || trim(r.legacy_review_id),
+               '심의 이력이 다른 신청에 붙어 있습니다: 기대 구 신청번호 ' || trim(r.legacy_regno) || ', 실제 ' || m.regnoold
+          FROM stg_review r
+          JOIN sub_review v ON v.inst_code = trim(r.inst_code) AND v.legacy_review_id = trim(r.legacy_review_id)
+          JOIN sub_mastinfo m ON m.sub_no = v.sub_no
+         WHERE r.migration_run_id = #{runId} AND NOT fn_row_has_error(#{runId}, 'stg_review', r.row_no)
+           AND (m.inst_code &lt;&gt; trim(r.inst_code) OR m.regnoold &lt;&gt; trim(r.legacy_regno))
+    </select>
+
+    <update id="truncateTarget">
+        TRUNCATE TABLE work_log, cdc_event, cdc_snapshot_table, cdc_run, file_transfer, file_transfer_batch, attachment_content,
+                       attachment, sub_review, sub_mastinfo, project, iuser, map_project, map_user, migration_issue,
+                       stg_review, stg_submission, stg_project, stg_user, migration_run
+        RESTART IDENTITY CASCADE
+    </update>
+
+    <select id="restartSequences" resultType="int">
+        SELECT count(*) FROM (SELECT setval('seq_new_user_id', 1, false), setval('seq_new_project_no', 1, false)) s
+    </select>
+</mapper>

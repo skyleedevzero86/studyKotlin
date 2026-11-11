@@ -1,0 +1,11 @@
+app:
+  cdc:
+    poll-interval-ms: 300
+    topic-pattern: 'legacy_r\d+\..*'
+  attachment:
+    worker-interval-ms: 3600000
+
+logging:
+  level:
+    org.apache.kafka: WARN
+    org.testcontainers: INFO

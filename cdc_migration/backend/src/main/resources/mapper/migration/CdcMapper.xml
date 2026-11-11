@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcMapper">
+
+    <sql id="runColumns">
+        cdc_run_id, migration_run_id, topic_prefix, connector_name, status, snapshot_completed, snapshot_completed_at,
+        initial_load_at, last_error, created_at
+    </sql>
+
+    <insert id="insertRun" useGeneratedKeys="true" keyProperty="cdcRunId" keyColumn="cdc_run_id">
+        INSERT INTO cdc_run (migration_run_id, topic_prefix, connector_name, status)
+        VALUES (#{migrationRunId}, #{topicPrefix}, #{connectorName}, #{status})
+    </insert>
+
+    <update id="assignNames">
+        UPDATE cdc_run
+           SET topic_prefix = 'legacy_r' || cdc_run_id,
+               connector_name = 'cdc-legacy-r' || cdc_run_id,
+               updated_at = now()
+         WHERE cdc_run_id = #{id}
+    </update>
+
+    <select id="findRun" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcRunRow">
+        SELECT <include refid="runColumns"/> FROM cdc_run WHERE cdc_run_id = #{id}
+    </select>
+
+    <select id="findRunByPrefix" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcRunRow">
+        SELECT <include refid="runColumns"/> FROM cdc_run WHERE topic_prefix = #{topicPrefix}
+    </select>
+
+    <select id="findRuns" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcRunRow">
+        SELECT <include refid="runColumns"/> FROM cdc_run ORDER BY cdc_run_id DESC
+    </select>
+
+    <select id="findActiveRuns" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcRunRow">
+        SELECT <include refid="runColumns"/> FROM cdc_run WHERE status IN ('SNAPSHOTTING', 'LOADING', 'STREAMING') ORDER BY cdc_run_id
+    </select>
+
+    <update id="updateRun">
+        UPDATE cdc_run
+           SET status = #{status}, snapshot_completed = #{snapshotCompleted}, snapshot_completed_at = #{snapshotCompletedAt},
+               initial_load_at = #{initialLoadAt}, last_error = #{lastError}, updated_at = now()
+         WHERE cdc_run_id = #{cdcRunId}
+    </update>
+
+    <insert id="upsertSnapshotTable">
+        INSERT INTO cdc_snapshot_table (cdc_run_id, table_name, expected_rows, scan_completed)
+        VALUES (#{cdcRunId}, #{tableName}, #{expectedRows}, true)
+        ON CONFLICT (cdc_run_id, table_name) DO UPDATE SET expected_rows = EXCLUDED.expected_rows, scan_completed = true
+    </insert>
+
+    <select id="snapshotProgress" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.SnapshotProgressRow">
+        SELECT x.table_name, s.expected_rows, coalesce(s.scan_completed, false) AS scan_completed,
+               (SELECT count(*) FROM cdc_event e WHERE e.cdc_run_id = #{cdcRunId} AND e.snapshot AND e.table_name = x.table_name) AS staged_rows
+          FROM unnest(CAST(ARRAY[<foreach collection="tableNames" item="t" separator=",">#{t}</foreach>] AS VARCHAR[])) AS x(table_name)
+          LEFT JOIN cdc_snapshot_table s ON s.cdc_run_id = #{cdcRunId} AND s.table_name = x.table_name
+    </select>
+
+    <select id="insertEvent" resultType="java.lang.Long" flushCache="true" useCache="false">
+        INSERT INTO cdc_event (cdc_run_id, event_key, topic, kafka_partition, kafka_offset, table_name, source_key, op, snapshot,
+                               source_lsn, payload, status)
+        VALUES (#{cdcRunId}, #{eventKey}, #{topic}, #{kafkaPartition}, #{kafkaOffset}, #{tableName}, #{sourceKey}, #{op}, #{snapshot},
+                #{sourceLsn}, CAST(#{payload} AS JSONB), #{status})
+        ON CONFLICT ON CONSTRAINT uq_cdc_event DO NOTHING
+        RETURNING event_id
+    </select>
+
+    <update id="incrementDuplicate">
+        UPDATE cdc_event SET duplicate_count = duplicate_count + 1 WHERE cdc_run_id = #{cdcRunId} AND event_key = #{eventKey}
+    </update>
+
+    <select id="hasPendingBefore" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM cdc_event WHERE cdc_run_id = #{cdcRunId} AND status = 'PENDING' AND event_id &lt; #{eventId})
+    </select>
+
+    <select id="findEventsByStatus" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcEventRow">
+        SELECT event_id, cdc_run_id, table_name, op, CAST(payload AS TEXT) AS payload, attempts
+          FROM cdc_event
+         WHERE cdc_run_id = #{cdcRunId} AND status = #{status}
+         ORDER BY event_id
+         LIMIT #{limit}
+    </select>
+
+    <select id="findEvent" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcEventRow">
+        SELECT event_id, cdc_run_id, table_name, op, CAST(payload AS TEXT) AS payload, attempts FROM cdc_event WHERE event_id = #{eventId}
+    </select>
+
+    <update id="updateEventStatus">
+        UPDATE cdc_event
+           SET status = #{status},
+               last_error = #{message},
+               attempts = attempts + 1,
+               applied_at = CASE WHEN CAST(#{status} AS VARCHAR) = 'APPLIED' THEN now() ELSE applied_at END
+         WHERE event_id = #{eventId}
+    </update>
+
+    <select id="listEvents" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.CdcEventListRow">
+        SELECT event_id, table_name, op, source_key, status, attempts, duplicate_count, last_error, topic, kafka_partition,
+               kafka_offset, source_lsn, received_at, applied_at, CAST(payload AS TEXT) AS payload
+          FROM cdc_event
+         WHERE cdc_run_id = #{cdcRunId}
+        <if test="status != null">AND status = #{status}</if>
+         ORDER BY event_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countEvents" resultType="int">
+        SELECT count(*)
+          FROM cdc_event
+         WHERE cdc_run_id = #{cdcRunId}
+        <if test="status != null">AND status = #{status}</if>
+    </select>
+
+    <select id="countEventsByStatus" resultType="com.sleekydz86.cdcmigration.migration.infrastructure.persistence.StatusCountRow">
+        SELECT status, count(*) AS cnt FROM cdc_event WHERE cdc_run_id = #{cdcRunId} GROUP BY status
+    </select>
+
+    <select id="sumDuplicates" resultType="int">
+        SELECT coalesce(sum(duplicate_count), 0) FROM cdc_event WHERE cdc_run_id = #{cdcRunId}
+    </select>
+
+    <update id="resetWaitingAttempts">
+        UPDATE cdc_event SET attempts = 0 WHERE cdc_run_id = #{cdcRunId} AND status = 'WAITING'
+    </update>
+</mapper>
